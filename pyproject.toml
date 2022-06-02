@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "unifestbestellbot"
+version = "0.1.0"
+description = ""
+authors = ["Felix Karg <f.karg10@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.27.1"
+argparse = "^1.4.0"
+python-telegram-bot = "^13.12"
+
+[tool.poetry.dev-dependencies]
+black = "^22.3.0"
+ipython = "^8.4.0"
+poetry = "^1.1.13"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
