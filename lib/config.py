@@ -15,5 +15,5 @@ GROUPS_LIST = load_json("groups.json")  # [str]
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 REQUESTS = ["Cups", "Beer", "Cocktail", "Money"]
-PRIORITY = ["Critical NOW", "Critical in 5-10min", "Critical soon™"]
+PRIORITY = ["critical NOW", "critical in 5-10min", "critical soon™"]
 ORGA = build_reverse_associations()

@@ -31,7 +31,15 @@ from lib.utils import save_state
 bot = Bot(token=TOKEN)
 
 
+def channel_msg(message):
+    log.info(message)
+    bot.send_message(
+        chat_id=UPDATES_CHANNEL_ID,
+        text=message,
+    )
+
 def orga_msg(message, inline_options = None):
+    log.info(message)
     for chat_id in ORGA:
         bot.send_message(
             chat_id=chat_id,
@@ -132,11 +140,12 @@ def unregister(update: Update, context: CallbackContext):
     )
 
 
-def channel_msg(message):
-    log.info(message)
-    bot.send_message(
-        chat_id=UPDATES_CHANNEL_ID,
-        text=message,
+def association_msg(chat, group_name):
+    # username is guaranteed to exist, but first_name and last_name aren't
+    last_name  = str(chat.to_dict().get("last_name") or "")
+    first_name = str(chat.to_dict().get("first_name") or "")
+    channel_msg(
+        f"{first_name} {last_name} <@{chat.username}> registered as member of group {group_name}.",
     )
 
 
@@ -153,10 +162,7 @@ def register(update: Update, context: CallbackContext):
             chat_id=update.effective_chat.id,
             text=f"Registered as member of Group: {name_actual}",
         )
-        last_name = str(update.message.chat.to_dict().get("last_name") or "")
-        channel_msg(
-            message=f"{update.message.chat.first_name} {last_name} <@{update.message.chat.username}> just registered as member of group {name_actual}.",
-        )
+        association_msg(update.message.chat, name_actual)
     elif name and name == "no group":
         unregister(update, context)
     elif name and name == "Festko":
@@ -167,15 +173,7 @@ def register(update: Update, context: CallbackContext):
             chat_id=update.effective_chat.id,
             text="Registered as Organizer.",
         )
-        # username is guaranteed to exist, but first_name and last_name aren't
-        c = update.message.chat
-        last_name = str(c.to_dict().get("last_name") or "")
-        first_name = str(c.to_dict().get("first_name") or "")
-        context.bot.send_message(
-            chat_id=UPDATES_CHANNEL_ID,
-            text=f"{first_name} {last_name} <@{c.username}> just registered as Organizer.",
-        )
-        return
+        association_msg(update.message.chat, "Organizer")
     else:
         # provide all group options
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in GROUPS_LIST] + [
@@ -207,12 +205,13 @@ def button(update: Update, context: CallbackContext) -> None:
     if query.data in GROUPS_LIST:
         GROUP_ASSOCIATION[query.message.chat.id] = query.data
         save_state()
+        association_msg(query.message.chat, query.data)
         query.edit_message_text(text=f"Registered as member of group: {query.data}")
     elif query.data == "no group":
         unregister(update, context)
         query.edit_message_text(text="Cancelled group association")
     elif query.data in REQUESTS:
-        query.edit_message_text(text="Requesting {query.data}")
+        query.edit_message_text(text=f"Requesting {query.data}")
         # check for open request information of group
         # if exists in db:
         #   ask for priority update
@@ -220,10 +219,10 @@ def button(update: Update, context: CallbackContext) -> None:
         #   create new in db
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in PRIORITY]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text("With Priority:", reply_markup=reply_markup)
+        bot.send_message(chat_id=query.message.chat.id, text="With Priority:", reply_markup=reply_markup)
     elif query.data in PRIORITY:
         # check for requested <item> in db first
-        query.edit_message_text(text="With priority {query.data}")
+        query.edit_message_text(text=f"Created ticket with priority: {query.data}")
         # send incoming new ticket to channel and Festko
 
 
@@ -238,7 +237,7 @@ def request(update: Update, context: CallbackContext):
             text=f"Please register your group association first"
         )
         return
-    log.info(f"{group} requesting something")
+    log.info(f"Group {group} request incoming")
     request = " ".join(context.args)
     if request.upper() in map(str.upper, REQUESTS):
         log.info(f"recognized {request}")
