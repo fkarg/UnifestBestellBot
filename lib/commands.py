@@ -22,6 +22,7 @@ from lib.config import (
     UPDATES_CHANNEL_ID,
     DEVELOPER_CHAT_ID,
     REQUESTS,
+    PRIORITY,
     TOKEN,
     ORGA,
 )
@@ -210,6 +211,21 @@ def button(update: Update, context: CallbackContext) -> None:
     elif query.data == "no group":
         unregister(update, context)
         query.edit_message_text(text="Cancelled group association")
+    elif query.data in REQUESTS:
+        query.edit_message_text(text="Requesting {query.data}")
+        # check for open request information of group
+        # if exists in db:
+        #   ask for priority update
+        # else:
+        #   create new in db
+        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in PRIORITY]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("With Priority:", reply_markup=reply_markup)
+    elif query.data in PRIORITY:
+        # check for requested <item> in db first
+        query.edit_message_text(text="With priority {query.data}")
+        # send incoming new ticket to channel and Festko
+
 
 
 def request(update: Update, context: CallbackContext):
@@ -224,9 +240,11 @@ def request(update: Update, context: CallbackContext):
         return
     log.info(f"{group} requesting something")
     request = " ".join(context.args)
-    if request.upper in map(str.upper, REQUESTS):
+    if request.upper() in map(str.upper, REQUESTS):
         log.info(f"recognized {request}")
-        pass
+        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in PRIORITY]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("With Priority:", reply_markup=reply_markup)
     else:
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in REQUESTS]
         reply_markup = InlineKeyboardMarkup(keyboard)
