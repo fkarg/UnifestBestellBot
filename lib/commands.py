@@ -14,16 +14,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from lib.config import (
-    GROUPS_LIST,
-    GROUP_ASSOCIATION,
-    UPDATES_CHANNEL_ID,
-    DEVELOPER_CHAT_ID,
-    REQUESTS,
-    PRIORITY,
-    TOKEN,
-    ORGA,
-)
+from lib.config import *
 from lib.utils import save_state
 
 bot = Bot(token=TOKEN)
@@ -59,6 +50,20 @@ def developer_command(func):
     return wrapper
 
 
+def festko_command(func):
+    def wrapper(update: Update, context: CallbackContext):
+        if update.effective_chat.id in build_reverse_associations():
+            func(update, context)
+        else:
+            message = "You are not authorized to execute this command."
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+            )
+
+    return wrapper
+
+
 def error_handler(update: object, context: CallbackContext) -> None:
     import html
     import traceback
@@ -88,7 +93,7 @@ def error_handler(update: object, context: CallbackContext) -> None:
     context.bot.send_message(chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML)
 
 
-def start(update: Update, context: CallbackContext):
+def start(update: Update, context: CallbackContext) -> None:
     message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register for which stall you want to request material for. You can then /request supplies. You can see all available commands with /help."""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -96,7 +101,7 @@ def start(update: Update, context: CallbackContext):
     )
 
 
-def help(update: Update, context: CallbackContext):
+def help(update: Update, context: CallbackContext) -> None:
     message = """Help message, WIP.
 Available commands:
 /start
@@ -118,7 +123,7 @@ Available commands:
     )
 
 
-def unknown(update: Update, context: CallbackContext):
+def unknown(update: Update, context: CallbackContext) -> None:
     message = """Command is not (yet) available.\nSend /help for an overview of available commands."""
     log.info(f"received unknown command '{update.message.text}'")
     context.bot.send_message(
@@ -142,12 +147,7 @@ def inline(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Please choose:", reply_markup=reply_markup)
 
 
-def get_group(update: Update):
-    global GROUP_ASSOCIATION
-    return GROUP_ASSOCIATION.get(update.chat.id)
-
-
-def unregister(update: Update, context: CallbackContext):
+def unregister(update: Update, context: CallbackContext) -> None:
     global GROUP_ASSOCIATION
     chat_id = update.effective_chat.id
 
@@ -167,7 +167,7 @@ def unregister(update: Update, context: CallbackContext):
     )
 
 
-def association_msg(chat, group_name):
+def association_msg(chat, group_name) -> None:
     # username is guaranteed to exist, but first_name and last_name aren't
     last_name  = str(chat.to_dict().get("last_name") or "")
     first_name = str(chat.to_dict().get("first_name") or "")
@@ -175,10 +175,18 @@ def association_msg(chat, group_name):
         f"{first_name} {last_name} <@{chat.username}> registered as member of group {group_name}.",
     )
 
-
-def register(update: Update, context: CallbackContext):
+def status(update: Update, context: CallbackContext) -> None:
     global GROUP_ASSOCIATION
-    log.info("registering user association")
+    group = GROUP_ASSOCIATION.get(update.effective_chat.id)
+    if group:
+        update.message.reply_text(f"Membership of group {group}")
+    else:
+        update.message.reply_text("Not part of any group")
+
+
+def register(update: Update, context: CallbackContext) -> None:
+    global GROUP_ASSOCIATION
+    log.info(f"registering group association of user <@{update.message.chat.username}>")
 
     name = " ".join(context.args)
     if name.upper() in map(str.upper, GROUPS_LIST):
@@ -210,6 +218,12 @@ def register(update: Update, context: CallbackContext):
         # reply_markup = InlineKeyboardMarkup(GROUPS_LIST)
         update.message.reply_text("Available Groups:", reply_markup=reply_markup)
 
+def location(update: Update, context: CallbackContext) -> None:
+    user = update.message.from_user
+    user_location = update.message.location
+    lat, lon = user_location.latitude, user_location.longitude
+    log.info(f"Location of @{user.username}: {lat} / {lon}")
+
 
 @developer_command
 def reset(update: Update, context: CallbackContext) -> None:
@@ -237,7 +251,7 @@ def button(update: Update, context: CallbackContext) -> None:
     elif query.data == "no group":
         unregister(update, context)
         query.edit_message_text(text="Cancelled group association")
-    elif query.data in REQUESTS:
+    elif query.data in REQUEST_OPTIONS[0]:
         query.edit_message_text(text=f"Requesting {query.data}")
         # check for open request information of group
         # if exists in db:
@@ -253,10 +267,10 @@ def button(update: Update, context: CallbackContext) -> None:
         # send incoming new ticket to channel and Festko
 
 
-
-def request(update: Update, context: CallbackContext):
+@festko_command
+def order(update: Update, context: CallbackContext) -> None:
     global GROUP_ASSOCIATION
-    global REQUESTS
+    global REQUEST_OPTIONS
     group = GROUP_ASSOCIATION.get(update.effective_chat.id)
     if not group:
         context.bot.send_message(
@@ -266,12 +280,12 @@ def request(update: Update, context: CallbackContext):
         return
     log.info(f"Group {group} request incoming")
     request = " ".join(context.args)
-    if request.upper() in map(str.upper, REQUESTS):
+    if request.upper() in map(str.upper, REQUEST_OPTIONS[0]):
         log.info(f"recognized {request}")
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in PRIORITY]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("With Priority:", reply_markup=reply_markup)
     else:
-        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in REQUESTS]
+        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in REQUEST_OPTIONS[0]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("Request one of:", reply_markup=reply_markup)

@@ -14,6 +14,7 @@ from telegram.ext import (
 from lib.config import *
 from lib.utils import *
 from lib.commands import *
+from lib.states import *
 from lib.parser import create_parser
 
 
@@ -30,7 +31,27 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("inline", inline))
     dispatcher.add_handler(CallbackQueryHandler(button))
 
-    # dispatcher.add_handler(ConversationHandler("register", register))
+    dispatcher.add_handler(ConversationHandler(
+        entry_points=[CommandHandler('request', request)],
+        states={
+            REQUEST: [
+                MessageHandler(Filters.regex('^Money$'), money),
+                # MessageHandler(Filters.regex('^Cups$'), money),
+                # MessageHandler(Filters.regex('^Beer$'), money),
+                # MessageHandler(Filters.regex('^Cocktail$'), money),
+                # MessageHandler(Filters.regex('^Other$'), other),
+                ],
+            MONEY: [
+                MessageHandler(Filters.regex('^Collect$'), collect),
+                # MessageHandler(Filters.regex('^Bills$'), collect),
+
+                ],
+            FREE: [MessageHandler(Filters.text & ~Filters.command, free)],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+    ))
+    dispatcher.add_handler(CommandHandler("order", order))
+    dispatcher.add_handler(CommandHandler("status", status))
     dispatcher.add_handler(CommandHandler("register", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
     dispatcher.add_handler(CommandHandler("request", request))
