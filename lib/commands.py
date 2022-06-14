@@ -145,15 +145,16 @@ def register(update: Update, context: CallbackContext):
 
     name = " ".join(context.args)
     if name.upper() in map(str.upper, GROUPS_LIST):
-        GROUP_ASSOCIATION[update.effective_chat.id] = name
+        name_actual = GROUPS_LIST[list(map(str.upper, GROUPS_LIST)).index(name.upper())]
+        GROUP_ASSOCIATION[update.effective_chat.id] = name_actual
         save_state()
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"Registered as member of Group: {name}",
+            text=f"Registered as member of Group: {name_actual}",
         )
         last_name = str(update.message.chat.to_dict().get("last_name") or "")
         channel_msg(
-            message=f"{update.message.chat.first_name} {last_name} <@{update.message.chat.username}> just registered as member of group {name}.",
+            message=f"{update.message.chat.first_name} {last_name} <@{update.message.chat.username}> just registered as member of group {name_actual}.",
         )
     elif name and name == "no group":
         unregister(update, context)
