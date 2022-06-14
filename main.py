@@ -3,26 +3,23 @@ import logging
 import telegram
 import argparse
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler
+from telegram.ext import (
+    Updater,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+)
 
 from lib.config import *
 from lib.utils import *
 from lib.commands import *
 from lib.parser import create_parser
 
-# logging.basicConfig(
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG
-#     "format": "{levelname:<8} {asctime} [{funcName}]: {message}",
-# )
-
-# log = logging.getLogger(__name__)
 
 def main(**kwargs):
-    # ^ dict of chat_id -> group, relevant for /request
-    # fill via ... /register, by inline-answer?
     # state = load_json(SECRETS_DIR / "state.json")
     # ^ dict with current state of open orders
-
 
     updater = Updater(token=TOKEN)
     dispatcher = updater.dispatcher
@@ -33,6 +30,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("inline", inline))
     dispatcher.add_handler(CallbackQueryHandler(button))
 
+    # dispatcher.add_handler(ConversationHandler("register", register))
     dispatcher.add_handler(CommandHandler("register", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
     dispatcher.add_handler(CommandHandler("request", request))
@@ -79,7 +77,7 @@ if __name__ == "__main__":
         for level, format in loggingformats:
             set_log_level_format(level, format)
 
-    logging.basicConfig(level=get_logging_level(args)) #, format=LOGGING_FORMAT)
+    logging.basicConfig(level=get_logging_level(args))  # , format=LOGGING_FORMAT)
     log = logging.getLogger(__name__)
     log.info("Executing as main")
     log.debug("Using terminal color output: %r" % (not nocolor))

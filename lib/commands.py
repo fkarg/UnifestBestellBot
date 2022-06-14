@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Bot
 
 from telegram.ext import (
     Updater,
@@ -13,10 +13,29 @@ from telegram.ext import (
 )
 
 import logging
+
 log = logging.getLogger(__name__)
 
-from lib.config import GROUPS_LIST, GROUP_ASSOCIATION, UPDATES_CHANNEL_ID, DEVELOPER_CHAT_ID
+from lib.config import (
+    GROUPS_LIST,
+    GROUP_ASSOCIATION,
+    UPDATES_CHANNEL_ID,
+    DEVELOPER_CHAT_ID,
+    REQUESTS,
+    TOKEN,
+    ORGA,
+)
 from lib.utils import save_state
+
+bot = Bot(token=TOKEN)
+
+
+def orga_msg(message, inline_options = None):
+    for chat_id in ORGA:
+        bot.send_message(
+            chat_id=chat_id,
+            text=message,
+        )
 
 def developer_command(func):
     def wrapper(update: Update, context: CallbackContext):
@@ -34,7 +53,7 @@ def developer_command(func):
 
 
 def start(update: Update, context: CallbackContext):
-    message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register for which stall you want to order. You can then /request supplies. You can see all available commands with /help."""
+    message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register for which stall you want to request material for. You can then /request supplies. You can see all available commands with /help."""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -102,8 +121,7 @@ def unregister(update: Update, context: CallbackContext):
         message = f"Unregistered from Group: {previous}"
         last_name = str(update.effective_chat.to_dict().get("last_name") or "")
         channel_msg(
-                update, context,
-            f"{update.message.chat.first_name} {last_name} <@{update.message.chat.username}> unregistered from group {previous}."
+            f"{update.message.chat.first_name} {last_name} <@{update.message.chat.username}> unregistered from group {previous}.",
         )
     except KeyError:
         message = "No group association registered"
@@ -113,9 +131,9 @@ def unregister(update: Update, context: CallbackContext):
     )
 
 
-def channel_msg(update: Update, context: CallbackContext, message):
+def channel_msg(message):
     log.info(message)
-    context.bot.send_message(
+    bot.send_message(
         chat_id=UPDATES_CHANNEL_ID,
         text=message,
     )
@@ -126,7 +144,7 @@ def register(update: Update, context: CallbackContext):
     log.info("registering user association")
 
     name = " ".join(context.args)
-    if name in GROUPS_LIST:
+    if name.upper() in map(str.upper, GROUPS_LIST):
         GROUP_ASSOCIATION[update.effective_chat.id] = name
         save_state()
         context.bot.send_message(
@@ -135,8 +153,6 @@ def register(update: Update, context: CallbackContext):
         )
         last_name = str(update.message.chat.to_dict().get("last_name") or "")
         channel_msg(
-            update,
-            context,
             message=f"{update.message.chat.first_name} {last_name} <@{update.message.chat.username}> just registered as member of group {name}.",
         )
     elif name and name == "no group":
@@ -149,10 +165,13 @@ def register(update: Update, context: CallbackContext):
             chat_id=update.effective_chat.id,
             text="Registered as Organizer.",
         )
-        last_name = str(update.chat.get("last_name") or "")
+        # username is guaranteed to exist, but first_name and last_name aren't
+        c = update.message.chat
+        last_name = str(c.to_dict().get("last_name") or "")
+        first_name = str(c.to_dict().get("first_name") or "")
         context.bot.send_message(
             chat_id=UPDATES_CHANNEL_ID,
-            text=f"{update.chat.first_name} {last_name} <@{update.chat.username}> just registered as Organizer.",
+            text=f"{first_name} {last_name} <@{c.username}> just registered as Organizer.",
         )
         return
     else:
@@ -193,4 +212,21 @@ def button(update: Update, context: CallbackContext) -> None:
 
 
 def request(update: Update, context: CallbackContext):
-    pass
+    global GROUP_ASSOCIATION
+    global REQUESTS
+    group = GROUP_ASSOCIATION.get(update.effective_chat.id)
+    if not group:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"Please register your group association first"
+        )
+        return
+    log.info(f"{group} requesting something")
+    request = " ".join(context.args)
+    if request.upper in map(str.upper, REQUESTS):
+        log.info(f"recognized {request}")
+        pass
+    else:
+        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in REQUESTS]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("Request one of:", reply_markup=reply_markup)
