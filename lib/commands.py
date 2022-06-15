@@ -44,6 +44,7 @@ def orga_msg(message, orga):
             text=message,
         )
 
+
 def group_msg(message, group):
     log.info(f"to group {group}: {message}")
     for chat_id in group:
@@ -321,14 +322,20 @@ def task_button(update: Update, context: CallbackContext) -> None:
                 query.edit_message_text(
                     text=f"WIP: {tup[1]}",
                     reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "Update", callback_data=f"update #{uid}"
+                                )
+                            ]
+                        ],
                     ),
                 )
             # don't update on non_wip
         elif not context.bot_data["tickets"].get(uid):
             # remove WIP/Open before id
             text = query.message.text
-            text = text[text.find("#"):]
+            text = text[text.find("#") :]
             query.edit_message_text(text=f"Closed: {text}")
 
     elif "wip #" in query.data:
@@ -352,7 +359,7 @@ def task_button(update: Update, context: CallbackContext) -> None:
             del context.bot_data["tickets"][uid]
         except KeyError:
             text = query.message.text
-            text = text[text.find("#"):]
+            text = text[text.find("#") :]
             query.edit_message_text(text=f"Closed: {text}")
     else:
         query.edit_message_text(text="Something went very wrong ...")
