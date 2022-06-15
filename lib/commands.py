@@ -36,9 +36,9 @@ def channel_msg(message):
     )
 
 
-def orga_msg(message, inline_options=None):
+def orga_msg(message, orga):
     log.info(f"to orga: {message}")
-    for chat_id in ORGA:
+    for chat_id in orga:
         bot.send_message(
             chat_id=chat_id,
             text=message,
@@ -122,19 +122,22 @@ Available commands:
 /start
     To show the initial welcome message and information
 /register <group name>
-    Register your group association. Required before requesting supplies. Provides available options when no group is given initially or group is not found. It is only possible to have one group association at a time.
+    Register your group association. Required before requesting supplies.
+    Provides available options when no group is given initially or group is not
+    found. It is only possible to have one group association at a time.
 /unregister
     Remove current group association. Also possible via '/register no group'
 /status
-    Show user group association and state
-/request <Money/Cups/Beer/Cocktail>
-    WIP
+    Show status of user and requests.
+/request
+    Answer a number of questions to specify your request. Ultimately creates a
+    ticket for the Organizers.
 /cancel
     Cancel the request you're currently making
 /bug <message>
     make a bug report. Please be as detailed as you can and is reasonable.
 /help
-    Show this help message
+    Show this help message.
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -174,6 +177,11 @@ def unregister(update: Update, context: CallbackContext) -> None:
     try:
         previous = context.user_data["group_association"]
         del context.user_data["group_association"]
+        idx = context.bot_data["group_association"][previous].index(
+            update.effective_chat.id
+        )
+        del context.bot_data["group_association"][previous][idx]
+
         message = f"Unregistered from Group: {previous}"
         association_msg(update.message.chat, group_name=previous, register=False)
     except KeyError:
@@ -210,29 +218,47 @@ def details(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
 
 
+def register_group(update: Update, context: CallbackContext, group_name):
+    context.user_data["group_association"] = group_name
+    if not context.bot_data.get("group_association"):
+        context.bot_data["group_association"] = {}
+    if not context.bot_data["group_association"].get(group_name):
+        context.bot_data["group_association"][group_name] = [update.effective_chat.id]
+    else:
+        context.bot_data["group_association"][group_name].append(
+            update.effective_chat.id
+        )
+
+    association_msg(update.message.chat, group_name)
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"Registered as member of Group: {group_name}",
+    )
+
+
 def register(update: Update, context: CallbackContext) -> None:
     log.info(f"registering group association of user <@{update.message.chat.username}>")
 
     name = " ".join(context.args)
     if name.upper() in map(str.upper, GROUPS_LIST):
+        if context.user_data.get("group_association"):
+            unregister(update, context)
         name_actual = GROUPS_LIST[list(map(str.upper, GROUPS_LIST)).index(name.upper())]
-        context.user_data["group_association"] = name_actual
-        association_msg(update.message.chat, name_actual)
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=f"Registered as member of Group: {name_actual}",
-        )
+        register_group(update, context, name_actual)
+
     elif name and name == "no group":
         unregister(update, context)
     elif name and name == "Festko":
-        # assign organizer
-        context.user_data["group_association"] = "Festko"
-        association_msg(update.message.chat, "Organizer")
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Registered as Organizer.",
-        )
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        register_group(update, context, "Festko")
+    elif name and name == "BiMi":
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        register_group(update, context, "BiMi")
     else:
+        if context.user_data.get("group_association"):
+            unregister(update, context)
         # provide all group options
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in GROUPS_LIST] + [
             [InlineKeyboardButton("<No Group>", callback_data="no group")]
@@ -265,25 +291,50 @@ def button(update: Update, context: CallbackContext) -> None:
     elif query.data == "no group":
         unregister(update, context)
         query.edit_message_text(text="Cancelled group association.")
-    elif query.data == "Done":
-        query.edit_message_text(text="Ticket resolved.")
     else:
         query.edit_message_text(text="Something went very wrong ...")
         dev_msg(
-            f"Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}"
+            f"Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
         )
 
-def done_button(update: Update, context: CallbackContext) -> None:
+
+def task_button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
-    if "done #" in query.data:
+    if "update #" in query.data:
+        # update if someone else already takes care of it
+        uid = int(query.data[8:])
+        if ticket := context.bot_data["tickets"].get(uid) and ticket[2] == True:
+            query.edit_message_text(
+                text=f"WIP: {text}",
+                reply_markup=InlineKeyboardMarkup(
+                    InlineKeyboardButton("Close", callback_data=f"close #{uid}")
+                ),
+            )
+        elif not context.bot_data["tickets"].get(uid):
+            query.edit_message_text(text=f"Closed: {text}")
+    elif "wip #" in query.data:
+        uid = int(query.data[5:])
+        text = query.message.text
+        query.edit_message_text(
+            text=f"WIP: {text}",
+            reply_markup=InlineKeyboardMarkup(
+                InlineKeyboardButton("Close", callback_data=f"close #{uid}")
+            ),
+        )
+    elif "close #" in query.data:
         uid = int(query.data[6:])
-        text = context.bot_data['tickets'][uid]
-        query.edit_message_text(text=f"#{uid} Resolved: {text}")
-        del context.bot_data['tickets'][uid]
+        text = context.bot_data["tickets"][uid]
+        query.edit_message_text(text=f"Closed: {text}")
+        del context.bot_data["tickets"][uid]
+    else:
+        query.edit_message_text(text="Something went very wrong ...")
+        dev_msg(
+            f"Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
+        )
 
 
 def bug(update: Update, context: CallbackContext) -> None:
@@ -298,8 +349,9 @@ def bug(update: Update, context: CallbackContext) -> None:
 @developer_command
 def reset(update: Update, context: CallbackContext) -> None:
     log.critical("resetting ticket system.")
-    del context.bot_data["tickets"]
-    dev_msg("successfully reset tickets.")
+    context.bot_data.clear()
+    context.user_data.clear()
+    dev_msg("successfully cleared all context data.")
 
 
 @festko_command
@@ -310,8 +362,6 @@ Available commands:
     Show global state
 /tickets
     Show open ticket and their ids
-/on <ticket-id>
-/close <ticket-id>
 /help2
     Show this help message
     """

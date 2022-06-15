@@ -21,8 +21,15 @@ from lib.parser import create_parser
 
 
 def main(**kwargs):
-    # state = load_json(SECRETS_DIR / "state.json")
-    # ^ dict with current state of open orders
+    """Main function, setting up bot update->dispatcher->handler structure
+
+    Relevant persistence structures:
+    user_data['group_association'] for Group
+    bot_data['orga'] for [chat_id] from Festko
+    bot_data['group_association'] for dict Group -> [chat_id]
+    bot_data['highest'] for int of next highest ticket id
+    bot_data['tickets'] for dict id -> (Group, message), primarily existence
+    """
 
     persistence = PicklePersistence(filename="bot_persistence.cntx")
     updater = Updater(token=TOKEN, persistence=persistence)
@@ -32,6 +39,9 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("start", start))
 
     dispatcher.add_handler(CommandHandler("inline", inline))
+    dispatcher.add_handler(
+        CallbackQueryHandler(task_button, pattern="^(update|wip|close) #[0-9]+$")
+    )
     dispatcher.add_handler(CallbackQueryHandler(button))
 
     dispatcher.add_handler(
@@ -65,6 +75,8 @@ def main(**kwargs):
             persistent=True,
         )
     )
+
+    # other regular commands
     dispatcher.add_handler(CommandHandler("status", status))
     dispatcher.add_handler(CommandHandler("details", details))
     dispatcher.add_handler(CommandHandler("register", register))
@@ -72,6 +84,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("request", request))
     dispatcher.add_handler(CommandHandler("bug", bug))
     dispatcher.add_handler(CommandHandler("help", help))
+    dispatcher.add_handler(CommandHandler("location", location))
 
     # FestKo commands
     dispatcher.add_handler(CommandHandler("help2", help2))

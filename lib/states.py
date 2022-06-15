@@ -20,6 +20,7 @@ import logging
 
 from lib.config import *
 from lib.commands import channel_msg, dev_msg, orga_msg, festko_command
+from lib.tickets import create_ticket
 
 log = logging.getLogger(__name__)
 
@@ -157,9 +158,16 @@ def free(update: Update, context: CallbackContext) -> int:
     log.info(update.message.text)
     group = context.user_data["group_association"]
     channel_msg(f"{group} requested {update.message.text}")
-    ticket_id = 0
+    uid = create_ticket(
+        update,
+        context,
+        group,
+        context.user_data["first_choice"],
+        details=update.message.text,
+    )
+
     update.message.reply_text(
-        f"Thank you, your ticket #{ticket_id} has been created.",
+        f"Thank you, your ticket #{uid} has been created.",
         reply_markup=ReplyKeyboardRemove(),
     )
     return end(update, context)
