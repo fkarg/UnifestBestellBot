@@ -36,8 +36,10 @@ def save_state():
     global GROUP_ASSOCIATION
     save_json(GROUP_ASSOCIATION, "association.json")
 
+
 def build_reverse_associations():
     from lib.config import GROUP_ASSOCIATION
+
     global GROUP_ASSOCIATION
     orga = []
     for (i, g) in GROUP_ASSOCIATION.items():

@@ -27,13 +27,15 @@ def channel_msg(message):
         text=message,
     )
 
-def orga_msg(message, inline_options = None):
+
+def orga_msg(message, inline_options=None):
     log.info(message)
     for chat_id in ORGA:
         bot.send_message(
             chat_id=chat_id,
             text=message,
         )
+
 
 def developer_command(func):
     def wrapper(update: Update, context: CallbackContext):
@@ -68,29 +70,34 @@ def error_handler(update: object, context: CallbackContext) -> None:
     import html
     import traceback
     from telegram import ParseMode
+
     """Log the error and send a telegram message to notify the developer."""
     # Log the error before we do anything else, so we can see it even if something breaks.
     log.error(msg="Exception while handling an update:", exc_info=context.error)
 
     # traceback.format_exception returns the usual python message about an exception, but as a
     # list of strings rather than a single string, so we have to join them together.
-    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
-    tb_string = ''.join(tb_list)
+    tb_list = traceback.format_exception(
+        None, context.error, context.error.__traceback__
+    )
+    tb_string = "".join(tb_list)
 
     # Build the message with some markup and additional information about what happened.
     # You might need to add some logic to deal with messages longer than the 4096 character limit.
     update_str = update.to_dict() if isinstance(update, Update) else str(update)
     message = (
-        f'An exception was raised while handling an update\n'
-        f'<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}'
-        '</pre>\n\n'
-        f'<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n'
-        f'<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n'
-        f'<pre>{html.escape(tb_string)}</pre>'
+        f"An exception was raised while handling an update\n"
+        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
+        "</pre>\n\n"
+        f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
+        f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
+        f"<pre>{html.escape(tb_string)}</pre>"
     )
 
     # Finally, send the message
-    context.bot.send_message(chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML)
+    context.bot.send_message(
+        chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML
+    )
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -169,11 +176,12 @@ def unregister(update: Update, context: CallbackContext) -> None:
 
 def association_msg(chat, group_name) -> None:
     # username is guaranteed to exist, but first_name and last_name aren't
-    last_name  = str(chat.to_dict().get("last_name") or "")
+    last_name = str(chat.to_dict().get("last_name") or "")
     first_name = str(chat.to_dict().get("first_name") or "")
     channel_msg(
         f"{first_name} {last_name} <@{chat.username}> registered as member of group {group_name}.",
     )
+
 
 def status(update: Update, context: CallbackContext) -> None:
     global GROUP_ASSOCIATION
@@ -218,6 +226,7 @@ def register(update: Update, context: CallbackContext) -> None:
         # reply_markup = InlineKeyboardMarkup(GROUPS_LIST)
         update.message.reply_text("Available Groups:", reply_markup=reply_markup)
 
+
 def location(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     user_location = update.message.location
@@ -260,7 +269,11 @@ def button(update: Update, context: CallbackContext) -> None:
         #   create new in db
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in PRIORITY]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        bot.send_message(chat_id=query.message.chat.id, text="With Priority:", reply_markup=reply_markup)
+        bot.send_message(
+            chat_id=query.message.chat.id,
+            text="With Priority:",
+            reply_markup=reply_markup,
+        )
     elif query.data in PRIORITY:
         # check for requested <item> in db first
         query.edit_message_text(text=f"Created ticket with priority: {query.data}")
@@ -275,7 +288,7 @@ def order(update: Update, context: CallbackContext) -> None:
     if not group:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"Please register your group association first"
+            text=f"Please register your group association first",
         )
         return
     log.info(f"Group {group} request incoming")
@@ -286,6 +299,8 @@ def order(update: Update, context: CallbackContext) -> None:
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("With Priority:", reply_markup=reply_markup)
     else:
-        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in REQUEST_OPTIONS[0]]
+        keyboard = [
+            [InlineKeyboardButton(g, callback_data=g)] for g in REQUEST_OPTIONS[0]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("Request one of:", reply_markup=reply_markup)

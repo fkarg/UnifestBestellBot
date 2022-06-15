@@ -59,6 +59,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("help", help))
 
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))
+    dispatcher.add_error_handler(error_handler)
 
     # begin action loop
     updater.start_polling()
