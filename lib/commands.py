@@ -44,6 +44,14 @@ def orga_msg(message, orga):
             text=message,
         )
 
+def group_msg(message, group):
+    log.info(f"to group {group}: {message}")
+    for chat_id in group:
+        bot.send_message(
+            chat_id=chat_id,
+            text=message,
+        )
+
 
 def developer_command(func):
     def wrapper(update: Update, context: CallbackContext):
@@ -304,32 +312,48 @@ def task_button(update: Update, context: CallbackContext) -> None:
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
+
     if "update #" in query.data:
         # update if someone else already takes care of it
         uid = int(query.data[8:])
-        if ticket := context.bot_data["tickets"].get(uid) and ticket[2] == True:
-            query.edit_message_text(
-                text=f"WIP: {text}",
-                reply_markup=InlineKeyboardMarkup(
-                    InlineKeyboardButton("Close", callback_data=f"close #{uid}")
-                ),
-            )
+        if tup := context.bot_data["tickets"].get(uid):
+            if tup[2]:
+                query.edit_message_text(
+                    text=f"WIP: {tup[1]}",
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+                    ),
+                )
+            # don't update on non_wip
         elif not context.bot_data["tickets"].get(uid):
+            # remove WIP/Open before id
+            text = query.message.text
+            text = text[text.find("#"):]
             query.edit_message_text(text=f"Closed: {text}")
+
     elif "wip #" in query.data:
         uid = int(query.data[5:])
-        text = query.message.text
+        group, text, _ = context.bot_data["tickets"][uid]
+        context.bot_data["tickets"][uid] = (group, text, True)
         query.edit_message_text(
             text=f"WIP: {text}",
             reply_markup=InlineKeyboardMarkup(
-                InlineKeyboardButton("Close", callback_data=f"close #{uid}")
+                [[InlineKeyboardButton("Close", callback_data=f"close #{uid}")]],
             ),
         )
+
     elif "close #" in query.data:
-        uid = int(query.data[6:])
-        text = context.bot_data["tickets"][uid]
-        query.edit_message_text(text=f"Closed: {text}")
-        del context.bot_data["tickets"][uid]
+        uid = int(query.data[7:])
+        try:
+            group, text, _ = context.bot_data["tickets"][uid]
+            query.edit_message_text(text=f"Closed: {text}")
+            channel_msg(f"Closed ticket #{uid}")
+            # group_msg(f"", contex.bot_data["group_association"][group])
+            del context.bot_data["tickets"][uid]
+        except KeyError:
+            text = query.message.text
+            text = text[text.find("#"):]
+            query.edit_message_text(text=f"Closed: {text}")
     else:
         query.edit_message_text(text="Something went very wrong ...")
         dev_msg(
@@ -348,7 +372,7 @@ def bug(update: Update, context: CallbackContext) -> None:
 
 @developer_command
 def reset(update: Update, context: CallbackContext) -> None:
-    log.critical("resetting ticket system.")
+    log.critical("resetting all context data.")
     context.bot_data.clear()
     context.user_data.clear()
     dev_msg("successfully cleared all context data.")
@@ -375,3 +399,9 @@ Available commands:
 def system_status(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
     update.message.reply_text(f"{context.bot_data}")
+
+
+@festko_command
+def close(update: Update, context: CallbackContext) -> None:
+    # close a ticket forcefully
+    pass

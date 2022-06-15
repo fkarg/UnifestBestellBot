@@ -1,4 +1,5 @@
 from telegram import (
+    InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
@@ -111,17 +112,6 @@ def free_next(update: Update, context: CallbackContext) -> int:
     return FREE
 
 
-def collect(update: Update, context: CallbackContext) -> int:
-    context.user_data["second_choice"] = update.message.text
-    update.message.reply_text(
-        "Created Ticket about necessity to collect money.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    group = context.user_data["group_association"]
-    channel_msg(f"{group} requested collection of money")
-    return end(update, context)
-
-
 def ask_amount(update: Update, context: CallbackContext) -> int:
     context.user_data["second_choice"] = update.message.text
     update.message.reply_text(
@@ -137,18 +127,67 @@ def amount(update: Update, context: CallbackContext) -> int:
     except ValueError:
         update.message.reply_text("Please enter a valid number.")
         return AMOUNT
-    update.message.reply_text("Created ticket.")
-    channel_msg(f"{context.user_data} and {amount} left")
+    group = context.user_data["group_association"]
+    category = context.user_data["first_choice"]
+    detailed = context.user_data["second_choice"]
+    uid = create_ticket(
+        update,
+        context,
+        group,
+        category,
+        details=f"They have only {amount} of {detailed} left.",
+    )
+
+    channel_msg(f"#{uid}: {group} on {category}: only {amount} of {detailed} left")
+    update.message.reply_text(
+        f"Created Ticket #{uid}.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+        ),
+    )
+    return end(update, context)
+
+
+def collect(update: Update, context: CallbackContext) -> int:
+    context.user_data["second_choice"] = update.message.text
+    group = context.user_data["group_association"]
+    category = context.user_data["first_choice"]
+    uid = create_ticket(
+        update,
+        context,
+        group,
+        category,
+        details="Send someone to collect money.",
+    )
+
+    channel_msg(f"#{uid}: {group} requested collection of money")
+    update.message.reply_text(
+        f"Created Ticket #{uid} about necessity to collect money.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+        ),
+    )
     return end(update, context)
 
 
 def retrieval(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text(
-        "Created Ticket about necessity to retrieve dirty cups.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
     group = context.user_data["group_association"]
-    channel_msg(f"{group} requested retrieval of cups")
+    category = context.user_data["first_choice"]
+    uid = create_ticket(
+        update,
+        context,
+        group,
+        category,
+        details="Send someone to retrieve dirty cups.",
+    )
+
+    channel_msg(f"#{uid}: {group} requested retrieval of cups")
+    update.message.reply_text(
+        f"Created Ticket #{uid} about necessity to retrieve dirty cups.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+        ),
+    )
     return end(update, context)
 
 
@@ -157,17 +196,20 @@ def free(update: Update, context: CallbackContext) -> int:
     # for beer and cocktail, and other requests
     log.info(update.message.text)
     group = context.user_data["group_association"]
-    channel_msg(f"{group} requested {update.message.text}")
+    category = context.user_data["first_choice"]
     uid = create_ticket(
         update,
         context,
         group,
-        context.user_data["first_choice"],
+        category,
         details=update.message.text,
     )
 
+    channel_msg(f"#{uid}: {group} requested {update.message.text} for {category}")
     update.message.reply_text(
-        f"Thank you, your ticket #{uid} has been created.",
-        reply_markup=ReplyKeyboardRemove(),
+        f"Created ticket #{uid}.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+        ),
     )
     return end(update, context)

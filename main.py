@@ -28,7 +28,7 @@ def main(**kwargs):
     bot_data['orga'] for [chat_id] from Festko
     bot_data['group_association'] for dict Group -> [chat_id]
     bot_data['highest'] for int of next highest ticket id
-    bot_data['tickets'] for dict id -> (Group, message), primarily existence
+    bot_data['tickets'] for dict id -> (Group, message, is_wip: bool)
     """
 
     persistence = PicklePersistence(filename="bot_persistence.cntx")
@@ -55,8 +55,8 @@ def main(**kwargs):
                 ],
                 MONEY: [
                     MessageHandler(Filters.regex("^Collect$"), collect),
-                    MessageHandler(Filters.regex("^Bills (5|10|20)€$"), ask_amount),
-                    MessageHandler(Filters.regex("^Coins (2€|1€|50ct)$"), ask_amount),
+                    MessageHandler(Filters.regex("^(5|10|20)€ Bills$"), ask_amount),
+                    MessageHandler(Filters.regex("^(2€|1€|50ct) Coins$"), ask_amount),
                 ],
                 CUPS: [
                     MessageHandler(Filters.regex("^Shot-glasses$"), ask_amount),

@@ -17,10 +17,10 @@ DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 PRIORITY = ["critical NOW", "critical in 5-10min", "critical soon™"]
 
 # options for state machine. You still need to manually adapt regex and functions too.
-REQUEST_OPTIONS = [["Cups", "Beer", "Cocktail", "Money", "Other"]]
+REQUEST_OPTIONS = [["Beer", "Cocktail", "Cups", "Money", "Other"]]
 MONEY_OPTIONS = [
     ["Collect"],
-    ["Coins 2€", "Coins 1€", "Coins 50ct"],
-    ["Bills 20€", "Bills 10€", "Bills 5€"],
+    ["2€ Coins", "1€ Coins", "50ct Coins"],
+    ["20€ Bills", "10€ Bills", "5€ Bills"],
 ]
 CUP_OPTIONS = [["Shot-glasses", "Normal Cups", "Retrieve dirty"]]

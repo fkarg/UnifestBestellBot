@@ -60,8 +60,8 @@ def create_ticket(
     location = MAPPING[group]
     uid = increase_highest_id(context)
 
-    message = f"Open #{uid}: Group {group} with location {location} requested {category}\n\n{details}"
-    add_ticket(context, uid, group, message)
+    text = f"#{uid}: Group {group} with location {location} requested someone for {category}\n\nDetails: {details}"
+    add_ticket(context, uid, group, text)
 
     keyboard = [
         [InlineKeyboardButton("Update state", callback_data=f"update #{uid}")],
@@ -69,10 +69,10 @@ def create_ticket(
         [InlineKeyboardButton("Close", callback_data=f"close #{uid}")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    log.info(f"new ticket {message}")
+    log.info(f"new ticket {text}")
     for chat_id in context.bot_data["group_association"]["Festko"]:
         context.bot.send_message(
-            chat_id=chat_id, text=message, reply_markup=reply_markup
+            chat_id=chat_id, text="Open: " + text, reply_markup=reply_markup
         )
     for chat_id in context.bot_data["group_association"][group]:
         if chat_id == update.effective_chat.id:
@@ -81,7 +81,7 @@ def create_ticket(
             chat_id=chat_id,
             text=f"Someone in your group just created ticket #{uid} about {category}\n\n{details}",
             reply_markup=InlineKeyboardMarkup(
-                InlineKeyboardButton("Close", callback_data=f"close #{uid}"),
+                [[InlineKeyboardButton("Close", callback_data=f"close #{uid}")]],
             ),
         )
     return uid
