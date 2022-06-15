@@ -131,8 +131,12 @@ Available commands:
 
 
 def unknown(update: Update, context: CallbackContext) -> None:
-    message = """Command is not (yet) available.\nSend /help for an overview of available commands."""
-    log.info(f"received unknown command '{update.message.text}'")
+    message = (
+        "Command not recognized or out of context.\n\n"
+        "Send /help for an overview of available commands.\n"
+        "Or, /request when you want to request something."
+    )
+    log.warn(f"received unrecognized command '{update.message.text}'")
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -160,6 +164,7 @@ def unregister(update: Update, context: CallbackContext) -> None:
 
     try:
         previous = GROUP_ASSOCIATION.pop(chat_id)
+        del context.user_data["group_association"]
         save_state()
         message = f"Unregistered from Group: {previous}"
         last_name = str(update.effective_chat.to_dict().get("last_name") or "")
@@ -190,6 +195,7 @@ def status(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(f"Membership of group {group}")
     else:
         update.message.reply_text("Not part of any group")
+    update.message.reply_text(f"{context.user_data}")
 
 
 def register(update: Update, context: CallbackContext) -> None:
@@ -205,6 +211,7 @@ def register(update: Update, context: CallbackContext) -> None:
             chat_id=update.effective_chat.id,
             text=f"Registered as member of Group: {name_actual}",
         )
+        context.user_data["group_association"] = name_actual
         association_msg(update.message.chat, name_actual)
     elif name and name == "no group":
         unregister(update, context)
@@ -216,6 +223,7 @@ def register(update: Update, context: CallbackContext) -> None:
             chat_id=update.effective_chat.id,
             text="Registered as Organizer.",
         )
+        context.user_data["group_association"] = "Festko"
         association_msg(update.message.chat, "Organizer")
     else:
         # provide all group options
@@ -256,6 +264,7 @@ def button(update: Update, context: CallbackContext) -> None:
         GROUP_ASSOCIATION[query.message.chat.id] = query.data
         save_state()
         association_msg(query.message.chat, query.data)
+        context.user_data["group_association"] = query.data
         query.edit_message_text(text=f"Registered as member of group: {query.data}")
     elif query.data == "no group":
         unregister(update, context)
@@ -304,3 +313,9 @@ def order(update: Update, context: CallbackContext) -> None:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("Request one of:", reply_markup=reply_markup)
+
+@festko_command
+def system_status(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text(f"{context.user_data}")
+    update.message.reply_text(f"{context.chat_data}")
+    update.message.reply_text(f"{context.bot_data}")
