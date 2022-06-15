@@ -28,22 +28,3 @@ def save_json(data, filename):
 
     with open(SECRETS_DIR / filename, "w") as file:
         json.dump(data, file)
-
-
-def save_state():
-    from lib.config import GROUP_ASSOCIATION
-
-    global GROUP_ASSOCIATION
-    save_json(GROUP_ASSOCIATION, "association.json")
-
-
-def build_reverse_associations():
-    from lib.config import GROUP_ASSOCIATION
-
-    global GROUP_ASSOCIATION
-    orga = []
-    for (i, g) in GROUP_ASSOCIATION.items():
-        if g == "Festko":
-            orga.append(i)
-
-    return orga

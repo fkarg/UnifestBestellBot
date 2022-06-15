@@ -16,6 +16,7 @@ from lib.config import *
 from lib.utils import *
 from lib.commands import *
 from lib.states import *
+from lib.tickets import *
 from lib.parser import create_parser
 
 
@@ -44,15 +45,12 @@ def main(**kwargs):
                 ],
                 MONEY: [
                     MessageHandler(Filters.regex("^Collect$"), collect),
-                    MessageHandler(Filters.regex("^Bills (5|10|20)€$"), bills),
-                    MessageHandler(Filters.regex("^Coins (2€|1€|50ct)$"), coins),
-                    # MessageHandler(Filters.regex("^Coins 2€$"), coin2),
-                    # MessageHandler(Filters.regex("^Coins 1€$"), coin1),
-                    # MessageHandler(Filters.regex("^Coins 50ct$"), coin0),
+                    MessageHandler(Filters.regex("^Bills (5|10|20)€$"), ask_amount),
+                    MessageHandler(Filters.regex("^Coins (2€|1€|50ct)$"), ask_amount),
                 ],
                 CUPS: [
-                    MessageHandler(Filters.regex("^Shot-glasses$"), shot),
-                    MessageHandler(Filters.regex("^Normal Cups$"), normal),
+                    MessageHandler(Filters.regex("^Shot-glasses$"), ask_amount),
+                    MessageHandler(Filters.regex("^Normal Cups$"), ask_amount),
                     MessageHandler(Filters.regex("^Retrieve dirty$"), retrieval),
                 ],
                 # and three options with free text fields
@@ -67,14 +65,20 @@ def main(**kwargs):
             persistent=True,
         )
     )
-    dispatcher.add_handler(CommandHandler("order", order))
     dispatcher.add_handler(CommandHandler("status", status))
-    dispatcher.add_handler(CommandHandler("system", system_status))
+    dispatcher.add_handler(CommandHandler("details", details))
     dispatcher.add_handler(CommandHandler("register", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
     dispatcher.add_handler(CommandHandler("request", request))
-    dispatcher.add_handler(CommandHandler("reset", reset))
+    dispatcher.add_handler(CommandHandler("bug", bug))
     dispatcher.add_handler(CommandHandler("help", help))
+
+    # FestKo commands
+    dispatcher.add_handler(CommandHandler("help2", help2))
+    dispatcher.add_handler(CommandHandler("reset", reset))
+    dispatcher.add_handler(CommandHandler("system", system_status))
+    # dispatcher.add_handler(CommandHandler("tickets", tickets))
+    # dispatcher.add_handler(CommandHandler("close", close))
 
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))

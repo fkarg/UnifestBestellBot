@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.utils import load_json, build_reverse_associations
+from lib.utils import load_json
 
 
 # LOGGING_FORMAT= "{asctime} [{funcName}]: {message}"
@@ -10,12 +10,11 @@ SECRETS_DIR = ROOT / "unifest-secrets"
 
 
 TOKEN = load_json("token.json")  # str
-GROUP_ASSOCIATION = load_json("association.json")  # dict: id -> str
 GROUPS_LIST = load_json("groups.json")  # [str]
+MAPPING = load_json("mapping.json")  # dict: str -> str
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 PRIORITY = ["critical NOW", "critical in 5-10min", "critical soon™"]
-ORGA = build_reverse_associations()
 
 # options for state machine. You still need to manually adapt regex and functions too.
 REQUEST_OPTIONS = [["Cups", "Beer", "Cocktail", "Money", "Other"]]
