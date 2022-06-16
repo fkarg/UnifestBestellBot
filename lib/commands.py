@@ -186,15 +186,14 @@ def unregister(update: Update, context: CallbackContext) -> None:
     try:
         previous = context.user_data["group_association"]
         del context.user_data["group_association"]
-        idx = context.bot_data["group_association"][previous].index(
-            update.effective_chat.id
-        )
-        del context.bot_data["group_association"][previous][idx]
+        context.bot_data["group_association"][previous].remove(update.effective_chat.id)
 
         message = f"Unregistered from Group: {previous}"
         association_msg(update.message.chat, group_name=previous, register=False)
     except KeyError:
         message = "No group association registered"
+    except AttributeError:
+        association_msg(update.callback_query.message.chat, group_name=previous, register=False)
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -229,18 +228,24 @@ def details(update: Update, context: CallbackContext) -> None:
 
 def register_group(update: Update, context: CallbackContext, group_name):
     context.user_data["group_association"] = group_name
-    if not context.bot_data.get("group_association"):
+    chat_id = update.effective_chat.id
+    if context.bot_data.get("group_association") is None:
         context.bot_data["group_association"] = {}
-    if not context.bot_data["group_association"].get(group_name):
-        context.bot_data["group_association"][group_name] = [update.effective_chat.id]
+    if context.bot_data["group_association"].get(group_name) is None:
+        log.warn(f"{group_name} for {chat_id} not found, creating list and adding")
+        context.bot_data["group_association"][group_name] = [chat_id]
+        assoc = context.bot_data["group_association"].get(group_name)
+        log.warn(f"After adding {group_name}: {chat_id} == {assoc}")
     else:
-        context.bot_data["group_association"][group_name].append(
-            update.effective_chat.id
-        )
+        context.bot_data["group_association"][group_name].append(chat_id)
 
-    association_msg(update.message.chat, group_name)
+    try:
+        association_msg(update.message.chat, group_name)
+    except AttributeError:
+        association_msg(update.callback_query.message.chat, group_name)
+
     context.bot.send_message(
-        chat_id=update.effective_chat.id,
+        chat_id=chat_id,
         text=f"Registered as member of Group: {group_name}",
     )
 
@@ -257,14 +262,10 @@ def register(update: Update, context: CallbackContext) -> None:
 
     elif name and name == "no group":
         unregister(update, context)
-    elif name and name == "Festko":
+    elif name and name in ["Festko", "BiMi", "Finanzer"]:
         if context.user_data.get("group_association"):
             unregister(update, context)
-        register_group(update, context, "Festko")
-    elif name and name == "BiMi":
-        if context.user_data.get("group_association"):
-            unregister(update, context)
-        register_group(update, context, "BiMi")
+        register_group(update, context, name)
     else:
         if context.user_data.get("group_association"):
             unregister(update, context)
@@ -284,8 +285,8 @@ def location(update: Update, context: CallbackContext) -> None:
     log.info(f"Location of @{user.username}: {lat} / {lon}")
 
 
-def button(update: Update, context: CallbackContext) -> None:
-    """Parses the CallbackQuery and updates the message text."""
+def register_button(update: Update, context: CallbackContext) -> None:
+    """Parses the CallbackQuery for group registration."""
     query = update.callback_query
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
@@ -294,9 +295,10 @@ def button(update: Update, context: CallbackContext) -> None:
 
     # for GROUP association updates
     if query.data in GROUPS_LIST:
-        context.user_data["group_association"] = query.data
-        association_msg(query.message.chat, query.data)
-        query.edit_message_text(text=f"Registered as member of group: {query.data}.")
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        register_group(update, context, query.data)
+        query.edit_message_text(text="Decided on Group.")
     elif query.data == "no group":
         unregister(update, context)
         query.edit_message_text(text="Cancelled group association.")
@@ -355,7 +357,6 @@ def task_button(update: Update, context: CallbackContext) -> None:
             group, text, _ = context.bot_data["tickets"][uid]
             query.edit_message_text(text=f"Closed: {text}")
             channel_msg(f"Closed ticket #{uid}")
-            # group_msg(f"", contex.bot_data["group_association"][group])
             del context.bot_data["tickets"][uid]
         except KeyError:
             text = query.message.text

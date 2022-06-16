@@ -14,13 +14,12 @@ GROUPS_LIST = load_json("groups.json")  # [str]
 MAPPING = load_json("mapping.json")  # dict: str -> str
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
-PRIORITY = ["critical NOW", "critical in 5-10min", "critical soon™"]
 
 # options for state machine. You still need to manually adapt regex and functions too.
-REQUEST_OPTIONS = [["Beer", "Cocktail", "Cups", "Money", "Other"]]
+REQUEST_OPTIONS = [["Bier", "Cocktail", "Becher", "Geld", "Sonstiges"]]
 MONEY_OPTIONS = [
-    ["Collect"],
-    ["2€ Coins", "1€ Coins", "50ct Coins"],
-    ["20€ Bills", "10€ Bills", "5€ Bills"],
+    ["Geld Abholen"],
+    ["2€ Münzen", "1€ Münzen", "50ct Münzen"],
+    ["20€ Scheine", "10€ Scheine", "5€ Scheine"],
 ]
-CUP_OPTIONS = [["Shot-glasses", "Normal Cups", "Retrieve dirty"]]
+CUP_OPTIONS = [["Shotbecher", "Normale Becher", "Dreckige Abholen"]]

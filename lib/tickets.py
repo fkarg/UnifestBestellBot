@@ -64,7 +64,7 @@ def create_ticket(
     add_ticket(context, uid, group, text)
 
     keyboard = [
-        [InlineKeyboardButton("Update state", callback_data=f"update #{uid}")],
+        [InlineKeyboardButton("Update", callback_data=f"update #{uid}")],
         [InlineKeyboardButton("Working on it", callback_data=f"wip #{uid}")],
         [InlineKeyboardButton("Close", callback_data=f"close #{uid}")],
     ]
@@ -81,7 +81,7 @@ def create_ticket(
             chat_id=chat_id,
             text=f"Someone in your group just created ticket #{uid} about {category}\n\n{details}",
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Close", callback_data=f"close #{uid}")]],
+                [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
             ),
         )
     return uid

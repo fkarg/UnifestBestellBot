@@ -38,30 +38,30 @@ def main(**kwargs):
     # add various handlers here
     dispatcher.add_handler(CommandHandler("start", start))
 
-    dispatcher.add_handler(CommandHandler("inline", inline))
     dispatcher.add_handler(
         CallbackQueryHandler(task_button, pattern="^(update|wip|close) #[0-9]+$")
     )
-    dispatcher.add_handler(CallbackQueryHandler(button))
+    dispatcher.add_handler(CallbackQueryHandler(register_button))
 
+    # large request handler
     dispatcher.add_handler(
         ConversationHandler(
             entry_points=[CommandHandler("request", request)],
             states={
                 REQUEST: [
-                    MessageHandler(Filters.regex("^Money$"), money),
-                    MessageHandler(Filters.regex("^Cups$"), cups),
-                    MessageHandler(Filters.regex("^(Beer|Cocktail|Other)$"), free_next),
+                    MessageHandler(Filters.regex("^Geld$"), money),
+                    MessageHandler(Filters.regex("^Becher$"), cups),
+                    MessageHandler(Filters.regex("^(Bier|Cocktail|Sonstiges)$"), free_next),
                 ],
                 MONEY: [
-                    MessageHandler(Filters.regex("^Collect$"), collect),
-                    MessageHandler(Filters.regex("^(5|10|20)€ Bills$"), ask_amount),
-                    MessageHandler(Filters.regex("^(2€|1€|50ct) Coins$"), ask_amount),
+                    MessageHandler(Filters.regex("^Geld Abholen$"), collect),
+                    MessageHandler(Filters.regex("^(2€|1€|50ct) Münzen$"), ask_amount),
+                    MessageHandler(Filters.regex("^(5|10|20)€ Scheine$"), ask_amount),
                 ],
                 CUPS: [
-                    MessageHandler(Filters.regex("^Shot-glasses$"), ask_amount),
-                    MessageHandler(Filters.regex("^Normal Cups$"), ask_amount),
-                    MessageHandler(Filters.regex("^Retrieve dirty$"), retrieval),
+                    MessageHandler(Filters.regex("^Shotbecher$"), ask_amount),
+                    MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
+                    MessageHandler(Filters.regex("^Dreckige Abholen$"), retrieval),
                 ],
                 # and three options with free text fields
                 # BEER: [free_text],
@@ -77,14 +77,20 @@ def main(**kwargs):
     )
 
     # other regular commands
-    dispatcher.add_handler(CommandHandler("status", status))
-    dispatcher.add_handler(CommandHandler("details", details))
+
     dispatcher.add_handler(CommandHandler("register", register))
+    dispatcher.add_handler(CommandHandler("registrieren", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
+
     dispatcher.add_handler(CommandHandler("request", request))
     dispatcher.add_handler(CommandHandler("bug", bug))
     dispatcher.add_handler(CommandHandler("help", help))
+    dispatcher.add_handler(CommandHandler("status", status))
+
+    # hidden commands (not in help)
     dispatcher.add_handler(CommandHandler("location", location))
+    dispatcher.add_handler(CommandHandler("details", details))
+    dispatcher.add_handler(CommandHandler("inline", inline))
 
     # FestKo commands
     dispatcher.add_handler(CommandHandler("help2", help2))

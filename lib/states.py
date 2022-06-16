@@ -139,12 +139,7 @@ def amount(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"#{uid}: {group} on {category}: only {amount} of {detailed} left")
-    update.message.reply_text(
-        f"Created Ticket #{uid}.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-        ),
-    )
+    update.message.reply_text(f"Created Ticket #{uid}.")
     return end(update, context)
 
 
@@ -161,12 +156,7 @@ def collect(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"#{uid}: {group} requested collection of money")
-    update.message.reply_text(
-        f"Created Ticket #{uid} about necessity to collect money.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-        ),
-    )
+    update.message.reply_text(f"Created Ticket #{uid} about necessity to collect money.")
     return end(update, context)
 
 
@@ -182,12 +172,7 @@ def retrieval(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"#{uid}: {group} requested retrieval of cups")
-    update.message.reply_text(
-        f"Created Ticket #{uid} about necessity to retrieve dirty cups.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-        ),
-    )
+    update.message.reply_text(f"Created Ticket #{uid} about necessity to retrieve dirty cups.")
     return end(update, context)
 
 
@@ -206,10 +191,9 @@ def free(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"#{uid}: {group} requested {update.message.text} for {category}")
-    update.message.reply_text(
-        f"Created ticket #{uid}.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-        ),
-    )
+    update.message.reply_text(f"Created ticket #{uid}.")
+    #     reply_markup=InlineKeyboardMarkup(
+    #         [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+    #     ),
+    # )
     return end(update, context)
