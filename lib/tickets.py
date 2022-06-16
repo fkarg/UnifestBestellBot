@@ -52,13 +52,13 @@ def add_ticket(context, uid, group, message):
     context.bot_data["tickets"][uid] = (group, message, False)
 
 
-def create_ticket(
-    update: Update, context: CallbackContext, group, category, details
-) -> None:
-    location = MAPPING[group]
+def create_ticket(update: Update, context: CallbackContext, group, text) -> None:
     uid = increase_highest_id(context)
 
-    text = f"#{uid}: Group {group} with location {location} requested someone for {category}\n\nDetails: {details}"
+    # text = f"#{uid}: Group {group} with location {location} requested someone for {category}\n\nDetails: {details}"
+    # text2 = f"#{uid}: {location}{details}"
+    text = f"#{uid}: {text}"
+
     add_ticket(context, uid, group, text)
 
     keyboard = [
@@ -78,7 +78,8 @@ def create_ticket(
             continue
         context.bot.send_message(
             chat_id=chat_id,
-            text=f"Someone in your group just created ticket #{uid} about {category}\n\n{details}",
+            # text=f"Someone in your group just created ticket #{uid} about {category}\n\n{details}",
+            text=f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt."
             # reply_markup=InlineKeyboardMarkup(
             #     [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
             # ),
@@ -92,6 +93,9 @@ def orga_command(func):
             func(update, context)
         else:
             message = "You are not authorized to execute this command."
+            dev_msg(
+                "{who(update)} tried to execute a Festko command: {update.message.text}"
+            )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
@@ -121,7 +125,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
             f"{who(update)} hat Ticket {uid} geschlossen.",
         )
         # notify group of ticket creators
-        group_msg(update, context, group, f"Euer Ticket {uid} wurde bearbeitet.")
+        group_msg(update, context, group, f"Euer Ticket #{uid} wurde bearbeitet.")
         # delete ticket
         del context.bot_data["tickets"][uid]
     else:
@@ -148,14 +152,14 @@ def wip(update: Update, context: CallbackContext) -> None:
                 update,
                 context,
                 context.user_data["group_association"],
-                f"{who(update)} hat angefangen, Ticket {uid} zu bearbeiten.",
+                f"{who(update)} hat angefangen, Ticket #{uid} zu bearbeiten.",
             )
             # notify group of ticket creators
             group_msg(
                 update,
                 context,
                 group,
-                f"Euer Ticket {uid} wurde angefangen zu bearbeiten.",
+                f"Euer Ticket #{uid} wurde angefangen zu bearbeiten.",
             )
     else:
         update.message.reply_text("Es gibt kein offenes Ticket mit dieser Zahl.")

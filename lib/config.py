@@ -18,10 +18,12 @@ DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 ORGA_GROUPS = ["Festko", "Finanzer", "BiMi"]
 
 # options for state machine. You still need to manually adapt regex and functions too.
-REQUEST_OPTIONS = [["Bier", "Cocktail", "Becher", "Geld", "Sonstiges"]]
+REQUEST_OPTIONS = [["Becher", "Geld"], ["Bier", "Cocktail", "Sonstiges"]]
 MONEY_OPTIONS = [
     ["Geld Abholen"],
-    ["2€ Münzen", "1€ Münzen", "50ct Münzen"],
-    ["20€ Scheine", "10€ Scheine", "5€ Scheine"],
+    ["Wechselgeld: Münzen", "Wechselgeld: Scheine"],
+    # ["2€ Münzen", "1€ Münzen", "50ct Münzen"],
+    # ["20€ Scheine", "10€ Scheine", "5€ Scheine"],
 ]
-CUP_OPTIONS = [["Shotbecher", "Normale Becher", "Dreckige Abholen"]]
+CUP_OPTIONS = [["Dreckige Abholen"], ["Shotbecher", "Normale Becher"]]
+AMOUNT_OPTIONS = [["0", "<=10", ">10"]]

@@ -47,7 +47,9 @@ def end(update: Update, context: CallbackContext) -> int:
 
 def cancel(update: Update, context: CallbackContext) -> int:
     """Cancels and ends the conversation."""
-    update.message.reply_text("Cancelled request.", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(
+        "Anfrage abgebrochen.", reply_markup=ReplyKeyboardRemove()
+    )
     return end(update, context)
 
 
@@ -74,12 +76,11 @@ def request(update: Update, context: CallbackContext) -> int:
             )
             return end(update, context)
     update.message.reply_text(
-        "Hey! I will guide you through your request. Send /cancel to stop.\n\n"
-        "What category does your request fall into?",
+        "Ein paar Fragen, um deine Anfrage zu präzisieren.\n"
+        "Sende /cancel|/abbruch um abzubrechen.\n\n"
+        "In welche Kategorie fällt deine Anfrage?",
         reply_markup=ReplyKeyboardMarkup(
             REQUEST_OPTIONS,
-            one_time_keyboard=True,
-            input_field_placebo="What to create a ticket about?",
         ),
     )
     return REQUEST
@@ -89,11 +90,9 @@ def money(update: Update, context: CallbackContext) -> int:
     context.user_data["first_choice"] = update.message.text
 
     update.message.reply_text(
-        "Do you need money collected (someone will drop by to pick it up) or additional change?",
+        "Braucht ihr Geld abgeholt oder Wechselgeld?",
         reply_markup=ReplyKeyboardMarkup(
             MONEY_OPTIONS,
-            one_time_keyboard=True,
-            input_field_placebo="What is it about?",
         ),
     )
     return MONEY
@@ -103,13 +102,17 @@ def cups(update: Update, context: CallbackContext) -> int:
     context.user_data["first_choice"] = update.message.text
 
     update.message.reply_text(
-        "Do you need cups retrieved (someone will drop by to pick them up) or new ones?",
+        "Braucht ihr dreckige Becher abgeholt oder neue?",
         reply_markup=ReplyKeyboardMarkup(
             CUP_OPTIONS,
-            one_time_keyboard=True,
         ),
     )
     return CUPS
+
+
+def change(update: Update, context: CallbackContext) -> int:
+    # requires change in either Coins or Bills, without further specification
+    pass
 
 
 def free_next(update: Update, context: CallbackContext) -> int:
@@ -124,43 +127,47 @@ def free_next(update: Update, context: CallbackContext) -> int:
 def ask_amount(update: Update, context: CallbackContext) -> int:
     context.user_data["second_choice"] = update.message.text
     update.message.reply_text(
-        "How many do you have left?",
-        reply_markup=ReplyKeyboardRemove(),
+        "Wie viel habt ihr noch?",
+        reply_markup=ReplyKeyboardMarkup(
+            AMOUNT_OPTIONS,
+        ),
     )
     return AMOUNT
 
 
 def amount(update: Update, context: CallbackContext) -> int:
-    try:
-        amount = int(update.message.text)
-    except ValueError:
-        update.message.reply_text("Please enter a valid number.")
-        return AMOUNT
+    # try:
+    #     amount = int(update.message.text)
+    # except ValueError:
+    #     update.message.reply_text("Please enter a valid number.")
+    #     return AMOUNT
+    amount = update.message.text
     group = context.user_data["group_association"]
-    category = context.user_data["first_choice"]
-    detailed = context.user_data["second_choice"]
+    location = MAPPING[group]
+    details = context.user_data["second_choice"]
+    text = f"{location} hat noch {amount} {details}"
     uid = create_ticket(
         update,
         context,
         group,
-        category,
-        details=f"They have only {amount} of {detailed} left.",
+        text,
     )
 
-    channel_msg(f"#{uid}: {group} on {category}: only {amount} of {detailed} left")
-    update.message.reply_text(f"Created Ticket #{uid}.")
+    channel_msg(f"#{uid}: {text}")
+    update.message.reply_text(
+        f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
+    )
     return end(update, context)
 
 
 def collect(update: Update, context: CallbackContext) -> int:
+    # inactive
     context.user_data["second_choice"] = update.message.text
     group = context.user_data["group_association"]
-    category = context.user_data["first_choice"]
     uid = create_ticket(
         update,
         context,
         group,
-        category,
         details="Send someone to collect money.",
     )
 
@@ -172,13 +179,12 @@ def collect(update: Update, context: CallbackContext) -> int:
 
 
 def retrieval(update: Update, context: CallbackContext) -> int:
+    # inactive
     group = context.user_data["group_association"]
-    category = context.user_data["first_choice"]
     uid = create_ticket(
         update,
         context,
         group,
-        category,
         details="Send someone to retrieve dirty cups.",
     )
 
@@ -189,22 +195,42 @@ def retrieval(update: Update, context: CallbackContext) -> int:
     return end(update, context)
 
 
-def free(update: Update, context: CallbackContext) -> int:
-    """free text field"""
-    # for beer and cocktail, and other requests
-    log.info(update.message.text)
-    group = context.user_data["group_association"]
+def sammeln(update: Update, context: CallbackContext) -> int:
     category = context.user_data["first_choice"]
+    group = context.user_data["group_association"]
+    location = MAPPING[group]
     uid = create_ticket(
         update,
         context,
         group,
-        category,
-        details=update.message.text,
+        details="{category} abholen an Stand {location}",
     )
 
-    channel_msg(f"#{uid}: {group} requested {update.message.text} for {category}")
-    update.message.reply_text(f"Created ticket #{uid}.")
+    channel_msg(f"#{uid}: {text}")
+    update.message.reply_text(
+        f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
+    )
+    return end(update, context)
+
+
+def free(update: Update, context: CallbackContext) -> int:
+    """free text field"""
+    # for beer and cocktail, and other requests
+    group = context.user_data["group_association"]
+    category = context.user_data["first_choice"]
+    location = MAPPING[group]
+    text = "{location} braucht {category}: '" + update.message.text + "'"
+    uid = create_ticket(
+        update,
+        context,
+        group,
+        text,
+    )
+
+    channel_msg(f"#{uid}: {text}")
+    update.message.reply_text(
+        f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
+    )
     #     reply_markup=InlineKeyboardMarkup(
     #         [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
     #     ),

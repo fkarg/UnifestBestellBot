@@ -56,14 +56,17 @@ def main(**kwargs):
                     ),
                 ],
                 MONEY: [
-                    MessageHandler(Filters.regex("^Geld Abholen$"), collect),
+                    MessageHandler(Filters.regex("^Geld Abholen$"), sammeln),
                     MessageHandler(Filters.regex("^(2€|1€|50ct) Münzen$"), ask_amount),
                     MessageHandler(Filters.regex("^(5|10|20)€ Scheine$"), ask_amount),
+                    MessageHandler(
+                        Filters.regex("^Wechselgeld: (Scheine|Münzen)$"), ask_amount
+                    ),
                 ],
                 CUPS: [
                     MessageHandler(Filters.regex("^Shotbecher$"), ask_amount),
                     MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
-                    MessageHandler(Filters.regex("^Dreckige Abholen$"), retrieval),
+                    MessageHandler(Filters.regex("^Dreckige Abholen$"), sammeln),
                 ],
                 # and three options with free text fields
                 # BEER: [free_text],

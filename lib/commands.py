@@ -62,6 +62,9 @@ def developer_command(func):
             message = "Successfully executed command."
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
+            dev_msg(
+                "{who(update)} tried to execute a developer command: {update.message.text}"
+            )
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
@@ -76,6 +79,9 @@ def festko_command(func):
             func(update, context)
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
+            dev_msg(
+                "{who(update)} tried to execute a Festko command: {update.message.text}"
+            )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
@@ -154,28 +160,27 @@ def help_de(update: Update, context: CallbackContext) -> None:
 Verfügbare Befehle:
 /start
     Um die initiale Willkommensnachricht anzuzeigen.
-/register <group name>
-/registrieren <gruppenname>
-    Registrieren der Gruppenzugehörigkeit, notwendig, bevor anfragen gestellt
-    werden können. Stellt verfügbare Optionen bereit, wenn keine valide option
-    direkt mitgegeben wird. Es ist nur möglich, eine Gruppenzugehörigkeit zu
-    haben.
+/register <group name>|/registrieren <gruppenname>
+    Registrieren der Gruppenzugehörigkeit, notwendig,
+    bevor anfragen gestellt werden können. Stellt
+    verfügbare Optionen bereit, wenn keine valide option
+    direkt mitgegeben wird. Es ist nur möglich, eine
+    Gruppenzugehörigkeit zu haben.
 /unregister
     Abmelden der momentanen Gruppenzugehörigkeit.
 /status
-    Anzeigen der Gruppenzugehörigkeit und offener tickets der Gruppe.
-/request
-/anfrage
-    Beantworte Fragen, um deine Anfrage zu spezifizieren. Letztendlich wird ein
-    Ticket für Finanzer/BiMis/Zentrale erstellt.
-/cancel
-/abbruch
+    Anzeigen der Gruppenzugehörigkeit und offener tickets
+    der Gruppe.
+/request|/anfrage
+    Beantworte Fragen, um deine Anfrage zu spezifizieren.
+    Letztendlich wird ein Ticket für Finanzer/BiMis/Zentrale
+    erstellt.
+/cancel|/abbruch
     Breche das erstellen der momentanen Anfrage ab.
 /bug <message>
-    Schreibe einen Fehlerbericht. Bitte erkläre, wie der Fehler reproduziert
-    werden kann.
-/help
-/hilfe
+    Schreibe einen Fehlerbericht. Bitte erkläre,
+    wie der Fehler reproduziert werden kann.
+/help|/hilfe
     Zeige diese hilfenachricht an.
     """
     context.bot.send_message(
@@ -186,9 +191,13 @@ Verfügbare Befehle:
 
 def unknown(update: Update, context: CallbackContext) -> None:
     message = (
-        "Command not recognized or out of context.\n\n"
-        "Send /help for an overview of available commands.\n"
-        "Or, /request when you want to request something."
+        # "Command not recognized or out of context.\n\n"
+        # "Send /help for an overview of available commands.\n"
+        # "Or, /request when you want to request something."
+        "Kommando nicht erkannt oder im falschen Zusammenhang.\n\n"
+        "Sende /hilfe um eine übersicht zu allen verfügbaren Kommandos"
+        "zu bekommen. Sende alternativ /request|/anfrage um eine Anfrage"
+        "zu stellen."
     )
     log.warn(
         f"received unrecognized command '{update.message.text}' from {who(update)}"
@@ -230,6 +239,9 @@ def register(update: Update, context: CallbackContext) -> None:
         if context.user_data.get("group_association"):
             unregister(update, context)
         register_group(update, context, name)
+        from lib.tickes import help2
+
+        help2(update, context)
     else:
         if context.user_data.get("group_association"):
             unregister(update, context)
@@ -297,7 +309,19 @@ def status(update: Update, context: CallbackContext) -> None:
     if group:
         update.message.reply_text(f"Mitglied der Gruppe {group}")
     else:
-        update.message.reply_text("Nicht mitglied in einer Gruppe")
+        update.message.reply_text("Du bist nicht Mitglied einer Gruppe")
+    open_tickets = []
+    for (uid, (tgroup, text, is_wip)) in context.bot_data["tickets"].items():
+        if tgroup == group:
+            open_tickets.append(text)
+
+    if open_tickets:
+        update.message.reply_text(
+            f"{group} hat {len(open_tickets)} ticket offen:\n\n"
+            + "\n\n---\n".join(open_tickets)
+        )
+    elif group:
+        update.message.reply_text("Deine Gruppe hat gerade keine offenen Tickets.")
 
 
 def details(update: Update, context: CallbackContext) -> None:
@@ -333,7 +357,7 @@ def register_button(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(text="Gruppenauswahl getroffen.")
     elif query.data == "no group":
         unregister(update, context)
-        query.edit_message_text(text="Cancelled group association.")
+        query.edit_message_text(text="Gruppenauswahl abgebrochen.")
     else:
         query.edit_message_text(text="Something went very wrong ...")
         dev_msg(
@@ -404,10 +428,10 @@ def task_button(update: Update, context: CallbackContext) -> None:
 def bug(update: Update, context: CallbackContext) -> None:
     if context.args:
         report = " ".join(context.args)
-        dev_msg(report)
-        update.message.reply_text("Forwarded bug report to developer.")
+        dev_msg("Bug report from {who(update)}: " + report)
+        update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
     else:
-        update.message.reply_text("Usage of command is '/bug <message>'")
+        update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")
 
 
 @developer_command
