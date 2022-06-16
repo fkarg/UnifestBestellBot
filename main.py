@@ -107,6 +107,7 @@ def main(**kwargs):
 
     # Developer
     dispatcher.add_handler(CommandHandler("reset", reset))
+    dispatcher.add_handler(CommandHandler("closeall", closeall))
 
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))

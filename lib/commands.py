@@ -61,7 +61,7 @@ def developer_command(func):
             func(update, context)
             message = "Successfully executed command."
         else:
-            message = "You are not authorized to execute this command."
+            message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
@@ -75,7 +75,7 @@ def festko_command(func):
         if context.user_data.get("group_association") == "Festko":
             func(update, context)
         else:
-            message = "You are not authorized to execute this command."
+            message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
@@ -153,24 +153,30 @@ def help_de(update: Update, context: CallbackContext) -> None:
     message = """Hilfenachricht, WIP
 Verfügbare Befehle:
 /start
-    To show the initial welcome message and information
+    Um die initiale Willkommensnachricht anzuzeigen.
 /register <group name>
-    Register your group association. Required before requesting supplies.
-    Provides available options when no group is given initially or group is not
-    found. It is only possible to have one group association at a time.
+/registrieren <gruppenname>
+    Registrieren der Gruppenzugehörigkeit, notwendig, bevor anfragen gestellt
+    werden können. Stellt verfügbare Optionen bereit, wenn keine valide option
+    direkt mitgegeben wird. Es ist nur möglich, eine Gruppenzugehörigkeit zu
+    haben.
 /unregister
-    Remove current group association. Also possible via '/register no group'
+    Abmelden der momentanen Gruppenzugehörigkeit.
 /status
-    Show status of user and requests.
+    Anzeigen der Gruppenzugehörigkeit und offener tickets der Gruppe.
 /request
-    Answer a number of questions to specify your request. Ultimately creates a
-    ticket for the Organizers.
+/anfrage
+    Beantworte Fragen, um deine Anfrage zu spezifizieren. Letztendlich wird ein
+    Ticket für Finanzer/BiMis/Zentrale erstellt.
 /cancel
-    Cancel the request you're currently making
+/abbruch
+    Breche das erstellen der momentanen Anfrage ab.
 /bug <message>
-    make a bug report. Please be as detailed as you can and is reasonable.
+    Schreibe einen Fehlerbericht. Bitte erkläre, wie der Fehler reproduziert
+    werden kann.
 /help
-    Show this help message.
+/hilfe
+    Zeige diese hilfenachricht an.
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -184,7 +190,9 @@ def unknown(update: Update, context: CallbackContext) -> None:
         "Send /help for an overview of available commands.\n"
         "Or, /request when you want to request something."
     )
-    log.warn(f"received unrecognized command '{update.message.text}'")
+    log.warn(
+        f"received unrecognized command '{update.message.text}' from {who(update)}"
+    )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -240,12 +248,21 @@ def register_group(update: Update, context: CallbackContext, group_name):
     if context.bot_data.get("group_association") is None:
         context.bot_data["group_association"] = {}
     if context.bot_data["group_association"].get(group_name) is None:
-        log.warn(f"{group_name} for {chat_id} not found, creating list and adding")
         context.bot_data["group_association"][group_name] = [chat_id]
         assoc = context.bot_data["group_association"].get(group_name)
-        log.warn(f"After adding {group_name}: {chat_id} == {assoc}")
     else:
         context.bot_data["group_association"][group_name].append(chat_id)
+
+    association_msg(update, group_name)
+    try:
+        update.message.reply_text(
+            f"Anmelden bei Gruppenzugehörigkeit {group_name} erfolgreich."
+        )
+    except AttributeError:
+        bot.send_message(
+            chat_id=update.callback_query.message.chat.id,
+            text=f"Anmelden bei Gruppenzugehörigkeit {group_name} erfolgreich.",
+        )
 
 
 def unregister(update: Update, context: CallbackContext) -> None:
@@ -264,7 +281,7 @@ def unregister(update: Update, context: CallbackContext) -> None:
     )
 
 
-def association_msg(update, group_name=None, register=True) -> None:
+def association_msg(update, group_name, register=True) -> None:
     if register:
         channel_msg(
             f"{who(update)} registered as member of group {group_name}.",
@@ -286,8 +303,7 @@ def status(update: Update, context: CallbackContext) -> None:
 def details(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
 
-    association_msg(update, group_name)
-
+    chat_id = update.effective_chat.id
     context.bot.send_message(
         chat_id=chat_id,
         text=f"Registered as member of Group: {group_name}",
@@ -314,7 +330,7 @@ def register_button(update: Update, context: CallbackContext) -> None:
         if context.user_data.get("group_association"):
             unregister(update, context)
         register_group(update, context, query.data)
-        query.edit_message_text(text="Decided on Group.")
+        query.edit_message_text(text="Gruppenauswahl getroffen.")
     elif query.data == "no group":
         unregister(update, context)
         query.edit_message_text(text="Cancelled group association.")
@@ -396,13 +412,44 @@ def bug(update: Update, context: CallbackContext) -> None:
 
 @developer_command
 def reset(update: Update, context: CallbackContext) -> None:
-    log.critical("resetting all context data.")
+    log.critical("resetting all bot context data.")
     context.bot_data.clear()
-    context.user_data.clear()
     dev_msg("successfully cleared all context data.")
+
+
+@developer_command
+def closeall(update: Update, context: CallbackContext) -> None:
+    from lib.tickets import close_uid
+
+    log.critical("closing all open tickets.")
+    # cannot mutate dictionary while iteration
+    uids = [uid for uid in context.bot_data["tickets"].keys()]
+    for uid in uids:
+        close_uid(update, context, uid)
+
+    dev_msg("successfully closed all tickets.")
 
 
 @festko_command
 def system_status(update: Update, context: CallbackContext) -> None:
+    import html
+    from telegram import ParseMode
+
     update.message.reply_text(f"{context.user_data}")
-    update.message.reply_text(f"{context.bot_data}")
+
+    message = (
+        f"<pre>update = {html.escape(json.dumps(context.bot_data, indent=2, ensure_ascii=False))}"
+        "</pre>\n\n"
+    )
+
+    n = 4096 - 11  # for tags <pre></pre>
+    if len(message) > n:
+        # need to split messages
+        for i in range(0, len(message), n):
+            prefix = "<pre>" if i != 0 else ""
+            suffix = "</pre>" if i + n < len(message) else ""
+            text = prefix + message[i : i + n] + suffix
+            update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    else:
+        # Finally, send the message
+        update.message.reply_text(message, parse_mode=ParseMode.HTML)

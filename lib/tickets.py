@@ -105,8 +105,12 @@ def close(update: Update, context: CallbackContext) -> None:
     # close a ticket
     try:
         uid = int(context.args[0])
+        close_uid(update, context, uid)
     except (ValueError, IndexError):
         update.message.reply_text("Die Benutzung des Kommandos ist /close <ticket-id>")
+
+
+def close_uid(update: Update, context: CallbackContext, uid) -> None:
     if tup := context.bot_data["tickets"].get(uid):
         (group, text, is_wip) = tup
         # notify others in same orga-group
@@ -117,9 +121,9 @@ def close(update: Update, context: CallbackContext) -> None:
             f"{who(update)} hat Ticket {uid} geschlossen.",
         )
         # notify group of ticket creators
-        group_msg(update, context, group, "Euer Ticket {uid} wurde bearbeitet.")
+        group_msg(update, context, group, f"Euer Ticket {uid} wurde bearbeitet.")
         # delete ticket
-        context.bot_data["tickets"][uid] = (group, text, True)
+        del context.bot_data["tickets"][uid]
     else:
         update.message.reply_text("Es gibt kein offenes Ticket mit dieser Zahl.")
 
@@ -151,7 +155,7 @@ def wip(update: Update, context: CallbackContext) -> None:
                 update,
                 context,
                 group,
-                "Euer Ticket {uid} wurde angefangen zu bearbeiten.",
+                f"Euer Ticket {uid} wurde angefangen zu bearbeiten.",
             )
     else:
         update.message.reply_text("Es gibt kein offenes Ticket mit dieser Zahl.")
