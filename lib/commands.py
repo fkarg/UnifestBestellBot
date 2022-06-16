@@ -470,4 +470,16 @@ def wip(update: Update, context: CallbackContext) -> None:
 @orga_command
 def tickets(update: Update, context: CallbackContext) -> None:
     # list all open tickets
-    pass
+    message = ""
+    for (uid, (group, text, is_wip)) in context.bot_data["tickets"].items():
+        if is_wip:
+            message += "\n\n---\nWIP " + text
+        else:
+            message += "\n\n---\nOpen " + text
+
+    if message:
+        message = "Liste der offenen Tickets:" + message
+    else:
+        message = "Momentan gibt es keine offenen Tickets."
+
+    update.message.reply_text(message)

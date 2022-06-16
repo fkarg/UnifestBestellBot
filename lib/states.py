@@ -64,6 +64,13 @@ def request(update: Update, context: CallbackContext) -> int:
             "Please register your group association with /register before requesting supplies."
         )
         return end(update, context)
+    if context.user_data.get("group_association"):
+        group = context.user_data.get("group_association")
+        if not update.effective_chat.id in context.bot_data["group_association"][group]:
+            update.message.reply_text(
+                "Please register your group association with /register before requesting supplies."
+            )
+            return end(update, context)
     update.message.reply_text(
         "Hey! I will guide you through your request. Send /cancel to stop.\n\n"
         "What category does your request fall into?",

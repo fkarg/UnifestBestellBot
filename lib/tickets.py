@@ -72,7 +72,7 @@ def create_ticket(
     log.info(f"new ticket {text}")
     for chat_id in context.bot_data["group_association"]["Festko"]:
         context.bot.send_message(
-            chat_id=chat_id, text="Open: " + text, reply_markup=reply_markup
+            chat_id=chat_id, text="Open: " + text,  # reply_markup=reply_markup
         )
     for chat_id in context.bot_data["group_association"][group]:
         if chat_id == update.effective_chat.id:
@@ -80,9 +80,9 @@ def create_ticket(
         context.bot.send_message(
             chat_id=chat_id,
             text=f"Someone in your group just created ticket #{uid} about {category}\n\n{details}",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-            ),
+            # reply_markup=InlineKeyboardMarkup(
+            #     [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
+            # ),
         )
     return uid
 
