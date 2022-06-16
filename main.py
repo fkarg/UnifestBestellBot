@@ -51,7 +51,9 @@ def main(**kwargs):
                 REQUEST: [
                     MessageHandler(Filters.regex("^Geld$"), money),
                     MessageHandler(Filters.regex("^Becher$"), cups),
-                    MessageHandler(Filters.regex("^(Bier|Cocktail|Sonstiges)$"), free_next),
+                    MessageHandler(
+                        Filters.regex("^(Bier|Cocktail|Sonstiges)$"), free_next
+                    ),
                 ],
                 MONEY: [
                     MessageHandler(Filters.regex("^Geld Abholen$"), collect),
@@ -76,15 +78,16 @@ def main(**kwargs):
         )
     )
 
-    # other regular commands
-
+    # regular commands
     dispatcher.add_handler(CommandHandler("register", register))
     dispatcher.add_handler(CommandHandler("registrieren", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
 
     dispatcher.add_handler(CommandHandler("request", request))
+    dispatcher.add_handler(CommandHandler("anfrage", request))
     dispatcher.add_handler(CommandHandler("bug", bug))
-    dispatcher.add_handler(CommandHandler("help", help))
+    dispatcher.add_handler(CommandHandler("help", help_en))
+    dispatcher.add_handler(CommandHandler("hilfe", help_de))
     dispatcher.add_handler(CommandHandler("status", status))
 
     # hidden commands (not in help)
@@ -92,12 +95,15 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("details", details))
     dispatcher.add_handler(CommandHandler("inline", inline))
 
-    # FestKo commands
+    # Orga commands
     dispatcher.add_handler(CommandHandler("help2", help2))
-    dispatcher.add_handler(CommandHandler("reset", reset))
     dispatcher.add_handler(CommandHandler("system", system_status))
-    # dispatcher.add_handler(CommandHandler("tickets", tickets))
-    # dispatcher.add_handler(CommandHandler("close", close))
+    dispatcher.add_handler(CommandHandler("tickets", tickets))
+    dispatcher.add_handler(CommandHandler("close", close))
+    dispatcher.add_handler(CommandHandler("wip", wip))
+
+    # Developer
+    dispatcher.add_handler(CommandHandler("reset", reset))
 
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))

@@ -83,6 +83,20 @@ def festko_command(func):
     return wrapper
 
 
+def orga_command(func):
+    def wrapper(update: Update, context: CallbackContext):
+        if context.user_data.get("group_association") in ORGA_GROUPS:
+            func(update, context)
+        else:
+            message = "You are not authorized to execute this command."
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+            )
+
+    return wrapper
+
+
 def error_handler(update: object, context: CallbackContext) -> None:
     import html
     import traceback
@@ -118,14 +132,44 @@ def error_handler(update: object, context: CallbackContext) -> None:
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register your stall group association, for which you want to request material. You can then /request supplies. See all available commands with /help."""
+    # message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register your stall group association, for which you want to request material. You can then /request supplies. See all available commands with /help."""
+    message = """Das ist der UnifestBestellBot. Über mich können Stände nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenzugehörigkeit mit /registrieren festlegen, um anschließend mit /anfrage eine Anfrage stellen zu können. Alle verfügbaren kommandos und deren Erklärung kannst du mit /hilfe sehen."""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
     )
 
 
-def help(update: Update, context: CallbackContext) -> None:
+def help_de(update: Update, context: CallbackContext) -> None:
+    message = """Help message, WIP: Translation
+Available commands:
+/start
+    To show the initial welcome message and information
+/register <group name>
+    Register your group association. Required before requesting supplies.
+    Provides available options when no group is given initially or group is not
+    found. It is only possible to have one group association at a time.
+/unregister
+    Remove current group association. Also possible via '/register no group'
+/status
+    Show status of user and requests.
+/request
+    Answer a number of questions to specify your request. Ultimately creates a
+    ticket for the Organizers.
+/cancel
+    Cancel the request you're currently making
+/bug <message>
+    make a bug report. Please be as detailed as you can and is reasonable.
+/help
+    Show this help message.
+    """
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message,
+    )
+
+
+def help_en(update: Update, context: CallbackContext) -> None:
     message = """Help message, WIP.
 Available commands:
 /start
@@ -182,18 +226,62 @@ def inline(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Please choose:", reply_markup=reply_markup)
 
 
+def register(update: Update, context: CallbackContext) -> None:
+    log.info(f"registering group association of user <@{update.message.chat.username}>")
+
+    name = " ".join(context.args)
+    if name.upper() in map(str.upper, GROUPS_LIST):
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        name_actual = GROUPS_LIST[list(map(str.upper, GROUPS_LIST)).index(name.upper())]
+        register_group(update, context, name_actual)
+
+    elif name and name == "no group":
+        unregister(update, context)
+    elif name and name in ORGA_GROUPS:
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        register_group(update, context, name)
+    else:
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        # provide all group options
+        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in GROUPS_LIST] + [
+            [InlineKeyboardButton("<Keine Gruppe>", callback_data="no group")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        # reply_markup = InlineKeyboardMarkup(GROUPS_LIST)
+        update.message.reply_text("Mögliche Gruppen:", reply_markup=reply_markup)
+
+
+def register_group(update: Update, context: CallbackContext, group_name):
+    context.user_data["group_association"] = group_name
+    chat_id = update.effective_chat.id
+    if context.bot_data.get("group_association") is None:
+        context.bot_data["group_association"] = {}
+    if context.bot_data["group_association"].get(group_name) is None:
+        log.warn(f"{group_name} for {chat_id} not found, creating list and adding")
+        context.bot_data["group_association"][group_name] = [chat_id]
+        assoc = context.bot_data["group_association"].get(group_name)
+        log.warn(f"After adding {group_name}: {chat_id} == {assoc}")
+    else:
+        context.bot_data["group_association"][group_name].append(chat_id)
+
+
 def unregister(update: Update, context: CallbackContext) -> None:
     try:
         previous = context.user_data["group_association"]
         del context.user_data["group_association"]
         context.bot_data["group_association"][previous].remove(update.effective_chat.id)
 
-        message = f"Unregistered from Group: {previous}"
+        message = f"Abmelden der Gruppenzugehörigkeit von {previous}"
         association_msg(update.message.chat, group_name=previous, register=False)
     except KeyError:
-        message = "No group association registered"
+        message = "Keine Gruppenzugehörigkeit registriert"
     except AttributeError:
-        association_msg(update.callback_query.message.chat, group_name=previous, register=False)
+        association_msg(
+            update.callback_query.message.chat, group_name=previous, register=False
+        )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -217,27 +305,13 @@ def association_msg(chat, group_name=None, register=True) -> None:
 def status(update: Update, context: CallbackContext) -> None:
     group = context.user_data.get("group_association")
     if group:
-        update.message.reply_text(f"Membership of group {group}")
+        update.message.reply_text(f"Mitglied der Gruppe {group}")
     else:
-        update.message.reply_text("Not part of any group")
+        update.message.reply_text("Nicht mitglied in einer Gruppe")
 
 
 def details(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
-
-
-def register_group(update: Update, context: CallbackContext, group_name):
-    context.user_data["group_association"] = group_name
-    chat_id = update.effective_chat.id
-    if context.bot_data.get("group_association") is None:
-        context.bot_data["group_association"] = {}
-    if context.bot_data["group_association"].get(group_name) is None:
-        log.warn(f"{group_name} for {chat_id} not found, creating list and adding")
-        context.bot_data["group_association"][group_name] = [chat_id]
-        assoc = context.bot_data["group_association"].get(group_name)
-        log.warn(f"After adding {group_name}: {chat_id} == {assoc}")
-    else:
-        context.bot_data["group_association"][group_name].append(chat_id)
 
     try:
         association_msg(update.message.chat, group_name)
@@ -248,34 +322,6 @@ def register_group(update: Update, context: CallbackContext, group_name):
         chat_id=chat_id,
         text=f"Registered as member of Group: {group_name}",
     )
-
-
-def register(update: Update, context: CallbackContext) -> None:
-    log.info(f"registering group association of user <@{update.message.chat.username}>")
-
-    name = " ".join(context.args)
-    if name.upper() in map(str.upper, GROUPS_LIST):
-        if context.user_data.get("group_association"):
-            unregister(update, context)
-        name_actual = GROUPS_LIST[list(map(str.upper, GROUPS_LIST)).index(name.upper())]
-        register_group(update, context, name_actual)
-
-    elif name and name == "no group":
-        unregister(update, context)
-    elif name and name in ["Festko", "BiMi", "Finanzer"]:
-        if context.user_data.get("group_association"):
-            unregister(update, context)
-        register_group(update, context, name)
-    else:
-        if context.user_data.get("group_association"):
-            unregister(update, context)
-        # provide all group options
-        keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in GROUPS_LIST] + [
-            [InlineKeyboardButton("<No Group>", callback_data="no group")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        # reply_markup = InlineKeyboardMarkup(GROUPS_LIST)
-        update.message.reply_text("Available Groups:", reply_markup=reply_markup)
 
 
 def location(update: Update, context: CallbackContext) -> None:
@@ -386,7 +432,7 @@ def reset(update: Update, context: CallbackContext) -> None:
     dev_msg("successfully cleared all context data.")
 
 
-@festko_command
+@orga_command
 def help2(update: Update, context: CallbackContext) -> None:
     message = """Additional help message for Festko, WIP.
 Available commands:
@@ -409,7 +455,19 @@ def system_status(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.bot_data}")
 
 
-@festko_command
+@orga_command
 def close(update: Update, context: CallbackContext) -> None:
     # close a ticket forcefully
+    pass
+
+
+@orga_command
+def wip(update: Update, context: CallbackContext) -> None:
+    # make a ticket WIP
+    pass
+
+
+@orga_command
+def tickets(update: Update, context: CallbackContext) -> None:
+    # list all open tickets
     pass

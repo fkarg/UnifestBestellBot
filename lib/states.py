@@ -156,7 +156,9 @@ def collect(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"#{uid}: {group} requested collection of money")
-    update.message.reply_text(f"Created Ticket #{uid} about necessity to collect money.")
+    update.message.reply_text(
+        f"Created Ticket #{uid} about necessity to collect money."
+    )
     return end(update, context)
 
 
@@ -172,7 +174,9 @@ def retrieval(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"#{uid}: {group} requested retrieval of cups")
-    update.message.reply_text(f"Created Ticket #{uid} about necessity to retrieve dirty cups.")
+    update.message.reply_text(
+        f"Created Ticket #{uid} about necessity to retrieve dirty cups."
+    )
     return end(update, context)
 
 
