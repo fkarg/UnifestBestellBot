@@ -203,7 +203,7 @@ def sammeln(update: Update, context: CallbackContext) -> int:
         update,
         context,
         group,
-        details="{category} abholen an Stand {location}",
+        details=f"{category} abholen an Stand {location}",
     )
 
     channel_msg(f"#{uid}: {text}")
@@ -219,7 +219,7 @@ def free(update: Update, context: CallbackContext) -> int:
     group = context.user_data["group_association"]
     category = context.user_data["first_choice"]
     location = MAPPING[group]
-    text = "{location} braucht {category}: '" + update.message.text + "'"
+    text = f"{location} braucht {category}: '" + update.message.text + "'"
     uid = create_ticket(
         update,
         context,
