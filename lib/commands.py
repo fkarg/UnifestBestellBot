@@ -16,6 +16,7 @@ import json
 log = logging.getLogger(__name__)
 
 from lib.config import *
+from lib.utils import who
 
 bot = Bot(token=TOKEN)
 
@@ -83,20 +84,6 @@ def festko_command(func):
     return wrapper
 
 
-def orga_command(func):
-    def wrapper(update: Update, context: CallbackContext):
-        if context.user_data.get("group_association") in ORGA_GROUPS:
-            func(update, context)
-        else:
-            message = "You are not authorized to execute this command."
-            context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=message,
-            )
-
-    return wrapper
-
-
 def error_handler(update: object, context: CallbackContext) -> None:
     import html
     import traceback
@@ -141,37 +128,30 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 def help_de(update: Update, context: CallbackContext) -> None:
-    message = """Help message, WIP: Translation
-Available commands:
-/start
-    To show the initial welcome message and information
-/register <group name>
-    Register your group association. Required before requesting supplies.
-    Provides available options when no group is given initially or group is not
-    found. It is only possible to have one group association at a time.
-/unregister
-    Remove current group association. Also possible via '/register no group'
-/status
-    Show status of user and requests.
-/request
-    Answer a number of questions to specify your request. Ultimately creates a
-    ticket for the Organizers.
-/cancel
-    Cancel the request you're currently making
-/bug <message>
-    make a bug report. Please be as detailed as you can and is reasonable.
-/help
-    Show this help message.
-    """
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=message,
-    )
-
-
-def help_en(update: Update, context: CallbackContext) -> None:
-    message = """Help message, WIP.
-Available commands:
+    #     message = """Help message, WIP: Translation
+    # Available commands:
+    # /start
+    #     To show the initial welcome message and information
+    # /register <group name>
+    #     Register your group association. Required before requesting supplies.
+    #     Provides available options when no group is given initially or group is not
+    #     found. It is only possible to have one group association at a time.
+    # /unregister
+    #     Remove current group association. Also possible via '/register no group'
+    # /status
+    #     Show status of user and requests.
+    # /request
+    #     Answer a number of questions to specify your request. Ultimately creates a
+    #     ticket for the Organizers.
+    # /cancel
+    #     Cancel the request you're currently making
+    # /bug <message>
+    #     make a bug report. Please be as detailed as you can and is reasonable.
+    # /help
+    #     Show this help message.
+    #     """
+    message = """Hilfenachricht, WIP
+Verfügbare Befehle:
 /start
     To show the initial welcome message and information
 /register <group name>
@@ -275,30 +255,23 @@ def unregister(update: Update, context: CallbackContext) -> None:
         context.bot_data["group_association"][previous].remove(update.effective_chat.id)
 
         message = f"Abmelden der Gruppenzugehörigkeit von {previous}"
-        association_msg(update.message.chat, group_name=previous, register=False)
+        association_msg(update, group_name=previous, register=False)
     except KeyError:
         message = "Keine Gruppenzugehörigkeit registriert"
-    except AttributeError:
-        association_msg(
-            update.callback_query.message.chat, group_name=previous, register=False
-        )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
     )
 
 
-def association_msg(chat, group_name=None, register=True) -> None:
-    # username is guaranteed to exist, but first_name and last_name aren't
-    first_name = str(chat.to_dict().get("first_name") or "")
-    last_name = str(chat.to_dict().get("last_name") or "")
+def association_msg(update, group_name=None, register=True) -> None:
     if register:
         channel_msg(
-            f"{first_name} {last_name} <@{chat.username}> registered as member of group {group_name}.",
+            f"{who(update)} registered as member of group {group_name}.",
         )
     else:
         channel_msg(
-            f"{first_name} {last_name} <@{chat.username}> unregistered from group {group_name}.",
+            f"{who(update)} unregistered from group {group_name}.",
         )
 
 
@@ -313,10 +286,7 @@ def status(update: Update, context: CallbackContext) -> None:
 def details(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
 
-    try:
-        association_msg(update.message.chat, group_name)
-    except AttributeError:
-        association_msg(update.callback_query.message.chat, group_name)
+    association_msg(update, group_name)
 
     context.bot.send_message(
         chat_id=chat_id,
@@ -432,54 +402,7 @@ def reset(update: Update, context: CallbackContext) -> None:
     dev_msg("successfully cleared all context data.")
 
 
-@orga_command
-def help2(update: Update, context: CallbackContext) -> None:
-    message = """Additional help message for Festko, WIP.
-Available commands:
-/system
-    Show global state
-/tickets
-    Show open ticket and their ids
-/help2
-    Show this help message
-    """
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=message,
-    )
-
-
 @festko_command
 def system_status(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
     update.message.reply_text(f"{context.bot_data}")
-
-
-@orga_command
-def close(update: Update, context: CallbackContext) -> None:
-    # close a ticket forcefully
-    pass
-
-
-@orga_command
-def wip(update: Update, context: CallbackContext) -> None:
-    # make a ticket WIP
-    pass
-
-
-@orga_command
-def tickets(update: Update, context: CallbackContext) -> None:
-    # list all open tickets
-    message = ""
-    for (uid, (group, text, is_wip)) in context.bot_data["tickets"].items():
-        if is_wip:
-            message += "\n\n---\nWIP " + text
-        else:
-            message += "\n\n---\nOpen " + text
-
-    if message:
-        message = "Liste der offenen Tickets:" + message
-    else:
-        message = "Momentan gibt es keine offenen Tickets."
-
-    update.message.reply_text(message)

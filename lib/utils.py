@@ -1,6 +1,8 @@
 import json
 import logging
 
+from telegram import Update
+
 
 def set_log_level_format(logging_level, format):
     logging.addLevelName(logging_level, format % logging.getLevelName(logging_level))
@@ -28,3 +30,14 @@ def save_json(data, filename):
 
     with open(SECRETS_DIR / filename, "w") as file:
         json.dump(data, file)
+
+
+def who(update: Update):
+    try:
+        chat = update.message.chat
+    except AttributeError:
+        chat = update.callback_query.message.chat
+    # username is 'guaranteed' to exist (might be None tho), but first_name and last_name aren't
+    first_name = str(chat.to_dict().get("first_name") or "")
+    last_name = str(chat.to_dict().get("last_name") or "")
+    return f"{first_name} {last_name} <@{chat.username}>"

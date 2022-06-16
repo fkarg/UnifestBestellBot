@@ -72,7 +72,10 @@ def main(**kwargs):
                 FREE: [MessageHandler(Filters.text & ~Filters.command, free)],
                 AMOUNT: [MessageHandler(Filters.text & ~Filters.command, amount)],
             },
-            fallbacks=[CommandHandler("cancel", cancel)],
+            fallbacks=[
+                CommandHandler("cancel", cancel),
+                CommandHandler("abbruch", cancel),
+            ],
             name="ticket_requests",
             persistent=True,
         )
@@ -86,7 +89,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("request", request))
     dispatcher.add_handler(CommandHandler("anfrage", request))
     dispatcher.add_handler(CommandHandler("bug", bug))
-    dispatcher.add_handler(CommandHandler("help", help_en))
+    dispatcher.add_handler(CommandHandler("help", help_de))
     dispatcher.add_handler(CommandHandler("hilfe", help_de))
     dispatcher.add_handler(CommandHandler("status", status))
 

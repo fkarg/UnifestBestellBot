@@ -54,21 +54,23 @@ def cancel(update: Update, context: CallbackContext) -> int:
 def request(update: Update, context: CallbackContext) -> int:
     if context.user_data.get("open_ticket"):
         update.message.reply_text(
-            "Your current request is still in progress. Please finish it or /cancel before opening the next one."
+            # "Your current request is still in progress. Please finish it or /cancel before opening the next one."
+            "Deine momentane Anfrage ist noch nicht abgeschlossen. Bitte beende diese zuerst oder sende /abbruch um abzubrechen."
         )
         return REQUEST
     else:
         context.user_data["open_ticket"] = True
     if not context.user_data.get("group_association"):
         update.message.reply_text(
-            "Please register your group association with /register before requesting supplies."
+            "Bitte registriere deine Gruppenzugehörigkeit mit /registrieren bevor du anfragen stellst."
         )
         return end(update, context)
     if context.user_data.get("group_association"):
         group = context.user_data.get("group_association")
         if not update.effective_chat.id in context.bot_data["group_association"][group]:
             update.message.reply_text(
-                "Please register your group association with /register before requesting supplies."
+                # "Please register your group association with /register before requesting supplies."
+                "Bitte registriere deine Gruppenzugehörigkeit mit /registrieren bevor du anfragen stellst."
             )
             return end(update, context)
     update.message.reply_text(
