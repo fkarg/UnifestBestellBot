@@ -64,8 +64,10 @@ def main(**kwargs):
                     ),
                 ],
                 CUPS: [
-                    MessageHandler(Filters.regex("^Shotbecher$"), ask_amount),
-                    MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
+                    MessageHandler(
+                        Filters.regex("^(Shotbecher|Normale Becher)$"), ask_amount
+                    ),
+                    # MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
                     MessageHandler(Filters.regex("^Dreckige Abholen$"), sammeln),
                 ],
                 # and three options with free text fields

@@ -63,7 +63,7 @@ def developer_command(func):
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             dev_msg(
-                "{who(update)} tried to execute a developer command: {update.message.text}"
+                f"{who(update)} tried to execute a developer command: {update.message.text}"
             )
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -80,7 +80,7 @@ def festko_command(func):
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             dev_msg(
-                "{who(update)} tried to execute a Festko command: {update.message.text}"
+                f"{who(update)} tried to execute a Festko command: {update.message.text}"
             )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -239,7 +239,7 @@ def register(update: Update, context: CallbackContext) -> None:
         if context.user_data.get("group_association"):
             unregister(update, context)
         register_group(update, context, name)
-        from lib.tickes import help2
+        from lib.tickets import help2
 
         help2(update, context)
     else:
@@ -311,7 +311,7 @@ def status(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("Du bist nicht Mitglied einer Gruppe")
     open_tickets = []
-    for (uid, (tgroup, text, is_wip)) in context.bot_data["tickets"].items():
+    for (uid, (tgroup, text, is_wip)) in context.bot_data.get("tickets", {}).items():
         if tgroup == group:
             open_tickets.append(text)
 
@@ -327,11 +327,11 @@ def status(update: Update, context: CallbackContext) -> None:
 def details(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(f"{context.user_data}")
 
-    chat_id = update.effective_chat.id
-    context.bot.send_message(
-        chat_id=chat_id,
-        text=f"Registered as member of Group: {group_name}",
-    )
+    # chat_id = update.effective_chat.id
+    # context.bot.send_message(
+    #     chat_id=chat_id,
+    #     text=f"Registered as member of Group: {group_name}",
+    # )
 
 
 def location(update: Update, context: CallbackContext) -> None:

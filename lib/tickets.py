@@ -52,7 +52,10 @@ def add_ticket(context, uid, group, message):
     context.bot_data["tickets"][uid] = (group, message, False)
 
 
-def create_ticket(update: Update, context: CallbackContext, group, text) -> None:
+def create_ticket(
+        update: Update, context: CallbackContext, group: str, text: str,
+        category=None,
+) -> None:
     uid = increase_highest_id(context)
 
     # text = f"#{uid}: Group {group} with location {location} requested someone for {category}\n\nDetails: {details}"
@@ -61,28 +64,27 @@ def create_ticket(update: Update, context: CallbackContext, group, text) -> None
 
     add_ticket(context, uid, group, text)
 
-    keyboard = [
-        [InlineKeyboardButton("Update", callback_data=f"update #{uid}")],
-        [InlineKeyboardButton("Working on it", callback_data=f"wip #{uid}")],
-        [InlineKeyboardButton("Close", callback_data=f"close #{uid}")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # keyboard = [
+    #     [InlineKeyboardButton("Update", callback_data=f"update #{uid}")],
+    #     [InlineKeyboardButton("Working on it", callback_data=f"wip #{uid}")],
+    #     [InlineKeyboardButton("Close", callback_data=f"close #{uid}")],
+    # ]
+    # reply_markup = InlineKeyboardMarkup(keyboard)
+    # add to group_msg as parameter
     log.info(f"new ticket {text}")
-    for chat_id in context.bot_data["group_association"]["Festko"]:
-        context.bot.send_message(
-            chat_id=chat_id,
-            text="Open: " + text,  # reply_markup=reply_markup
-        )
+    group_msg(update, context, "Festko", f"Neues Ticket: {text}")
+    if category == "Geld":
+        group_msg(update, context, "Finanzer", f"Neues Ticket: {text}")
+    if category in ["Bier", "Cocktails", "Becher"]:
+        group_msg(update, context, "BiMi", f"Neues Ticket: {text}")
+    # group_msg(update, context, group, f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.")
     for chat_id in context.bot_data["group_association"][group]:
         if chat_id == update.effective_chat.id:
+            # don't send back to original requester
             continue
         context.bot.send_message(
             chat_id=chat_id,
-            # text=f"Someone in your group just created ticket #{uid} about {category}\n\n{details}",
             text=f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt."
-            # reply_markup=InlineKeyboardMarkup(
-            #     [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-            # ),
         )
     return uid
 
@@ -115,6 +117,7 @@ def close(update: Update, context: CallbackContext) -> None:
 
 
 def close_uid(update: Update, context: CallbackContext, uid) -> None:
+    from lib.commands import channel_msg
     if tup := context.bot_data["tickets"].get(uid):
         (group, text, is_wip) = tup
         # notify others in same orga-group
@@ -122,8 +125,9 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
             update,
             context,
             context.user_data["group_association"],
-            f"{who(update)} hat Ticket {uid} geschlossen.",
+            f"{who(update)} hat Ticket #{uid} geschlossen.",
         )
+        channel_msg(f"{who(update)} von {context.user_data['group_association']} hat Ticket #{uid} geschlossen.")
         # notify group of ticket creators
         group_msg(update, context, group, f"Euer Ticket #{uid} wurde bearbeitet.")
         # delete ticket
@@ -154,6 +158,7 @@ def wip(update: Update, context: CallbackContext) -> None:
                 context.user_data["group_association"],
                 f"{who(update)} hat angefangen, Ticket #{uid} zu bearbeiten.",
             )
+            channel_msg(f"{who(update)} von {context.user_data['group_association']} hat angefangen, Ticket #{uid} zu bearbeiten.")
             # notify group of ticket creators
             group_msg(
                 update,
@@ -188,7 +193,7 @@ def help2(update: Update, context: CallbackContext) -> None:
     message = """Additional help message for Festko, WIP.
 Available commands:
 /system
-    Show global state
+    Show details on system state
 /tickets
     Show open ticket and their ids
 /close <id>
@@ -200,3 +205,7 @@ Available commands:
         chat_id=update.effective_chat.id,
         text=message,
     )
+
+@orga_command
+def message(update: Update, context: CallbackContext) -> None:
+    pass

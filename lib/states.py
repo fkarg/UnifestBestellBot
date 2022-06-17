@@ -144,6 +144,7 @@ def amount(update: Update, context: CallbackContext) -> int:
     amount = update.message.text
     group = context.user_data["group_association"]
     location = MAPPING[group]
+    category = context.user_data["first_choice"]
     details = context.user_data["second_choice"]
     text = f"{location} hat noch {amount} {details}"
     uid = create_ticket(
@@ -151,6 +152,7 @@ def amount(update: Update, context: CallbackContext) -> int:
         context,
         group,
         text,
+        category,
     )
 
     channel_msg(f"#{uid}: {text}")
@@ -168,7 +170,7 @@ def collect(update: Update, context: CallbackContext) -> int:
         update,
         context,
         group,
-        details="Send someone to collect money.",
+        "Send someone to collect money.",
     )
 
     channel_msg(f"#{uid}: {group} requested collection of money")
@@ -181,11 +183,13 @@ def collect(update: Update, context: CallbackContext) -> int:
 def retrieval(update: Update, context: CallbackContext) -> int:
     # inactive
     group = context.user_data["group_association"]
+    category = context.user_data["first_choice"]
     uid = create_ticket(
         update,
         context,
         group,
-        details="Send someone to retrieve dirty cups.",
+        "Send someone to retrieve dirty cups.",
+        category
     )
 
     channel_msg(f"#{uid}: {group} requested retrieval of cups")
@@ -199,11 +203,13 @@ def sammeln(update: Update, context: CallbackContext) -> int:
     category = context.user_data["first_choice"]
     group = context.user_data["group_association"]
     location = MAPPING[group]
+    text = f"{category} abholen an Stand {location}"
     uid = create_ticket(
         update,
         context,
         group,
-        details=f"{category} abholen an Stand {location}",
+        text,
+        category,
     )
 
     channel_msg(f"#{uid}: {text}")
@@ -225,6 +231,7 @@ def free(update: Update, context: CallbackContext) -> int:
         context,
         group,
         text,
+        category,
     )
 
     channel_msg(f"#{uid}: {text}")
