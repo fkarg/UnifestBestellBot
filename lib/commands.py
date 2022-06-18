@@ -16,43 +16,7 @@ import json
 log = logging.getLogger(__name__)
 
 from lib.config import *
-from lib.utils import who
-
-bot = Bot(token=TOKEN)
-
-
-def dev_msg(message):
-    log.info(f"to dev: {message}")
-    bot.send_message(
-        chat_id=DEVELOPER_CHAT_ID,
-        text=message,
-    )
-
-
-def channel_msg(message):
-    log.info(f"to channel: {message}")
-    bot.send_message(
-        chat_id=UPDATES_CHANNEL_ID,
-        text=message,
-    )
-
-
-def orga_msg(message, orga):
-    log.info(f"to orga: {message}")
-    for chat_id in orga:
-        bot.send_message(
-            chat_id=chat_id,
-            text=message,
-        )
-
-
-def group_msg(message, group):
-    log.info(f"to group {group}: {message}")
-    for chat_id in group:
-        bot.send_message(
-            chat_id=chat_id,
-            text=message,
-        )
+from lib.utils import who, dev_msg, channel_msg
 
 
 def developer_command(func):
@@ -118,10 +82,21 @@ def error_handler(update: object, context: CallbackContext) -> None:
         f"<pre>{html.escape(tb_string)}</pre>"
     )
 
-    # Finally, send the message
-    context.bot.send_message(
-        chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML
-    )
+    n = 4096 - 11  # for tags <pre></pre>
+    if len(message) > n:
+        # need to split messages
+        for i in range(0, len(message), n):
+            prefix = "<pre>" if i != 0 else ""
+            suffix = "</pre>" if i + n < len(message) else ""
+            text = prefix + message[i : i + n] + suffix
+            context.bot.send_message(
+                chat_id=DEVELOPER_CHAT_ID, text=text, parse_mode=ParseMode.HTML
+            )
+    else:
+        # Finally, send the message
+        context.bot.send_message(
+            chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML
+        )
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -224,7 +199,7 @@ def inline(update: Update, context: CallbackContext) -> None:
 
 
 def register(update: Update, context: CallbackContext) -> None:
-    log.info(f"registering group association of user <@{update.message.chat.username}>")
+    log.info(f"registering group association of user {who(update)}")
 
     name = " ".join(context.args)
     if name.upper() in map(str.upper, GROUPS_LIST):
@@ -271,7 +246,7 @@ def register_group(update: Update, context: CallbackContext, group_name):
             f"Anmelden bei Gruppenzugehörigkeit {group_name} erfolgreich."
         )
     except AttributeError:
-        bot.send_message(
+        context.bot.send_message(
             chat_id=update.callback_query.message.chat.id,
             text=f"Anmelden bei Gruppenzugehörigkeit {group_name} erfolgreich.",
         )
@@ -428,7 +403,7 @@ def task_button(update: Update, context: CallbackContext) -> None:
 def bug(update: Update, context: CallbackContext) -> None:
     if context.args:
         report = " ".join(context.args)
-        dev_msg("Bug report from {who(update)}: " + report)
+        dev_msg(f"Bug report von {who(update)}: " + report)
         update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
     else:
         update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")

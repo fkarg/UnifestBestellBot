@@ -52,9 +52,7 @@ def main(**kwargs):
                     MessageHandler(Filters.regex("^Geld$"), money),
                     MessageHandler(Filters.regex("^Becher$"), cups),
                     MessageHandler(Filters.regex("^Sonstiges$"), free_next),
-                    MessageHandler(
-                        Filters.regex("^(Bier|Cocktail)$"), free_next
-                    ),
+                    MessageHandler(Filters.regex("^(Bier|Cocktail)$"), free_next),
                     CommandHandler("cancel", cancel),
                 ],
                 MONEY: [
@@ -81,7 +79,7 @@ def main(**kwargs):
                 FREE: [
                     MessageHandler(Filters.text & ~Filters.command, free),
                     CommandHandler("cancel", cancel),
-                    ],
+                ],
                 AMOUNT: [
                     MessageHandler(Filters.text & ~Filters.command, amount),
                     CommandHandler("cancel", cancel),

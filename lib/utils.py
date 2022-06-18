@@ -1,7 +1,12 @@
 import json
 import logging
 
-from telegram import Update
+log = logging.getLogger(__name__)
+
+from telegram import Update, Bot
+import telegram
+
+from telegram.ext import CallbackContext
 
 
 def set_log_level_format(logging_level, format):
@@ -41,3 +46,50 @@ def who(update: Update):
     first_name = str(chat.to_dict().get("first_name") or "")
     last_name = str(chat.to_dict().get("last_name") or "")
     return f"{first_name} {last_name} <@{chat.username}>"
+
+
+def dev_msg(message):
+    from lib.config import TOKEN, DEVELOPER_CHAT_ID
+
+    bot = Bot(token=TOKEN)
+    log.info(f"to dev: {message}")
+    bot.send_message(
+        chat_id=DEVELOPER_CHAT_ID,
+        text=message,
+    )
+
+
+def channel_msg(message):
+    from lib.config import TOKEN, UPDATES_CHANNEL_ID
+
+    bot = Bot(token=TOKEN)
+
+    log.info(f"to channel: {message}")
+    bot.send_message(
+        chat_id=UPDATES_CHANNEL_ID,
+        text=message,
+    )
+
+
+def group_msg(
+    update: Update, context: CallbackContext, group: str, message: str
+) -> None:
+    log.info(f"to {group}: {message}")
+    for chat_id in context.bot_data["group_association"].get(group, []):
+        try:
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=message,
+            )
+        except telegram.error.Unauthorized as e:
+            text = f"Unauthorized for sending message to {chat_id} from {context.user_data['group_association']}"
+            log.error(text)
+            dev_msg(text)
+            # dev_msg(e)
+
+
+def orga_msg(update: Update, context: CallbackContext, message: str) -> None:
+    from lib.config import ORGA_GROUPS
+
+    for group in ORGA_GROUPS:
+        group_msg(update, context, group, message)

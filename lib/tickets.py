@@ -1,30 +1,16 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+import telegram
 from telegram.ext import (
     Updater,
     CallbackContext,
 )
 
 from lib.config import MAPPING, ORGA_GROUPS
-from lib.utils import who
+from lib.utils import who, dev_msg, channel_msg, orga_msg, group_msg
 
 import logging
 
 log = logging.getLogger(__name__)
-
-def orga_msg(update: Update, context: CallbackContext, message: str) -> None:
-    for group in ORGA_GROUPS:
-        group_msg(update, context, group, message)
-
-
-def group_msg(
-    update: Update, context: CallbackContext, group: str, message: str
-) -> None:
-    log.info(f"to {group}: {message}")
-    for chat_id in context.bot_data["group_association"].get(group, []):
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=message,
-        )
 
 
 def increase_highest_id(context: CallbackContext):
@@ -55,8 +41,11 @@ def add_ticket(context, uid, group, message):
 
 
 def create_ticket(
-        update: Update, context: CallbackContext, group: str, text: str,
-        category=None,
+    update: Update,
+    context: CallbackContext,
+    group: str,
+    text: str,
+    category=None,
 ) -> None:
     uid = increase_highest_id(context)
 
@@ -86,7 +75,7 @@ def create_ticket(
             continue
         context.bot.send_message(
             chat_id=chat_id,
-            text=f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt."
+            text=f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.",
         )
     return uid
 
@@ -120,12 +109,19 @@ def close(update: Update, context: CallbackContext) -> None:
 
 def close_uid(update: Update, context: CallbackContext, uid) -> None:
     from lib.commands import channel_msg
+
     if tup := context.bot_data["tickets"].get(uid):
         (group, text, is_wip) = tup
         # notify others in same orga-group
-        close_text=f"{who(update)} von {context.user_data['group_association']} hat Ticket #{uid} geschlossen."
+        close_text = f"{who(update)} von {context.user_data['group_association']} hat Ticket #{uid} geschlossen."
         channel_msg(close_text)
-        orga_msg(update, context, close_text)
+        # orga_msg(update, context, close_text)
+        group_msg(
+            update,
+            context,
+            context.user_data["group_association"],
+            f"{who(update)} hat Ticket #{uid} geschlossen.",
+        )
         # notify group of ticket creators
         group_msg(update, context, group, f"Euer Ticket #{uid} wurde bearbeitet.")
         # delete ticket
@@ -137,6 +133,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
 @orga_command
 def wip(update: Update, context: CallbackContext) -> None:
     from lib.commands import channel_msg
+
     # make a ticket WIP
     try:
         uid = int(context.args[0])
@@ -157,7 +154,9 @@ def wip(update: Update, context: CallbackContext) -> None:
                 context.user_data["group_association"],
                 f"{who(update)} hat angefangen, Ticket #{uid} zu bearbeiten.",
             )
-            channel_msg(f"{who(update)} von {context.user_data['group_association']} hat angefangen, Ticket #{uid} zu bearbeiten.")
+            channel_msg(
+                f"{who(update)} von {context.user_data['group_association']} hat angefangen, Ticket #{uid} zu bearbeiten."
+            )
             # notify group of ticket creators
             group_msg(
                 update,
@@ -210,19 +209,27 @@ Available commands:
         text=message,
     )
 
+
 @orga_command
 def message(update: Update, context: CallbackContext) -> None:
-    from lib.commands import channel_msg
+
     if len(context.args) < 2:
-        update.message.reply_text("Benutzung des Kommandos ist /message <ticket-id> <nachricht>")
+        update.message.reply_text(
+            "Benutzung des Kommandos ist /message <ticket-id> <nachricht>"
+        )
         return
     try:
         uid = int(context.args[0])
         group, text, is_wip = context.bot_data["tickets"][uid]
-        message = f"Nachricht von {context.user_data['group_association']}: " + " ".join(context.args[1:])
+        message = (
+            f"Nachricht von {context.user_data['group_association']}: "
+            + " ".join(context.args[1:])
+        )
         group_msg(update, context, group, message)
         channel_msg(f"An {group}: {message}")
         update.message.reply_text("Nachricht verschickt.")
     except (ValueError, IndexError):
-        update.message.reply_text("Stelle sicher, dass deine ticket-id eine valide Zahl von einem offenen Ticket ist.")
+        update.message.reply_text(
+            "Stelle sicher, dass deine ticket-id eine valide Zahl von einem offenen Ticket ist."
+        )
         return

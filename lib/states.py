@@ -17,11 +17,13 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-import logging
 
 from lib.config import *
-from lib.commands import channel_msg, dev_msg, orga_msg, festko_command
+from lib.utils import channel_msg, dev_msg, orga_msg
+from lib.commands import festko_command
 from lib.tickets import create_ticket
+
+import logging
 
 log = logging.getLogger(__name__)
 
@@ -44,11 +46,14 @@ def end(update: Update, context: CallbackContext) -> int:
         pass
     return ConversationHandler.END
 
+
 def reset_user(update: Update, context: CallbackContext) -> int:
     context.user_data.clear()
     update.message.reply_text(
-        "Lokale Benutzerdaten gelöscht, auch deine Gruppenzugehörigkeit. Du musst dich neu mit /register anmelden.", reply_markup=ReplyKeyboardRemove()
+        "Lokale Benutzerdaten gelöscht, auch deine Gruppenzugehörigkeit. Du musst dich neu mit /register anmelden.",
+        reply_markup=ReplyKeyboardRemove(),
     )
+
 
 def cancel(update: Update, context: CallbackContext) -> int:
     """Cancels and ends the conversation."""
@@ -190,11 +195,7 @@ def retrieval(update: Update, context: CallbackContext) -> int:
     group = context.user_data["group_association"]
     category = context.user_data["first_choice"]
     uid = create_ticket(
-        update,
-        context,
-        group,
-        "Send someone to retrieve dirty cups.",
-        category
+        update, context, group, "Send someone to retrieve dirty cups.", category
     )
 
     channel_msg(f"#{uid}: {group} requested retrieval of cups")
