@@ -75,6 +75,7 @@ def group_msg(
     update: Update, context: CallbackContext, group: str, message: str
 ) -> None:
     log.info(f"to {group}: {message}")
+    remove = []
     for chat_id in context.bot_data["group_association"].get(group, []):
         try:
             context.bot.send_message(
@@ -82,10 +83,15 @@ def group_msg(
                 text=message,
             )
         except telegram.error.Unauthorized as e:
-            text = f"Unauthorized for sending message to {chat_id} from {context.user_data['group_association']}"
-            log.error(text)
+            text = f"Unauthorized for sending message to {chat_id} from {context.user_data['group_association']} in list of {group}. Removing from list."
+            log.warn(text)
             dev_msg(text)
-            # dev_msg(e)
+            context.dispatcher.user_data[chat_id].clear()
+            context.dispatcher.update_persistence()
+            remove.append(chat_id)
+    if remove:
+        for rid in remove:
+            context.bot_data["group_association"].get(group, []).remove(rid)
 
 
 def orga_msg(update: Update, context: CallbackContext, message: str) -> None:

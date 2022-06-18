@@ -139,6 +139,7 @@ def wip(update: Update, context: CallbackContext) -> None:
         uid = int(context.args[0])
     except (ValueError, IndexError):
         update.message.reply_text("Die Benutzung des Kommandos ist /wip <ticket-id>")
+        return
     if tup := context.bot_data["tickets"].get(uid):
         (group, text, is_wip) = tup
         if is_wip:
