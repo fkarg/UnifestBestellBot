@@ -7,11 +7,13 @@ from telegram.ext import (
 from lib.config import MAPPING, ORGA_GROUPS
 from lib.utils import who
 
-# from lib.commands import channel_msg, dev_msg, orga_msg, festko_command
-
 import logging
 
 log = logging.getLogger(__name__)
+
+def orga_msg(update: Update, context: CallbackContext, message: str) -> None:
+    for group in ORGA_GROUPS:
+        group_msg(update, context, group, message)
 
 
 def group_msg(
@@ -121,13 +123,9 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
     if tup := context.bot_data["tickets"].get(uid):
         (group, text, is_wip) = tup
         # notify others in same orga-group
-        group_msg(
-            update,
-            context,
-            context.user_data["group_association"],
-            f"{who(update)} hat Ticket #{uid} geschlossen.",
-        )
-        channel_msg(f"{who(update)} von {context.user_data['group_association']} hat Ticket #{uid} geschlossen.")
+        close_text=f"{who(update)} von {context.user_data['group_association']} hat Ticket #{uid} geschlossen."
+        channel_msg(close_text)
+        orga_msg(update, context, close_text)
         # notify group of ticket creators
         group_msg(update, context, group, f"Euer Ticket #{uid} wurde bearbeitet.")
         # delete ticket
@@ -138,6 +136,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
 
 @orga_command
 def wip(update: Update, context: CallbackContext) -> None:
+    from lib.commands import channel_msg
     # make a ticket WIP
     try:
         uid = int(context.args[0])
@@ -195,11 +194,16 @@ Available commands:
 /system
     Show details on system state
 /tickets
-    Show open ticket and their ids
-/close <id>
+    Zeige eine Liste der offenen tickets und deren <id>
 /wip <id>
+    Beginne Arbeit an Ticket mit <id>
+/close <id>
+    Schließe das Ticket mit <id>
+/message <ticket-id> <text>
+    Sende eine Nachricht an alle Mitglieder der Gruppe,
+    die ein Ticket erstellt haben
 /help2
-    Show this help message
+    Zeige diese Hilfenachricht
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -208,4 +212,17 @@ Available commands:
 
 @orga_command
 def message(update: Update, context: CallbackContext) -> None:
-    pass
+    from lib.commands import channel_msg
+    if len(context.args) < 2:
+        update.message.reply_text("Benutzung des Kommandos ist /message <ticket-id> <nachricht>")
+        return
+    try:
+        uid = int(context.args[0])
+        group, text, is_wip = context.bot_data["tickets"][uid]
+        message = f"Nachricht von {context.user_data['group_association']}: " + " ".join(context.args[1:])
+        group_msg(update, context, group, message)
+        channel_msg(f"An {group}: {message}")
+        update.message.reply_text("Nachricht verschickt.")
+    except (ValueError, IndexError):
+        update.message.reply_text("Stelle sicher, dass deine ticket-id eine valide Zahl von einem offenen Ticket ist.")
+        return

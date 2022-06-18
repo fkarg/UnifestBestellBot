@@ -126,14 +126,14 @@ def error_handler(update: object, context: CallbackContext) -> None:
 
 def start(update: Update, context: CallbackContext) -> None:
     # message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register your stall group association, for which you want to request material. You can then /request supplies. See all available commands with /help."""
-    message = """Das ist der UnifestBestellBot. Über mich können Stände nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenzugehörigkeit mit /registrieren festlegen, um anschließend mit /anfrage eine Anfrage stellen zu können. Alle verfügbaren kommandos und deren Erklärung kannst du mit /hilfe sehen."""
+    message = """Das ist der UnifestBestellBot. Über mich können Stände nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenzugehörigkeit mit /register festlegen, um anschließend mit /request eine Anfrage stellen zu können. Alle verfügbaren kommandos und deren Erklärung kannst du mit /help sehen."""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
     )
 
 
-def help_de(update: Update, context: CallbackContext) -> None:
+def help(update: Update, context: CallbackContext) -> None:
     #     message = """Help message, WIP: Translation
     # Available commands:
     # /start
@@ -160,7 +160,7 @@ def help_de(update: Update, context: CallbackContext) -> None:
 Verfügbare Befehle:
 /start
     Um die initiale Willkommensnachricht anzuzeigen.
-/register <group name>|/registrieren <gruppenname>
+/register <group name>
     Registrieren der Gruppenzugehörigkeit, notwendig,
     bevor anfragen gestellt werden können. Stellt
     verfügbare Optionen bereit, wenn keine valide option
@@ -171,16 +171,16 @@ Verfügbare Befehle:
 /status
     Anzeigen der Gruppenzugehörigkeit und offener tickets
     der Gruppe.
-/request|/anfrage
+/request
     Beantworte Fragen, um deine Anfrage zu spezifizieren.
     Letztendlich wird ein Ticket für Finanzer/BiMis/Zentrale
     erstellt.
-/cancel|/abbruch
+/cancel
     Breche das erstellen der momentanen Anfrage ab.
 /bug <message>
     Schreibe einen Fehlerbericht. Bitte erkläre,
     wie der Fehler reproduziert werden kann.
-/help|/hilfe
+/help
     Zeige diese hilfenachricht an.
     """
     context.bot.send_message(

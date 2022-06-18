@@ -44,6 +44,11 @@ def end(update: Update, context: CallbackContext) -> int:
         pass
     return ConversationHandler.END
 
+def reset_user(update: Update, context: CallbackContext) -> int:
+    context.user_data.clear()
+    update.message.reply_text(
+        "Lokale Benutzerdaten gelöscht, auch deine Gruppenzugehörigkeit. Du musst dich neu mit /register anmelden.", reply_markup=ReplyKeyboardRemove()
+    )
 
 def cancel(update: Update, context: CallbackContext) -> int:
     """Cancels and ends the conversation."""
@@ -57,7 +62,7 @@ def request(update: Update, context: CallbackContext) -> int:
     if context.user_data.get("open_ticket"):
         update.message.reply_text(
             # "Your current request is still in progress. Please finish it or /cancel before opening the next one."
-            "Deine momentane Anfrage ist noch nicht abgeschlossen. Bitte beende diese zuerst oder sende /abbruch um abzubrechen."
+            "Deine momentane Anfrage ist noch nicht abgeschlossen. Bitte beende diese zuerst oder sende /cancel um abzubrechen."
         )
         return REQUEST
     else:
@@ -77,7 +82,7 @@ def request(update: Update, context: CallbackContext) -> int:
             return end(update, context)
     update.message.reply_text(
         "Ein paar Fragen, um deine Anfrage zu präzisieren.\n"
-        "Sende /cancel|/abbruch um abzubrechen.\n\n"
+        "Sende /cancel um abzubrechen.\n\n"
         "In welche Kategorie fällt deine Anfrage?",
         reply_markup=ReplyKeyboardMarkup(
             REQUEST_OPTIONS,

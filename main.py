@@ -51,9 +51,11 @@ def main(**kwargs):
                 REQUEST: [
                     MessageHandler(Filters.regex("^Geld$"), money),
                     MessageHandler(Filters.regex("^Becher$"), cups),
+                    MessageHandler(Filters.regex("^Sonstiges$"), free_next),
                     MessageHandler(
-                        Filters.regex("^(Bier|Cocktail|Sonstiges)$"), free_next
+                        Filters.regex("^(Bier|Cocktail)$"), free_next
                     ),
+                    CommandHandler("cancel", cancel),
                 ],
                 MONEY: [
                     MessageHandler(Filters.regex("^Geld Abholen$"), sammeln),
@@ -62,6 +64,7 @@ def main(**kwargs):
                     MessageHandler(
                         Filters.regex("^Wechselgeld: (Scheine|Münzen)$"), ask_amount
                     ),
+                    CommandHandler("cancel", cancel),
                 ],
                 CUPS: [
                     MessageHandler(
@@ -69,17 +72,24 @@ def main(**kwargs):
                     ),
                     # MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
                     MessageHandler(Filters.regex("^Dreckige Abholen$"), sammeln),
+                    CommandHandler("cancel", cancel),
                 ],
                 # and three options with free text fields
                 # BEER: [free_text],
                 # COCKTAIL: [free_text],
                 # OTHER: [free_text],
-                FREE: [MessageHandler(Filters.text & ~Filters.command, free)],
-                AMOUNT: [MessageHandler(Filters.text & ~Filters.command, amount)],
+                FREE: [
+                    MessageHandler(Filters.text & ~Filters.command, free),
+                    CommandHandler("cancel", cancel),
+                    ],
+                AMOUNT: [
+                    MessageHandler(Filters.text & ~Filters.command, amount),
+                    CommandHandler("cancel", cancel),
+                ],
             },
             fallbacks=[
                 CommandHandler("cancel", cancel),
-                CommandHandler("abbruch", cancel),
+                # CommandHandler("abbruch", cancel),
             ],
             name="ticket_requests",
             persistent=True,
@@ -88,14 +98,12 @@ def main(**kwargs):
 
     # regular commands
     dispatcher.add_handler(CommandHandler("register", register))
-    dispatcher.add_handler(CommandHandler("registrieren", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
+    dispatcher.add_handler(CommandHandler("reset", reset_user))
 
     dispatcher.add_handler(CommandHandler("request", request))
-    dispatcher.add_handler(CommandHandler("anfrage", request))
     dispatcher.add_handler(CommandHandler("bug", bug))
-    dispatcher.add_handler(CommandHandler("help", help_de))
-    dispatcher.add_handler(CommandHandler("hilfe", help_de))
+    dispatcher.add_handler(CommandHandler("help", help))
     dispatcher.add_handler(CommandHandler("status", status))
 
     # hidden commands (not in help)
@@ -107,11 +115,12 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("help2", help2))
     dispatcher.add_handler(CommandHandler("system", system_status))
     dispatcher.add_handler(CommandHandler("tickets", tickets))
+    dispatcher.add_handler(CommandHandler("message", message))
     dispatcher.add_handler(CommandHandler("close", close))
     dispatcher.add_handler(CommandHandler("wip", wip))
 
     # Developer
-    dispatcher.add_handler(CommandHandler("reset", reset))
+    # dispatcher.add_handler(CommandHandler("reset", reset))
     dispatcher.add_handler(CommandHandler("closeall", closeall))
 
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))

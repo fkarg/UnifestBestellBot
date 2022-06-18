@@ -26,4 +26,5 @@ MONEY_OPTIONS = [
     # ["20€ Scheine", "10€ Scheine", "5€ Scheine"],
 ]
 CUP_OPTIONS = [["Dreckige Abholen"], ["Shotbecher", "Normale Becher"]]
-AMOUNT_OPTIONS = [["0", "<=10", ">10"]]
+# AMOUNT_OPTIONS = [["0", "<=10", ">10"]]
+AMOUNT_OPTIONS = [["0", "~10", "~20", "~50"]]
