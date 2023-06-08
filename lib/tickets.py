@@ -87,7 +87,7 @@ def orga_command(func):
         else:
             message = "You are not authorized to execute this command."
             dev_msg(
-                "{who(update)} tried to execute a Festko command: {update.message.text}"
+                "{who(update)} tried to execute a command for [ORGA]: {update.message.text}"
             )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -153,10 +153,10 @@ def wip(update: Update, context: CallbackContext) -> None:
                 update,
                 context,
                 context.user_data["group_association"],
-                f"{who(update)} hat angefangen, Ticket #{uid} zu bearbeiten.",
+                f"{who(update)} arbeitet jetzt an Ticket #{uid}.",
             )
             channel_msg(
-                f"{who(update)} von {context.user_data['group_association']} hat angefangen, Ticket #{uid} zu bearbeiten."
+                f"{who(update)} von [{context.user_data['group_association']}] arbeitet jetzt an Ticket #{uid}."
             )
             # notify group of ticket creators
             group_msg(
@@ -189,21 +189,24 @@ def tickets(update: Update, context: CallbackContext) -> None:
 
 @orga_command
 def help2(update: Update, context: CallbackContext) -> None:
-    message = """Additional help message for Festko, WIP.
-Available commands:
-/system
-    Show details on system state
+    message = """Zusätzlicher Hilfetext für [ORGA], WIP.
+Zusätzlich verfügbare Kommandos:
+/all
+    Zeige die Liste aller offenen tickets
+    und deren <id>.
 /tickets
-    Zeige eine Liste der offenen tickets und deren <id>
+    Zeige die Liste der offenen tickets
+    und deren <id>, für deine Gruppe.
 /wip <id>
-    Beginne Arbeit an Ticket mit <id>
+    Beginne Arbeit an Ticket mit <id>.
 /close <id>
-    Schließe das Ticket mit <id>
+    Schließe das Ticket mit <id>.
 /message <ticket-id> <text>
-    Sende eine Nachricht an alle Mitglieder der Gruppe,
-    die ein Ticket erstellt haben
+    Sende eine Nachricht an alle Mitglieder
+    der Gruppe, die Ticket <ticket-id>
+    erstellt haben.
 /help2
-    Zeige diese Hilfenachricht
+    Zeige diese Hilfenachricht.
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,

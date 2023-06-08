@@ -27,7 +27,7 @@ def developer_command(func):
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             dev_msg(
-                f"{who(update)} tried to execute a developer command: {update.message.text}"
+                f"{who(update)} tried to execute a command for [Developer]: {update.message.text}"
             )
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -39,12 +39,12 @@ def developer_command(func):
 
 def festko_command(func):
     def wrapper(update: Update, context: CallbackContext):
-        if context.user_data.get("group_association") == "Festko":
+        if context.user_data.get("group_association") == "Zentrale":
             func(update, context)
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             dev_msg(
-                f"{who(update)} tried to execute a Festko command: {update.message.text}"
+                f"{who(update)} tried to execute a command for [Zentrale]: {update.message.text}"
             )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -101,7 +101,7 @@ def error_handler(update: object, context: CallbackContext) -> None:
 
 def start(update: Update, context: CallbackContext) -> None:
     # message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register your stall group association, for which you want to request material. You can then /request supplies. See all available commands with /help."""
-    message = """Das ist der UnifestBestellBot. Über mich können Stände nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenzugehörigkeit mit /register festlegen, um anschließend mit /request eine Anfrage stellen zu können. Alle verfügbaren kommandos und deren Erklärung kannst du mit /help sehen."""
+    message = """Das ist der UnifestBestellBot. Über mich können Stände Nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenmitgliedschaft mit /register festlegen, um anschließend mit /request eine Anfrage stellen zu können. Alle verfügbaren kommandos und deren Erklärung kannst du mit /help sehen."""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -134,29 +134,38 @@ def help(update: Update, context: CallbackContext) -> None:
     message = """Hilfenachricht, WIP
 Verfügbare Befehle:
 /start
-    Um die initiale Willkommensnachricht anzuzeigen.
+    Zeige initiale Willkommensnachricht an.
 /register <group name>
-    Registrieren der Gruppenzugehörigkeit, notwendig,
-    bevor anfragen gestellt werden können. Stellt
-    verfügbare Optionen bereit, wenn keine valide option
-    direkt mitgegeben wird. Es ist nur möglich, eine
-    Gruppenzugehörigkeit zu haben.
+    Registriere deine Gruppenmitgliedschaft.
+    Muss getan werden, bevor du Anfragen
+    stellen kannst. Zeigt verfügbare
+    Optionen an, wenn keine direkt
+    mitegegeben wurde. Es ist nur möglich,
+    eine Gruppenmitgliedschaft zu haben.
 /unregister
-    Abmelden der momentanen Gruppenzugehörigkeit.
+    Entferne deine Gruppenmitgliedschaft.
 /status
-    Anzeigen der Gruppenzugehörigkeit und offener tickets
-    der Gruppe.
+    Zeige deine Gruppenmitgliedschaft und
+    offene Tickets deiner Gruppe an.
 /request
-    Beantworte Fragen, um deine Anfrage zu spezifizieren.
-    Letztendlich wird ein Ticket für Finanzer/BiMis/Zentrale
+    Erstelle eine Anfrage an Finanzer /
+    BiMis / Zentrale. Mit ein paar Fragen
+    kannst du genau Bestimmen, was ihr
+    braucht. Daraufhin wird ein Ticket
     erstellt.
 /cancel
-    Breche das erstellen der momentanen Anfrage ab.
+    Breche das erstellen der momentanen
+    Anfrage ab.
 /bug <message>
-    Schreibe einen Fehlerbericht. Bitte erkläre,
-    wie der Fehler reproduziert werden kann.
+    Schreibe einen Fehlerbericht. Bitte
+    erkläre, wie der Fehler reproduziert
+    werden kann.
+/feature <message>
+    Beschreibe eine neue Eigenschaft oder
+    Fähigkeit, die der Bot haben soll.
+    Möglicherweise wird es passieren.
 /help
-    Zeige diese hilfenachricht an.
+    Zeige diese Hilfenachricht an.
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -230,25 +239,27 @@ def register(update: Update, context: CallbackContext) -> None:
 
 
 def register_group(update: Update, context: CallbackContext, group_name):
+    """Register user for `group_name`, which needs to be the same name as
+    in `groups.json`.
+    """
     context.user_data["group_association"] = group_name
     chat_id = update.effective_chat.id
     if context.bot_data.get("group_association") is None:
         context.bot_data["group_association"] = {}
     if context.bot_data["group_association"].get(group_name) is None:
         context.bot_data["group_association"][group_name] = [chat_id]
-        assoc = context.bot_data["group_association"].get(group_name)
     else:
         context.bot_data["group_association"][group_name].append(chat_id)
 
     association_msg(update, group_name)
     try:
         update.message.reply_text(
-            f"Anmelden bei Gruppenzugehörigkeit {group_name} erfolgreich."
+            f"Anmelden bei Gruppe [{group_name}] erfolgreich."
         )
     except AttributeError:
         context.bot.send_message(
             chat_id=update.callback_query.message.chat.id,
-            text=f"Anmelden bei Gruppenzugehörigkeit {group_name} erfolgreich.",
+            text=f"Anmelden bei Gruppe [{group_name}] erfolgreich.",
         )
 
 
@@ -258,10 +269,10 @@ def unregister(update: Update, context: CallbackContext) -> None:
         del context.user_data["group_association"]
         context.bot_data["group_association"][previous].remove(update.effective_chat.id)
 
-        message = f"Abmelden der Gruppenzugehörigkeit von {previous}"
+        message = f"Mitgliedschaft bei Gruppe [{previous}] entfernt."
         association_msg(update, group_name=previous, register=False)
     except KeyError:
-        message = "Keine Gruppenzugehörigkeit registriert"
+        message = "Keine Gruppenmitgliedschaft registriert. Nichts zu entfernen."
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -282,9 +293,9 @@ def association_msg(update, group_name, register=True) -> None:
 def status(update: Update, context: CallbackContext) -> None:
     group = context.user_data.get("group_association")
     if group:
-        update.message.reply_text(f"Mitglied der Gruppe {group}")
+        update.message.reply_text(f"Mitglied der Gruppe [{group}].")
     else:
-        update.message.reply_text("Du bist nicht Mitglied einer Gruppe")
+        update.message.reply_text("Keine Gruppenmitgliedschaft.")
     open_tickets = []
     for (uid, (tgroup, text, is_wip)) in context.bot_data.get("tickets", {}).items():
         if tgroup == group:
@@ -404,6 +415,15 @@ def bug(update: Update, context: CallbackContext) -> None:
     if context.args:
         report = " ".join(context.args)
         dev_msg(f"Bug report von {who(update)}: " + report)
+        update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
+    else:
+        update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")
+
+
+def feature(update: Update, context: CallbackContext) -> None:
+    if context.args:
+        report = " ".join(context.args)
+        dev_msg(f"Feature request von {who(update)}: " + report)
         update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
     else:
         update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")

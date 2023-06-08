@@ -50,7 +50,7 @@ def end(update: Update, context: CallbackContext) -> int:
 def reset_user(update: Update, context: CallbackContext) -> int:
     context.user_data.clear()
     update.message.reply_text(
-        "Lokale Benutzerdaten gelöscht, auch deine Gruppenzugehörigkeit. Du musst dich neu mit /register anmelden.",
+        "Lokale Benutzerdaten gelöscht, auch deine Gruppenmitgliedschaft. Du musst dich neu mit /register anmelden.",
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -74,7 +74,7 @@ def request(update: Update, context: CallbackContext) -> int:
         context.user_data["open_ticket"] = True
     if not context.user_data.get("group_association"):
         update.message.reply_text(
-            "Bitte registriere deine Gruppenzugehörigkeit mit /registrieren bevor du anfragen stellst."
+            "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
         )
         return end(update, context)
     if context.user_data.get("group_association"):
@@ -82,7 +82,7 @@ def request(update: Update, context: CallbackContext) -> int:
         if not update.effective_chat.id in context.bot_data["group_association"][group]:
             update.message.reply_text(
                 # "Please register your group association with /register before requesting supplies."
-                "Bitte registriere deine Gruppenzugehörigkeit mit /registrieren bevor du anfragen stellst."
+                "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
             )
             return end(update, context)
     update.message.reply_text(
@@ -128,7 +128,7 @@ def change(update: Update, context: CallbackContext) -> int:
 def free_next(update: Update, context: CallbackContext) -> int:
     context.user_data["first_choice"] = update.message.text
     update.message.reply_text(
-        "Tell me what you need, and how much you have left.",
+        "Was braucht Ihr, und wie viel habt ihr davon noch?",
         reply_markup=ReplyKeyboardRemove(),
     ),
     return FREE
