@@ -5,8 +5,8 @@ from telegram.ext import (
     CallbackContext,
 )
 
-from lib.config import MAPPING, ORGA_GROUPS
-from lib.utils import who, dev_msg, channel_msg, orga_msg, group_msg
+from src.config import MAPPING, ORGA_GROUPS
+from src.utils import who, dev_msg, channel_msg, orga_msg, group_msg
 
 import logging
 

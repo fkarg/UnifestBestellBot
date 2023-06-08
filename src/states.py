@@ -18,10 +18,10 @@ from telegram.ext import (
 )
 
 
-from lib.config import *
-from lib.utils import channel_msg, dev_msg, orga_msg
-from lib.commands import festko_command
-from lib.tickets import create_ticket
+from src.config import *
+from src.utils import channel_msg, dev_msg, orga_msg
+from src.commands import festko_command
+from src.tickets import create_ticket
 
 import logging
 

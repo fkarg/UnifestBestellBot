@@ -12,12 +12,12 @@ from telegram.ext import (
     PicklePersistence,
 )
 
-from lib.config import *
-from lib.utils import *
-from lib.commands import *
-from lib.states import *
-from lib.tickets import *
-from lib.parser import create_parser
+from src.config import *
+from src.utils import *
+from src.commands import *
+from src.states import *
+from src.tickets import *
+from src.parser import create_parser
 
 
 def main(**kwargs):

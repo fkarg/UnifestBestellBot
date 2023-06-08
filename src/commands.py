@@ -15,8 +15,8 @@ import json
 
 log = logging.getLogger(__name__)
 
-from lib.config import *
-from lib.utils import who, dev_msg, channel_msg
+from src.config import *
+from src.utils import who, dev_msg, channel_msg
 
 
 def developer_command(func):
@@ -223,7 +223,7 @@ def register(update: Update, context: CallbackContext) -> None:
         if context.user_data.get("group_association"):
             unregister(update, context)
         register_group(update, context, name)
-        from lib.tickets import help2
+        from src.tickets import help2
 
         help2(update, context)
     else:
@@ -438,7 +438,7 @@ def reset(update: Update, context: CallbackContext) -> None:
 
 @developer_command
 def closeall(update: Update, context: CallbackContext) -> None:
-    from lib.tickets import close_uid
+    from src.tickets import close_uid
 
     log.critical("closing all open tickets.")
     # cannot mutate dictionary while iteration

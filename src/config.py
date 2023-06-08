@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.utils import load_json
+from src.utils import load_json
 
 
 # LOGGING_FORMAT= "{asctime} [{funcName}]: {message}"
