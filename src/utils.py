@@ -77,6 +77,8 @@ def group_msg(
     log.info(f"to {group}: {message}")
     remove = []
     for chat_id in context.bot_data["group_association"].get(group, []):
+        if chat_id == update.effective_chat.id:
+            continue
         try:
             context.bot.send_message(
                 chat_id=chat_id,

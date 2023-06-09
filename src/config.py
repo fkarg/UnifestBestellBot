@@ -15,7 +15,7 @@ MAPPING = load_json("mapping.json")  # dict: str -> str
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 
-ORGA_GROUPS = ["Zentrale", "Finanzer", "BiMi"]
+ORGA_GROUPS = ["Zentrale", "Finanz", "BiMi"]
 
 # options for state machine. You still need to manually adapt regex and functions too.
 REQUEST_OPTIONS = [["Becher", "Geld"], ["Bier", "Cocktail", "Sonstiges"]]

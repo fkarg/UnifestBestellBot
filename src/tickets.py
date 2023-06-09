@@ -8,6 +8,7 @@ from telegram.ext import (
 from src.config import MAPPING, ORGA_GROUPS
 from src.utils import who, dev_msg, channel_msg, orga_msg, group_msg
 
+from enum import Enum, auto
 import logging
 
 log = logging.getLogger(__name__)
@@ -18,42 +19,93 @@ def increase_highest_id(context: CallbackContext):
     context.bot_data["highest_id"] = highest + 1
     return highest
 
+class TicketStatus(Enum):
+    OPEN = auto()
+    WIP = auto()
+    CLOSED = auto()
 
-"""Tickets should contain the following information:
-- id
-- status: Open/Closed
-- group requesting
-- what (choice 1)
-- what exactly (choice 2)
-- how much they still have
+    def __repr__(self):
+        return "<%s.%s>" % (self.__class__.__name__, self._name_)
 
-Saved in context.bot_data['tickets'][id]
-"""
+    def __str__(self):
+        return self._name_
 
 
-def add_ticket(context, uid, group, message):
-    # currently a tuple (str, str, bool)
-    # with interpretation (group_name, ticket_text, is_wip)
+class Ticket:
+    def __init__(self,
+                 update: Update,
+                 context: CallbackContext,
+                 status: TicketStatus,
+                 group_requesting: str,
+                 group_tasked: str,
+                 text: str,
+                 category: str = None,
+    ):
+        self.uid = increase_highest_id(context)
+        self.status = status
+        self.group_requesting = group_requesting
+        self.group_tasked = group_tasked
+        self.text = text
+
+    def __str__(self):
+        return f"{self.status} #{self.uid}: {self.text}"
+
+    def get_uid(self) -> int:
+        return self.uid
+
+    def is_open(self) -> bool:
+        return self.status == TicketStatus.OPEN
+
+    def is_wip(self) -> bool:
+        return self.status == TicketStatus.WIP
+
+    def is_closed(self) -> bool:
+        return self.status == TicketStatus.CLOSED
+
+    def set_wip(self):
+        assert self.status == TicketStatus.OPEN
+        self.status = TicketStatus.WIP
+
+    def set_close(self):
+        assert self.status == TicketStatus.WIP
+        self.status = TicketStatus.CLOSED
+
+    def is_tasked(self, group: str) -> bool:
+        return self.group_tasked == group
+
+
+def add_ticket(context, ticket: Ticket):
     tickets = context.bot_data.get("tickets")
     if not tickets:
         context.bot_data["tickets"] = {}
-    context.bot_data["tickets"][uid] = (group, message, False)
+    context.bot_data["tickets"][ticket.uid] = ticket
 
 
 def create_ticket(
     update: Update,
     context: CallbackContext,
-    group: str,
+    group_requesting: str,
     text: str,
     category=None,
 ) -> None:
-    uid = increase_highest_id(context)
 
-    # text = f"#{uid}: Group {group} with location {location} requested someone for {category}\n\nDetails: {details}"
-    # text2 = f"#{uid}: {location}{details}"
-    text = f"#{uid}: {text}"
+    log.info(f"Creating new ticket {text} from [{group_requesting}]")
 
-    add_ticket(context, uid, group, text)
+    group_tasked = "Zentrale"
+    if category == "Geld":
+        group_tasked = "Finanz"
+    elif category in ["Bier", "Cocktail", "Becher"]:
+        group_tasked = "BiMi"
+
+    ticket = Ticket(update, context,
+                    TicketStatus.OPEN,
+                    group_requesting,
+                    group_tasked,
+                    text,
+                    category,
+    )
+
+    add_ticket(context, ticket)
 
     # keyboard = [
     #     [InlineKeyboardButton("Update", callback_data=f"update #{uid}")],
@@ -61,15 +113,8 @@ def create_ticket(
     #     [InlineKeyboardButton("Close", callback_data=f"close #{uid}")],
     # ]
     # reply_markup = InlineKeyboardMarkup(keyboard)
-    # add to group_msg as parameter
-    log.info(f"new ticket {text}")
-    group_msg(update, context, "Festko", f"Neues Ticket: {text}")
-    if category == "Geld":
-        group_msg(update, context, "Finanzer", f"Neues Ticket: {text}")
-    if category in ["Bier", "Cocktails", "Becher"]:
-        group_msg(update, context, "BiMi", f"Neues Ticket: {text}")
-    # group_msg(update, context, group, f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.")
-    for chat_id in context.bot_data["group_association"][group]:
+
+    for chat_id in context.bot_data["group_association"][group_requesting]:
         if chat_id == update.effective_chat.id:
             # don't send back to original requester
             continue
@@ -77,7 +122,7 @@ def create_ticket(
             chat_id=chat_id,
             text=f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.",
         )
-    return uid
+    return ticket.uid
 
 
 def orga_command(func):
@@ -87,7 +132,7 @@ def orga_command(func):
         else:
             message = "You are not authorized to execute this command."
             dev_msg(
-                "{who(update)} tried to execute a command for [ORGA]: {update.message.text}"
+                f"{who(update)} tried to execute a command for [ORGA]: {update.message.text}"
             )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -104,51 +149,64 @@ def close(update: Update, context: CallbackContext) -> None:
         uid = int(context.args[0])
         close_uid(update, context, uid)
     except (ValueError, IndexError):
-        update.message.reply_text("Die Benutzung des Kommandos ist /close <ticket-id>")
+        group_tasked = context.user_data.get("group_association")
+        keyboard = [[InlineKeyboardButton(str(t), callback_data=f"close #{t.uid}")] for t in context.bot_data["tickets"].values() if t.is_wip() and t.is_tasked(group_tasked)]
+        keyboard_markup = InlineKeyboardMarkup(keyboard)
+
+        if keyboard:
+            update.message.reply_text("WIP Tickets:", reply_markup=keyboard_markup)
+        else:
+            update.message.reply_text(f"Keine Tickets WIP von [{group_tasked}].")
 
 
 def close_uid(update: Update, context: CallbackContext, uid) -> None:
-    from lib.commands import channel_msg
+    from src.commands import channel_msg
 
-    if tup := context.bot_data["tickets"].get(uid):
-        (group, text, is_wip) = tup
+    if ticket := context.bot_data["tickets"].get(uid):
         # notify others in same orga-group
-        close_text = f"{who(update)} von {context.user_data['group_association']} hat Ticket #{uid} geschlossen."
+        close_text = f"{who(update)} von {context.user_data['group_association']} hat Ticket #{ticket.uid} geschlossen."
         channel_msg(close_text)
         # orga_msg(update, context, close_text)
         group_msg(
             update,
             context,
             context.user_data["group_association"],
-            f"{who(update)} hat Ticket #{uid} geschlossen.",
+            f"{who(update)} hat Ticket #{ticket.uid} geschlossen.",
         )
         # notify group of ticket creators
-        group_msg(update, context, group, f"Euer Ticket #{uid} wurde bearbeitet.")
+        group_msg(update, context, ticket.group_requesting, f"Euer Ticket #{ticket.uid} wurde bearbeitet.")
         # delete ticket
         del context.bot_data["tickets"][uid]
     else:
-        update.message.reply_text("Es gibt kein offenes Ticket mit dieser Zahl.")
+        update.message.reply_text(f"Es gibt kein WIP Ticket #{uid}.")
 
 
 @orga_command
 def wip(update: Update, context: CallbackContext) -> None:
-    from lib.commands import channel_msg
+    from src.commands import channel_msg
 
     # make a ticket WIP
     try:
         uid = int(context.args[0])
+        wip_uid(update, context, uid)
     except (ValueError, IndexError):
-        update.message.reply_text("Die Benutzung des Kommandos ist /wip <ticket-id>")
-        return
-    if tup := context.bot_data["tickets"].get(uid):
-        (group, text, is_wip) = tup
-        if is_wip:
+        group_tasked = context.user_data.get("group_association")
+        keyboard = [[InlineKeyboardButton(str(t), callback_data=f"wip #{t.uid}")] for t in context.bot_data["tickets"].values() if t.is_open() and t.is_tasked(group_tasked)]
+        keyboard_markup = InlineKeyboardMarkup(keyboard)
+
+        if keyboard:
+            update.message.reply_text("Offene Tickets:", reply_markup=keyboard_markup)
+        else:
+            update.message.reply_text(f"Keine offenen Tickets für [{group_tasked}].")
+
+def wip_uid(update: Update, context: CallbackContext, uid: int):
+    if ticket := context.bot_data["tickets"].get(uid):
+        if ticket.is_wip():
             # someone is already working on it.
             update.message.reply_text("Jemand arbeitet bereits daran.")
         else:
-            # set is_wip flag to true
-            context.bot_data["tickets"][uid] = (group, text, True)
-            # notify others in same orga-group
+            ticket.set_wip()
+            add_ticket(context, ticket)
             group_msg(
                 update,
                 context,
@@ -162,27 +220,40 @@ def wip(update: Update, context: CallbackContext) -> None:
             group_msg(
                 update,
                 context,
-                group,
+                ticket.group_requesting,
                 f"Euer Ticket #{uid} wurde angefangen zu bearbeiten.",
             )
     else:
-        update.message.reply_text("Es gibt kein offenes Ticket mit dieser Zahl.")
+        update.message.reply_text(f"Es gibt kein offenes Ticket #{uid}.")
+
+@orga_command
+def all(update: Update, context: CallbackContext) -> None:
+    # list all open tickets
+    message = ""
+    for (uid, ticket) in context.bot_data["tickets"].items():
+        message += f"\n\n---\n{str(ticket)}"
+
+    if message:
+        message = "Liste aller offenen Tickets:" + message
+    else:
+        message = "Momentan gibt es keine offenen Tickets."
+
+    update.message.reply_text(message)
 
 
 @orga_command
 def tickets(update: Update, context: CallbackContext) -> None:
-    # list all open tickets
+    # list open tickets to be done by [ORGA-GROUP]
+    group_tasked = context.user_data.get("group_association")
     message = ""
-    for (uid, (group, text, is_wip)) in context.bot_data["tickets"].items():
-        if is_wip:
-            message += "\n\n---\nWIP " + text
-        else:
-            message += "\n\n---\nOpen " + text
+    for (uid, ticket) in context.bot_data["tickets"].items():
+        if ticket.group_tasked == group_tasked:
+            message += f"\n\n---\n{str(ticket)}"
 
     if message:
-        message = "Liste der offenen Tickets:" + message
+        message = f"Liste der offenen Tickets für [{group_tasked}]:{message}"
     else:
-        message = "Momentan gibt es keine offenen Tickets."
+        message = f"Momentan gibt es keine offenen Tickets für [{group_tasked}]."
 
     update.message.reply_text(message)
 

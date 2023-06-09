@@ -58,9 +58,12 @@ def error_handler(update: object, context: CallbackContext) -> None:
     import html
     import traceback
     from telegram import ParseMode
+    from telegram.error import NetworkError
 
     """Log the error and send a telegram message to notify the developer."""
     # Log the error before we do anything else, so we can see it even if something breaks.
+    if isinstance(context.error, NetworkError):
+        return
     log.error(msg="Exception while handling an update:", exc_info=context.error)
 
     # traceback.format_exception returns the usual python message about an exception, but as a
@@ -93,15 +96,14 @@ def error_handler(update: object, context: CallbackContext) -> None:
                 chat_id=DEVELOPER_CHAT_ID, text=text, parse_mode=ParseMode.HTML
             )
     else:
-        # Finally, send the message
+        # send the message
         context.bot.send_message(
             chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML
         )
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    # message = """This is the UnifestBestellBot. Stalls can request supplies, particularly money, cups, and beer/cocktail materials. To begin, you should /register your stall group association, for which you want to request material. You can then /request supplies. See all available commands with /help."""
-    message = """Das ist der UnifestBestellBot. Über mich können Stände Nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenmitgliedschaft mit /register festlegen, um anschließend mit /request eine Anfrage stellen zu können. Alle verfügbaren kommandos und deren Erklärung kannst du mit /help sehen."""
+    message = """Hi, Ich bin der UnifestBestellBot. Über mich können Stände Nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenmitgliedschaft mit /register festlegen, um anschließend mit /request eine Anfrage stellen zu können. Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help sehen."""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -109,28 +111,6 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 def help(update: Update, context: CallbackContext) -> None:
-    #     message = """Help message, WIP: Translation
-    # Available commands:
-    # /start
-    #     To show the initial welcome message and information
-    # /register <group name>
-    #     Register your group association. Required before requesting supplies.
-    #     Provides available options when no group is given initially or group is not
-    #     found. It is only possible to have one group association at a time.
-    # /unregister
-    #     Remove current group association. Also possible via '/register no group'
-    # /status
-    #     Show status of user and requests.
-    # /request
-    #     Answer a number of questions to specify your request. Ultimately creates a
-    #     ticket for the Organizers.
-    # /cancel
-    #     Cancel the request you're currently making
-    # /bug <message>
-    #     make a bug report. Please be as detailed as you can and is reasonable.
-    # /help
-    #     Show this help message.
-    #     """
     message = """Hilfenachricht, WIP
 Verfügbare Befehle:
 /start
@@ -163,7 +143,7 @@ Verfügbare Befehle:
 /feature <message>
     Beschreibe eine neue Eigenschaft oder
     Fähigkeit, die der Bot haben soll.
-    Möglicherweise wird es passieren.
+    Möglicherweise wird es umgesetzt.
 /help
     Zeige diese Hilfenachricht an.
     """
@@ -175,12 +155,9 @@ Verfügbare Befehle:
 
 def unknown(update: Update, context: CallbackContext) -> None:
     message = (
-        # "Command not recognized or out of context.\n\n"
-        # "Send /help for an overview of available commands.\n"
-        # "Or, /request when you want to request something."
         "Kommando nicht erkannt oder im falschen Zusammenhang.\n\n"
-        "Sende /hilfe um eine übersicht zu allen verfügbaren Kommandos"
-        "zu bekommen. Sende alternativ /request|/anfrage um eine Anfrage"
+        "Sende /hilfe um eine Übersicht zu allen verfügbaren Kommandos"
+        "zu bekommen. Sende alternativ /request um eine Anfrage"
         "zu stellen."
     )
     log.warn(
@@ -297,9 +274,9 @@ def status(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("Keine Gruppenmitgliedschaft.")
     open_tickets = []
-    for (uid, (tgroup, text, is_wip)) in context.bot_data.get("tickets", {}).items():
-        if tgroup == group:
-            open_tickets.append(text)
+    for (uid, ticket) in context.bot_data.get("tickets", {}).items():
+        if ticket.group_requesting == group:
+            open_tickets.append(str(ticket))
 
     if open_tickets:
         update.message.reply_text(
@@ -331,10 +308,6 @@ def register_button(update: Update, context: CallbackContext) -> None:
     """Parses the CallbackQuery for group registration."""
     query = update.callback_query
 
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-    query.answer()
-
     # for GROUP association updates
     if query.data in GROUPS_LIST:
         if context.user_data.get("group_association"):
@@ -350,80 +323,45 @@ def register_button(update: Update, context: CallbackContext) -> None:
             f"Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
         )
 
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    query.answer()
 
 def task_button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
+
+    from src.tickets import close_uid, wip_uid
+
+    try:
+        if "wip #" in query.data:
+            uid = int(query.data[5:])
+            wip_uid(update, context, uid)
+            query.edit_message_text(text=f"WIP: #{uid}")
+        elif "close #" in query.data:
+            uid = int(query.data[7:])
+            close_uid(update, context, uid)
+            query.edit_message_text(text=f"Closed: #{uid}")
+    except ValueError as e:
+        log.error(e)
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
 
-    if "update #" in query.data:
-        # update if someone else already takes care of it
-        uid = int(query.data[8:])
-        if tup := context.bot_data["tickets"].get(uid):
-            if tup[2]:
-                query.edit_message_text(
-                    text=f"WIP: {tup[1]}",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "Update", callback_data=f"update #{uid}"
-                                )
-                            ]
-                        ],
-                    ),
-                )
-            # don't update on non_wip
-        elif not context.bot_data["tickets"].get(uid):
-            # remove WIP/Open before id
-            text = query.message.text
-            text = text[text.find("#") :]
-            query.edit_message_text(text=f"Closed: {text}")
 
-    elif "wip #" in query.data:
-        uid = int(query.data[5:])
-        group, text, _ = context.bot_data["tickets"][uid]
-        context.bot_data["tickets"][uid] = (group, text, True)
-        query.edit_message_text(
-            text=f"WIP: {text}",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Close", callback_data=f"close #{uid}")]],
-            ),
-        )
-
-    elif "close #" in query.data:
-        uid = int(query.data[7:])
-        try:
-            group, text, _ = context.bot_data["tickets"][uid]
-            query.edit_message_text(text=f"Closed: {text}")
-            channel_msg(f"Closed ticket #{uid}")
-            del context.bot_data["tickets"][uid]
-        except KeyError:
-            text = query.message.text
-            text = text[text.find("#") :]
-            query.edit_message_text(text=f"Closed: {text}")
+def feature(update: Update, context: CallbackContext) -> None:
+    if context.args:
+        msg = " ".join(context.args)
+        dev_msg(f"feature request von {who(update)}: " + msg)
+        update.message.reply_text("Feature Request an Entwickler weitergeleitet.")
     else:
-        query.edit_message_text(text="Something went very wrong ...")
-        dev_msg(
-            f"Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
-        )
+        update.message.reply_text("Benutzung des Kommandos ist '/feature <message>'")
 
 
 def bug(update: Update, context: CallbackContext) -> None:
     if context.args:
         report = " ".join(context.args)
         dev_msg(f"Bug report von {who(update)}: " + report)
-        update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
-    else:
-        update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")
-
-
-def feature(update: Update, context: CallbackContext) -> None:
-    if context.args:
-        report = " ".join(context.args)
-        dev_msg(f"Feature request von {who(update)}: " + report)
         update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
     else:
         update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")
