@@ -8,7 +8,7 @@ from telegram.ext import (
 from src.config import MAPPING, ORGA_GROUPS
 from src.utils import who, dev_msg, channel_msg, orga_msg, group_msg
 
-from enum import Enum, auto
+from enum import Enum
 import logging
 
 log = logging.getLogger(__name__)
@@ -20,16 +20,15 @@ def increase_highest_id(context: CallbackContext):
     return highest
 
 class TicketStatus(Enum):
-    OPEN = auto()
-    WIP = auto()
-    CLOSED = auto()
+    OPEN = "🟡 OPEN"
+    WIP = "🟢 WIP"
+    CLOSED = "✅ CLOSED"
 
     def __repr__(self):
         return "<%s.%s>" % (self.__class__.__name__, self._name_)
 
     def __str__(self):
-        return self._name_
-
+        return self._value_
 
 class Ticket:
     def __init__(self,
@@ -151,9 +150,10 @@ def close(update: Update, context: CallbackContext) -> None:
     except (ValueError, IndexError):
         group_tasked = context.user_data.get("group_association")
         keyboard = [[InlineKeyboardButton(str(t), callback_data=f"close #{t.uid}")] for t in context.bot_data["tickets"].values() if t.is_wip() and t.is_tasked(group_tasked)]
-        keyboard_markup = InlineKeyboardMarkup(keyboard)
 
         if keyboard:
+            keyboard.append([InlineKeyboardButton("❌ Abbrechen", callback_data="cancel #0")])
+            keyboard_markup = InlineKeyboardMarkup(keyboard)
             update.message.reply_text("WIP Tickets:", reply_markup=keyboard_markup)
         else:
             update.message.reply_text(f"Keine Tickets WIP von [{group_tasked}].")
@@ -177,6 +177,10 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
         group_msg(update, context, ticket.group_requesting, f"Euer Ticket #{ticket.uid} wurde bearbeitet.")
         # delete ticket
         del context.bot_data["tickets"][uid]
+        try:
+            update.message.reply_text(f"Ticket #{uid} ist jetzt ✅ CLOSED.")
+        except AttributeError:
+            pass
     else:
         update.message.reply_text(f"Es gibt kein WIP Ticket #{uid}.")
 
@@ -192,9 +196,10 @@ def wip(update: Update, context: CallbackContext) -> None:
     except (ValueError, IndexError):
         group_tasked = context.user_data.get("group_association")
         keyboard = [[InlineKeyboardButton(str(t), callback_data=f"wip #{t.uid}")] for t in context.bot_data["tickets"].values() if t.is_open() and t.is_tasked(group_tasked)]
-        keyboard_markup = InlineKeyboardMarkup(keyboard)
 
         if keyboard:
+            keyboard.append([InlineKeyboardButton("❌ Abbrechen", callback_data="cancel #0")])
+            keyboard_markup = InlineKeyboardMarkup(keyboard)
             update.message.reply_text("Offene Tickets:", reply_markup=keyboard_markup)
         else:
             update.message.reply_text(f"Keine offenen Tickets für [{group_tasked}].")
@@ -223,6 +228,10 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 ticket.group_requesting,
                 f"Euer Ticket #{uid} wurde angefangen zu bearbeiten.",
             )
+            try:
+                update.message.reply_text(f"Ticket #{uid} ist jetzt 🟢 WIP.")
+            except AttributeError:
+                pass
     else:
         update.message.reply_text(f"Es gibt kein offenes Ticket #{uid}.")
 

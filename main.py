@@ -42,7 +42,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("start", start))
 
     dispatcher.add_handler(
-        CallbackQueryHandler(task_button, pattern="^(update|wip|close) #[0-9]+$")
+        CallbackQueryHandler(task_button, pattern="^(cancel|wip|close) #[0-9]+$")
     )
     dispatcher.add_handler(CallbackQueryHandler(register_button))
 
@@ -71,7 +71,7 @@ def main(**kwargs):
                     MessageHandler(
                         Filters.regex("^(Shotbecher|Normale Becher)$"), ask_amount
                     ),
-                    # MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
+                    MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
                     MessageHandler(Filters.regex("^Dreckige Abholen$"), sammeln),
                     CommandHandler("cancel", cancel),
                 ],

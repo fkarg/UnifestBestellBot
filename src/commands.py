@@ -320,7 +320,7 @@ def register_button(update: Update, context: CallbackContext) -> None:
     else:
         query.edit_message_text(text="Something went very wrong ...")
         dev_msg(
-            f"Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
+            f"User Registration Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
         )
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
@@ -341,6 +341,8 @@ def task_button(update: Update, context: CallbackContext) -> None:
             uid = int(query.data[7:])
             close_uid(update, context, uid)
             query.edit_message_text(text=f"Closed: #{uid}")
+        elif "cancel" in query.data:
+            query.edit_message_text(text="Abgebrochen.")
     except ValueError as e:
         log.error(e)
 
