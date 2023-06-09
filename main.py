@@ -1,8 +1,11 @@
 import os
 import logging
-import telegram
 import argparse
 
+from rich.traceback import install
+install(show_locals=True)
+
+import telegram
 from telegram.ext import (
     Updater,
     CommandHandler,
