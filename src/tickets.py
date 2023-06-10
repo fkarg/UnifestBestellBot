@@ -10,6 +10,7 @@ from src.utils import who, dev_msg, channel_msg, orga_msg, group_msg
 
 from enum import Enum
 import logging
+import json
 
 log = logging.getLogger(__name__)
 
@@ -20,31 +21,41 @@ def increase_highest_id(context: CallbackContext):
     return highest
 
 class TicketStatus(Enum):
-    OPEN = "🟡 OPEN"
+    OPEN = "🟠 OPEN"
     WIP = "🟢 WIP"
     CLOSED = "✅ CLOSED"
 
     def __repr__(self):
-        return "<%s.%s>" % (self.__class__.__name__, self._name_)
+        return "%s.%s" % (self.__class__.__name__, self._name_)
 
     def __str__(self):
         return self._value_
 
+    def toJSON(self):
+        return repr(self)
+
 class Ticket:
     def __init__(self,
-                 update: Update,
-                 context: CallbackContext,
-                 status: TicketStatus,
                  group_requesting: str,
                  group_tasked: str,
                  text: str,
-                 category: str = None,
+                 context: CallbackContext = None,
+                 uid: int = None,
+                 status: TicketStatus = TicketStatus.OPEN,
     ):
-        self.uid = increase_highest_id(context)
+        assert uid or context is not None
+
+        if uid:
+            self.uid = uid
+        else:
+            self.uid = increase_highest_id(context)
         self.status = status
         self.group_requesting = group_requesting
         self.group_tasked = group_tasked
         self.text = text
+
+    def __repr__(self):
+        return f"Ticket(group_requesting='{self.group_requesting}', group_tasked='{self.group_tasked}', text='{self.text}', uid={self.uid}, status={repr(self.status)})"
 
     def __str__(self):
         return f"{self.status} #{self.uid}: {self.text}"
@@ -72,6 +83,18 @@ class Ticket:
     def is_tasked(self, group: str) -> bool:
         return self.group_tasked == group
 
+    def toJSON(self):
+        return repr(self)
+
+class TicketEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Ticket):
+            return obj.toJSON()
+        elif isinstance(obj, TicketStatus):
+            return obj.toJSON()
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
+
 
 def add_ticket(context, ticket: Ticket):
     tickets = context.bot_data.get("tickets")
@@ -96,12 +119,10 @@ def create_ticket(
     elif category in ["Bier", "Cocktail", "Becher"]:
         group_tasked = "BiMi"
 
-    ticket = Ticket(update, context,
-                    TicketStatus.OPEN,
-                    group_requesting,
+    ticket = Ticket(group_requesting,
                     group_tasked,
                     text,
-                    category,
+                    context,
     )
 
     add_ticket(context, ticket)
@@ -164,7 +185,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
 
     if ticket := context.bot_data["tickets"].get(uid):
         # notify others in same orga-group
-        close_text = f"{who(update)} von {context.user_data['group_association']} hat Ticket #{ticket.uid} geschlossen."
+        close_text = f"{str(TicketStatus.CLOSED)}: {who(update)} von [{context.user_data['group_association']}] hat Ticket #{ticket.uid} geschlossen."
         channel_msg(close_text)
         # orga_msg(update, context, close_text)
         group_msg(
@@ -178,7 +199,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
         # delete ticket
         del context.bot_data["tickets"][uid]
         try:
-            update.message.reply_text(f"Ticket #{uid} ist jetzt ✅ CLOSED.")
+            update.message.reply_text(f"Ticket #{uid} ist jetzt {str(TicketStatus.CLOSED)}.")
         except AttributeError:
             pass
     else:
@@ -187,7 +208,6 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
 
 @orga_command
 def wip(update: Update, context: CallbackContext) -> None:
-    from src.commands import channel_msg
 
     # make a ticket WIP
     try:
@@ -219,7 +239,7 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 f"{who(update)} arbeitet jetzt an Ticket #{uid}.",
             )
             channel_msg(
-                f"{who(update)} von [{context.user_data['group_association']}] arbeitet jetzt an Ticket #{uid}."
+                    f"{str(TicketStatus.WIP)}: {who(update)} von [{context.user_data['group_association']}] arbeitet jetzt an Ticket #{uid}."
             )
             # notify group of ticket creators
             group_msg(
@@ -229,7 +249,7 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 f"Euer Ticket #{uid} wurde angefangen zu bearbeiten.",
             )
             try:
-                update.message.reply_text(f"Ticket #{uid} ist jetzt 🟢 WIP.")
+                update.message.reply_text(f"Ticket #{uid} ist jetzt {str(TicketStatus.WIP)}.")
             except AttributeError:
                 pass
     else:
@@ -273,14 +293,22 @@ def help2(update: Update, context: CallbackContext) -> None:
 Zusätzlich verfügbare Kommandos:
 /all
     Zeige die Liste aller offenen tickets
-    und deren <id>.
+    und deren <ticket-id>.
 /tickets
     Zeige die Liste der offenen tickets
     und deren <id>, für deine Gruppe.
-/wip <id>
-    Beginne Arbeit an Ticket mit <id>.
-/close <id>
-    Schließe das Ticket mit <id>.
+/wip [ticket-id]
+    Zeige liste an offenen Tickets für
+    deine Gruppe. Beginne Arbeit an
+    einem Ticket durch Auswahl.
+    Alternativ: sende die <ticket-id>
+    mit, um die Auswahl zu überspringen.
+/close [ticket-id]
+    Zeige liste an WIP Tickets für
+    deine Gruppe. Schließe ein
+    Ticket durch Auswahl.
+    Alternativ: sende die <ticket-id>
+    mit, um die Auswahl zu überspringen.
 /message <ticket-id> <text>
     Sende eine Nachricht an alle Mitglieder
     der Gruppe, die Ticket <ticket-id>
@@ -304,16 +332,16 @@ def message(update: Update, context: CallbackContext) -> None:
         return
     try:
         uid = int(context.args[0])
-        group, text, is_wip = context.bot_data["tickets"][uid]
+        ticket = context.bot_data["tickets"][uid]
         message = (
             f"Nachricht von {context.user_data['group_association']}: "
             + " ".join(context.args[1:])
         )
         group_msg(update, context, group, message)
-        channel_msg(f"An {group}: {message}")
+        channel_msg(f"🟣 Nachricht an {ticket.group_requesting}: {message}")
         update.message.reply_text("Nachricht verschickt.")
     except (ValueError, IndexError):
         update.message.reply_text(
-            "Stelle sicher, dass deine ticket-id eine valide Zahl von einem offenen Ticket ist."
+            "Stelle sicher, dass <ticket-id> eine valide Zahl von einem offenen Ticket ist."
         )
         return

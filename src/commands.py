@@ -111,11 +111,10 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 def help(update: Update, context: CallbackContext) -> None:
-    message = """Hilfenachricht, WIP
-Verfügbare Befehle:
+    message = """Verfügbare Befehle:
 /start
     Zeige initiale Willkommensnachricht an.
-/register <group name>
+/register [gruppenname]
     Registriere deine Gruppenmitgliedschaft.
     Muss getan werden, bevor du Anfragen
     stellen kannst. Zeigt verfügbare
@@ -146,6 +145,13 @@ Verfügbare Befehle:
     Möglicherweise wird es umgesetzt.
 /help
     Zeige diese Hilfenachricht an.
+Allgemein:
+Eckige Klammern <> bei Kommandos (z.B.
+bei /bug <message>) zeigen an, dass
+nach /bug eine Nachricht folgen muss.
+In optionalen Fällen (z.b.
+/register [gruppenname]) wird das
+über [] angezeigt.
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -259,11 +265,11 @@ def unregister(update: Update, context: CallbackContext) -> None:
 def association_msg(update, group_name, register=True) -> None:
     if register:
         channel_msg(
-            f"{who(update)} registered as member of group {group_name}.",
+            f"🔵 {who(update)} registered as member of group {group_name}.",
         )
     else:
         channel_msg(
-            f"{who(update)} unregistered from group {group_name}.",
+            f"🔵 {who(update)} unregistered from group {group_name}.",
         )
 
 
@@ -393,11 +399,12 @@ def closeall(update: Update, context: CallbackContext) -> None:
 def system_status(update: Update, context: CallbackContext) -> None:
     import html
     from telegram import ParseMode
+    from src.tickets import TicketEncoder
 
     update.message.reply_text(f"{context.user_data}")
 
     message = (
-        f"<pre>update = {html.escape(json.dumps(context.bot_data, indent=2, ensure_ascii=False))}"
+        f"<pre>update = {html.escape(json.dumps(context.bot_data, indent=2, ensure_ascii=False, cls=TicketEncoder))}"
         "</pre>\n\n"
     )
 

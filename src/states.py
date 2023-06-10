@@ -79,9 +79,14 @@ def request(update: Update, context: CallbackContext) -> int:
         return end(update, context)
     if context.user_data.get("group_association"):
         group = context.user_data.get("group_association")
+        if not context.bot_data("group_association"):
+            del context.user_data["group_association"]
+            update.message.reply_text(
+                "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
+            )
+            return end(update, context)
         if not update.effective_chat.id in context.bot_data["group_association"][group]:
             update.message.reply_text(
-                # "Please register your group association with /register before requesting supplies."
                 "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
             )
             return end(update, context)
@@ -156,7 +161,7 @@ def amount(update: Update, context: CallbackContext) -> int:
     location = MAPPING[group]
     category = context.user_data["first_choice"]
     details = context.user_data["second_choice"]
-    text = f"{location} hat noch {amount} {details}"
+    text = f"{location} [{group}] hat noch {amount} {details}"
     uid = create_ticket(
         update,
         context,
@@ -165,7 +170,7 @@ def amount(update: Update, context: CallbackContext) -> int:
         category,
     )
 
-    channel_msg(f"#{uid}: {text}")
+    channel_msg(f"🟠 OPEN #{uid}: {text}")
     update.message.reply_text(
         f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
     )
@@ -183,7 +188,7 @@ def collect(update: Update, context: CallbackContext) -> int:
         "Send someone to collect money.",
     )
 
-    channel_msg(f"#{uid}: {group} requested collection of money")
+    channel_msg(f"🟠 OPEN #{uid}: {group} requested collection of money")
     update.message.reply_text(
         f"Ticket #{uid} zu Geldabholen erstellt."
     )
@@ -198,7 +203,7 @@ def retrieval(update: Update, context: CallbackContext) -> int:
         update, context, group, "Dreckige Becher abholen.", category
     )
 
-    channel_msg(f"#{uid}: {group} requested retrieval of cups")
+    channel_msg(f"🟠 OPEN #{uid}: {group} requested retrieval of cups")
     update.message.reply_text(
         f"Ticket #{uid} zu Becherabholung erstellt."
     )
@@ -209,7 +214,7 @@ def sammeln(update: Update, context: CallbackContext) -> int:
     category = context.user_data["first_choice"]
     group = context.user_data["group_association"]
     location = MAPPING[group]
-    text = f"{category} abholen an Stand {location}"
+    text = f"{category} abholen an Stand {location} [{group}]"
     uid = create_ticket(
         update,
         context,
@@ -218,7 +223,7 @@ def sammeln(update: Update, context: CallbackContext) -> int:
         category,
     )
 
-    channel_msg(f"#{uid}: {text}")
+    channel_msg(f"🟠 OPEN #{uid}: {text}")
     update.message.reply_text(
         f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
     )
@@ -231,7 +236,7 @@ def free(update: Update, context: CallbackContext) -> int:
     group = context.user_data["group_association"]
     category = context.user_data["first_choice"]
     location = MAPPING[group]
-    text = f"{location} braucht {category}: '" + update.message.text + "'"
+    text = f"{location} [{group}] braucht {category}: '" + update.message.text + "'"
     uid = create_ticket(
         update,
         context,
@@ -240,7 +245,7 @@ def free(update: Update, context: CallbackContext) -> int:
         category,
     )
 
-    channel_msg(f"#{uid}: {text}")
+    channel_msg(f"🟠 OPEN #{uid}: {text}")
     update.message.reply_text(
         f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
     )
