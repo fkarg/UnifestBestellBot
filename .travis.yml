@@ -1,0 +1,15 @@
+language: python
+
+
+before-install:
+  - pip install poetry
+
+# command to install dependencies
+install:
+  - poetry install
+
+# command to run tests
+script:
+  - python main.py -h
+  - black --check .
+  - ruff check .
