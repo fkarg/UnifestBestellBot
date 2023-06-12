@@ -1,13 +1,12 @@
 import os
 import logging
-import argparse
+import socket
 
 from rich.traceback import install
-install(show_locals=True)
 
-import telegram
 from telegram.ext import (
     Updater,
+    Filters,
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
@@ -15,12 +14,48 @@ from telegram.ext import (
     PicklePersistence,
 )
 
-from src.config import *
-from src.utils import *
-from src.commands import *
-from src.states import *
-from src.tickets import *
+from src.config import TOKEN
+from src.utils import set_log_level_format, get_logging_level, channel_msg
+from src.commands import (
+    error_handler,
+    start,
+    help,
+    unknown,
+    inline,
+    register,
+    unregister,
+    status,
+    details,
+    location,
+    register_button,
+    task_button,
+    feature,
+    bug,
+    reset,
+    closeall,
+    system_status,
+)
+from src.states import (
+    reset_user,
+    cancel,
+    request,
+    money,
+    cups,
+    free_next,
+    ask_amount,
+    amount,
+    sammeln,
+    free,
+    REQUEST,
+    MONEY,
+    CUPS,
+    AMOUNT,
+    FREE,
+)
+from src.tickets import close, wip, all, tickets, help2, message
 from src.parser import create_parser
+
+install(show_locals=True)
 
 
 def main(**kwargs):
@@ -107,6 +142,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("feature", feature))
     dispatcher.add_handler(CommandHandler("help", help))
     dispatcher.add_handler(CommandHandler("status", status))
+    # dispatcher.add_handler(CommandHandler("cancel", cancel))
 
     # hidden commands (not in help)
     dispatcher.add_handler(CommandHandler("location", location))
@@ -129,6 +165,8 @@ def main(**kwargs):
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))
     dispatcher.add_error_handler(error_handler)
+
+    channel_msg(f"🔘 Started from {socket.gethostname()}")
 
     # begin action loop
     updater.start_polling()

@@ -1,22 +1,14 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Bot
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
-from telegram.ext import (
-    Updater,
-    CallbackContext,
-    CommandHandler,
-    MessageHandler,
-    Filters,
-    CallbackQueryHandler,
-    CallbackContext,
-)
+from telegram.ext import CallbackContext
 
 import logging
 import json
 
-log = logging.getLogger(__name__)
-
-from src.config import *
+from src.config import GROUPS_LIST, ORGA_GROUPS, DEVELOPER_CHAT_ID
 from src.utils import who, dev_msg, channel_msg
+
+log = logging.getLogger(__name__)
 
 
 def developer_command(func):
@@ -27,7 +19,8 @@ def developer_command(func):
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             dev_msg(
-                f"{who(update)} tried to execute a command for [Developer]: {update.message.text}"
+                f"⚠️ {who(update)} tried to execute a command for [Developer]: "
+                f"{update.message.text}"
             )
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -44,7 +37,8 @@ def festko_command(func):
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
             dev_msg(
-                f"{who(update)} tried to execute a command for [Zentrale]: {update.message.text}"
+                f"⚠️ {who(update)} tried to execute a command for [Zentrale]: "
+                f"{update.message.text}"
             )
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -61,24 +55,28 @@ def error_handler(update: object, context: CallbackContext) -> None:
     from telegram.error import NetworkError
 
     """Log the error and send a telegram message to notify the developer."""
-    # Log the error before we do anything else, so we can see it even if something breaks.
+    # Log the error before we do anything else, so we can see it
+    # even if something breaks.
     if isinstance(context.error, NetworkError):
         return
-    log.error(msg="Exception while handling an update:", exc_info=context.error)
+    log.error(msg="🔴 Exception while handling an update:", exc_info=context.error)
 
-    # traceback.format_exception returns the usual python message about an exception, but as a
-    # list of strings rather than a single string, so we have to join them together.
+    # traceback.format_exception returns the usual python message about an exception,
+    # but as a list of strings rather than a single string, so we have to
+    # join them together.
     tb_list = traceback.format_exception(
         None, context.error, context.error.__traceback__
     )
     tb_string = "".join(tb_list)
 
     # Build the message with some markup and additional information about what happened.
-    # You might need to add some logic to deal with messages longer than the 4096 character limit.
+    # You might need to add some logic to deal with messages longer than the 4096
+    # character limit.
     update_str = update.to_dict() if isinstance(update, Update) else str(update)
     message = (
         f"An exception was raised while handling an update\n"
-        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
+        f"<pre>update = "
+        f"{html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
         "</pre>\n\n"
         f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
         f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
@@ -103,7 +101,12 @@ def error_handler(update: object, context: CallbackContext) -> None:
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    message = """Hi, Ich bin der UnifestBestellBot. Über mich können Stände Nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien. Als erstes solltest du deine Gruppenmitgliedschaft mit /register festlegen, um anschließend mit /request eine Anfrage stellen zu können. Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help sehen."""
+    message = "Hi, Ich bin der UnifestBestellBot. Über mich können Stände "
+    "Nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und "
+    "Cocktailmaterialien. Als erstes solltest du deine Gruppenmitgliedschaft mit "
+    "/register festlegen, um anschließend mit /request eine Anfrage stellen zu "
+    "können. Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help "
+    "sehen."
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -155,12 +158,12 @@ def help(update: Update, context: CallbackContext) -> None:
 def unknown(update: Update, context: CallbackContext) -> None:
     message = (
         "Kommando nicht erkannt oder im falschen Zusammenhang.\n\n"
-        "Sende /hilfe um eine Übersicht zu allen verfügbaren Kommandos"
-        "zu bekommen. Sende alternativ /request um eine Anfrage"
+        "Sende /hilfe um eine Übersicht zu allen verfügbaren Kommandos "
+        "zu bekommen. Sende alternativ /request um eine Anfrage "
         "zu stellen."
     )
     log.warn(
-        f"received unrecognized command '{update.message.text}' from {who(update)}"
+        f"⚠️ received unrecognized command '{update.message.text}' from {who(update)}"
     )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -184,7 +187,6 @@ def inline(update: Update, context: CallbackContext) -> None:
 
 
 def register(update: Update, context: CallbackContext) -> None:
-    log.info(f"registering group association of user {who(update)}")
 
     name = " ".join(context.args)
     if name.upper() in map(str.upper, GROUPS_LIST):
@@ -207,7 +209,7 @@ def register(update: Update, context: CallbackContext) -> None:
             unregister(update, context)
         # provide all group options
         keyboard = [[InlineKeyboardButton(g, callback_data=g)] for g in GROUPS_LIST] + [
-            [InlineKeyboardButton("<Keine Gruppe>", callback_data="no group")]
+            [InlineKeyboardButton("❌ Abbrechen", callback_data="no group")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         # reply_markup = InlineKeyboardMarkup(GROUPS_LIST)
@@ -229,9 +231,7 @@ def register_group(update: Update, context: CallbackContext, group_name):
 
     association_msg(update, group_name)
     try:
-        update.message.reply_text(
-            f"Anmelden bei Gruppe [{group_name}] erfolgreich."
-        )
+        update.message.reply_text(f"Anmelden bei Gruppe [{group_name}] erfolgreich.")
     except AttributeError:
         context.bot.send_message(
             chat_id=update.callback_query.message.chat.id,
@@ -297,10 +297,9 @@ def details(update: Update, context: CallbackContext) -> None:
 
 
 def location(update: Update, context: CallbackContext) -> None:
-    user = update.message.from_user
     user_location = update.message.location
     lat, lon = user_location.latitude, user_location.longitude
-    log.info(f"Location of @{user.username}: {lat} / {lon}")
+    dev_msg(f"📍 Location of {who(update)}: {lat} / {lon}")
 
 
 def register_button(update: Update, context: CallbackContext) -> None:
@@ -319,12 +318,15 @@ def register_button(update: Update, context: CallbackContext) -> None:
     else:
         query.edit_message_text(text="Something went very wrong ...")
         dev_msg(
-            f"User Registration Query went wrong in chat with @{query.message.from_user.username}, data: {query.data}, message: {query.message.text}"
+            "⚪️ User Registration Query went wrong in chat with "
+            f"@{query.message.from_user.username} and {who(update)}, "
+            f"data: {query.data}, message: {query.message.text}"
         )
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
+
 
 def task_button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -353,7 +355,7 @@ def task_button(update: Update, context: CallbackContext) -> None:
 def feature(update: Update, context: CallbackContext) -> None:
     if context.args:
         msg = " ".join(context.args)
-        dev_msg(f"feature request von {who(update)}: " + msg)
+        dev_msg(f"⚪️ feature request von {who(update)}: " + msg)
         update.message.reply_text("Feature Request an Entwickler weitergeleitet.")
     else:
         update.message.reply_text("Benutzung des Kommandos ist '/feature <message>'")
@@ -362,7 +364,7 @@ def feature(update: Update, context: CallbackContext) -> None:
 def bug(update: Update, context: CallbackContext) -> None:
     if context.args:
         report = " ".join(context.args)
-        dev_msg(f"Bug report von {who(update)}: " + report)
+        dev_msg(f"⚪️ Bug report von {who(update)}: " + report)
         update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
     else:
         update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")
@@ -372,7 +374,7 @@ def bug(update: Update, context: CallbackContext) -> None:
 def reset(update: Update, context: CallbackContext) -> None:
     log.critical("resetting all bot context data.")
     context.bot_data.clear()
-    dev_msg("successfully cleared all context data.")
+    dev_msg("☑️ successfully cleared all context data.")
 
 
 @developer_command
@@ -385,7 +387,7 @@ def closeall(update: Update, context: CallbackContext) -> None:
     for uid in uids:
         close_uid(update, context, uid)
 
-    dev_msg("successfully closed all tickets.")
+    dev_msg("☑️ successfully closed all tickets.")
 
 
 @festko_command
@@ -396,10 +398,9 @@ def system_status(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_text(f"{context.user_data}")
 
-    message = (
-        f"<pre>update = {html.escape(json.dumps(context.bot_data, indent=2, ensure_ascii=False, cls=TicketEncoder))}"
-        "</pre>\n\n"
-    )
+    js = json.dumps(context.bot_data, indent=2, ensure_ascii=False, cls=TicketEncoder)
+
+    message = f"<pre>update = {html.escape(js)}</pre>\n\n"
 
     n = 4096 - 11  # for tags <pre></pre>
     if len(message) > n:

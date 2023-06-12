@@ -19,15 +19,15 @@ bot = telegram.Bot(token=token)
 # for u in bot.get_updates():
 #     bot.send_message(text="in progress", chat_id=u.message.from_user.id)
 
-from telegram.ext import Updater
+from telegram.ext import Updater  # noqa
 
 updater = Updater(token=token)
 dispatcher = updater.dispatcher
 
 
 # adding dispatcher to react to /start
-from telegram import Update
-from telegram.ext import CallbackContext
+from telegram import Update  # noqa
+from telegram.ext import CallbackContext  # noqa
 
 
 def start(update: Update, context: CallbackContext):
@@ -37,14 +37,14 @@ def start(update: Update, context: CallbackContext):
     )
 
 
-from telegram.ext import CommandHandler
+from telegram.ext import CommandHandler  # noqa
 
 start_handler = CommandHandler("start", start)
 dispatcher.add_handler(start_handler)
 
 
 # adding handler to echo all incoming messages
-from telegram.ext import MessageHandler, Filters
+from telegram.ext import MessageHandler, Filters  # noqa
 
 
 def echo(update: Update, context: CallbackContext):
@@ -65,7 +65,7 @@ caps_handler = CommandHandler("caps", caps)
 dispatcher.add_handler(caps_handler)
 
 # adding inline-handler for caps
-from telegram import InlineQueryResultArticle, InputTextMessageContent
+from telegram import InlineQueryResultArticle, InputTextMessageContent  # noqa
 
 
 def inline_caps(update: Update, context: CallbackContext):
@@ -83,7 +83,7 @@ def inline_caps(update: Update, context: CallbackContext):
     context.bot.answer_inline_query(update.inline_query.id, results)
 
 
-from telegram.ext import InlineQueryHandler
+from telegram.ext import InlineQueryHandler  # noqa
 
 inline_caps_handler = InlineQueryHandler(inline_caps)
 dispatcher.add_handler(inline_caps_handler)

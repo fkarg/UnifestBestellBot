@@ -1,12 +1,13 @@
 import json
 import logging
 
-log = logging.getLogger(__name__)
 
 from telegram import Update, Bot
 import telegram
 
 from telegram.ext import CallbackContext
+
+log = logging.getLogger(__name__)
 
 
 def set_log_level_format(logging_level, format):
@@ -42,7 +43,8 @@ def who(update: Update):
         chat = update.message.chat
     except AttributeError:
         chat = update.callback_query.message.chat
-    # username is 'guaranteed' to exist (might be None tho), but first_name and last_name aren't
+    # username is 'guaranteed' to exist (might be None tho),
+    # but first_name and last_name aren't
     first_name = str(chat.to_dict().get("first_name") or "")
     last_name = str(chat.to_dict().get("last_name") or "")
     return f"{first_name} {last_name} <@{chat.username}>"
@@ -84,8 +86,10 @@ def group_msg(
                 chat_id=chat_id,
                 text=message,
             )
-        except telegram.error.Unauthorized as e:
-            text = f"Unauthorized for sending message to {chat_id} from {context.user_data['group_association']} in list of {group}. Removing from list."
+        except telegram.error.Unauthorized:
+            text = f"⚠️ Unauthorized for sending message to {chat_id} from "
+            f"{context.user_data['group_association']} in list of {group}. "
+            "Removing from list."
             log.warn(text)
             dev_msg(text)
             context.dispatcher.user_data[chat_id].clear()

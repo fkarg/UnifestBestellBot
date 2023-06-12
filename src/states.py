@@ -1,26 +1,22 @@
 from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
-    Bot,
 )
 from telegram.ext import (
-    Updater,
-    CallbackContext,
-    CommandHandler,
-    MessageHandler,
-    Filters,
-    CallbackQueryHandler,
     CallbackContext,
     ConversationHandler,
 )
 
 
-from src.config import *
-from src.utils import channel_msg, dev_msg, orga_msg
-from src.commands import festko_command
+from src.config import (
+    MAPPING,
+    REQUEST_OPTIONS,
+    MONEY_OPTIONS,
+    CUP_OPTIONS,
+    AMOUNT_OPTIONS,
+)
+from src.utils import channel_msg
 from src.tickets import create_ticket
 
 import logging
@@ -50,7 +46,8 @@ def end(update: Update, context: CallbackContext) -> int:
 def reset_user(update: Update, context: CallbackContext) -> int:
     context.user_data.clear()
     update.message.reply_text(
-        "Lokale Benutzerdaten gelöscht, auch deine Gruppenmitgliedschaft. Du musst dich neu mit /register anmelden.",
+        "Lokale Benutzerdaten gelöscht, auch deine Gruppenmitgliedschaft. "
+        "Du musst dich neu mit /register anmelden.",
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -66,15 +63,16 @@ def cancel(update: Update, context: CallbackContext) -> int:
 def request(update: Update, context: CallbackContext) -> int:
     if context.user_data.get("open_ticket"):
         update.message.reply_text(
-            # "Your current request is still in progress. Please finish it or /cancel before opening the next one."
-            "Deine momentane Anfrage ist noch nicht abgeschlossen. Bitte beende diese zuerst oder sende /cancel um abzubrechen."
+            "Deine momentane Anfrage ist noch nicht abgeschlossen. "
+            "Bitte beende diese zuerst oder sende /cancel um abzubrechen."
         )
         return REQUEST
     else:
         context.user_data["open_ticket"] = True
     if not context.user_data.get("group_association"):
         update.message.reply_text(
-            "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
+            "Bitte registriere deine Gruppenmitgliedschaft mit /register "
+            "bevor du anfragen stellst."
         )
         return end(update, context)
     if context.user_data.get("group_association"):
@@ -82,12 +80,14 @@ def request(update: Update, context: CallbackContext) -> int:
         if not context.bot_data.get("group_association"):
             del context.user_data["group_association"]
             update.message.reply_text(
-                "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
+                "Bitte registriere deine Gruppenmitgliedschaft mit /register "
+                "bevor du anfragen stellst."
             )
             return end(update, context)
-        if not update.effective_chat.id in context.bot_data["group_association"][group]:
+        if update.effective_chat.id not in context.bot_data["group_association"][group]:
             update.message.reply_text(
-                "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."
+                "Bitte registriere deine Gruppenmitgliedschaft mit /register "
+                "bevor du anfragen stellst."
             )
             return end(update, context)
     update.message.reply_text(
@@ -189,9 +189,7 @@ def collect(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"🟠 OPEN #{uid}: {group} requested collection of money")
-    update.message.reply_text(
-        f"Ticket #{uid} zu Geldabholen erstellt."
-    )
+    update.message.reply_text(f"Ticket #{uid} zu Geldabholen erstellt.")
     return end(update, context)
 
 
@@ -199,14 +197,10 @@ def retrieval(update: Update, context: CallbackContext) -> int:
     # inactive
     group = context.user_data["group_association"]
     category = context.user_data["first_choice"]
-    uid = create_ticket(
-        update, context, group, "Dreckige Becher abholen.", category
-    )
+    uid = create_ticket(update, context, group, "Dreckige Becher abholen.", category)
 
     channel_msg(f"🟠 OPEN #{uid}: {group} requested retrieval of cups")
-    update.message.reply_text(
-        f"Ticket #{uid} zu Becherabholung erstellt."
-    )
+    update.message.reply_text(f"Ticket #{uid} zu Becherabholung erstellt.")
     return end(update, context)
 
 

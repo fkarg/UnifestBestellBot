@@ -15,7 +15,8 @@ def create_parser():
         "--verbose",
         action="count",
         default=0,
-        help="make logging output (more) verbose. Default (or 0) is ERROR, -v is WARN, -vv is INFO and -vvv is DEBUG. Can be passed multiple times.",
+        help="make logging output (more) verbose. Default (or 0) is ERROR, -v is WARN, "
+        "-vv is INFO and -vvv is DEBUG. Can be passed multiple times.",
     )
 
     return parser
