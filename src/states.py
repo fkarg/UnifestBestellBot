@@ -79,7 +79,7 @@ def request(update: Update, context: CallbackContext) -> int:
         return end(update, context)
     if context.user_data.get("group_association"):
         group = context.user_data.get("group_association")
-        if not context.bot_data("group_association"):
+        if not context.bot_data.get("group_association"):
             del context.user_data["group_association"]
             update.message.reply_text(
                 "Bitte registriere deine Gruppenmitgliedschaft mit /register bevor du anfragen stellst."

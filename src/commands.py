@@ -145,13 +145,6 @@ def help(update: Update, context: CallbackContext) -> None:
     Möglicherweise wird es umgesetzt.
 /help
     Zeige diese Hilfenachricht an.
-Allgemein:
-Eckige Klammern <> bei Kommandos (z.B.
-bei /bug <message>) zeigen an, dass
-nach /bug eine Nachricht folgen muss.
-In optionalen Fällen (z.b.
-/register [gruppenname]) wird das
-über [] angezeigt.
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,

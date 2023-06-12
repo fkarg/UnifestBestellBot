@@ -289,8 +289,7 @@ def tickets(update: Update, context: CallbackContext) -> None:
 
 @orga_command
 def help2(update: Update, context: CallbackContext) -> None:
-    message = """Zusätzlicher Hilfetext für [ORGA], WIP.
-Zusätzlich verfügbare Kommandos:
+    message = """Zusätzlich verfügbare Kommandos für [ORGA]:
 /all
     Zeige die Liste aller offenen tickets
     und deren <ticket-id>.
