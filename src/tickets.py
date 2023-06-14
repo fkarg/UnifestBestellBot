@@ -309,12 +309,17 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
 def all(update: Update, context: CallbackContext) -> None:
     # list all open tickets
     message = ""
-    for (uid, ticket) in context.bot_data["tickets"].items():
-        message += f"\n\n---\n{str(ticket)}"
 
-    if message:
-        message = "Liste aller offenen Tickets:" + message
-    else:
+    tickets_list = {orga_group: [] for orga_group in ORGA_GROUPS}
+    for ticket in context.bot_data["tickets"].values():
+        tickets_list[ticket.group_tasked].append(str(ticket))
+
+    for orga_group in ORGA_GROUPS:
+        if tickets := tickets_list[orga_group]:
+            message += f"\n\n\n🔷 Offene Tickets für [{orga_group}]:\n\n"
+            message += "\n\n".join(tickets)
+
+    if not message:
         message = "Momentan gibt es keine offenen Tickets."
 
     update.message.reply_text(
@@ -326,16 +331,14 @@ def all(update: Update, context: CallbackContext) -> None:
 @orga_command
 def tickets(update: Update, context: CallbackContext) -> None:
     # list open tickets to be done by [ORGA-GROUP]
-    group_tasked = context.user_data.get("group_association")
-    message = ""
-    for (uid, ticket) in context.bot_data["tickets"].items():
-        if ticket.group_tasked == group_tasked:
-            message += f"\n\n---\n{str(ticket)}"
+    user_group = context.user_data.get("group_association")
+
+    message = "\n\n".join(str(ticket) for ticket in context.bot_data["tickets"].values() if ticket.is_tasked(user_group))
 
     if message:
-        message = f"Liste der offenen Tickets für [{group_tasked}]:{message}"
+        message = f"Liste der offenen Tickets für [{user_group}]:\n\n{message}"
     else:
-        message = f"Momentan gibt es keine offenen Tickets für [{group_tasked}]."
+        message = f"Momentan gibt es keine offenen Tickets für [{user_group}]."
 
     update.message.reply_text(
         message,
