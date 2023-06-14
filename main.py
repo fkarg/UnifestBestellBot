@@ -62,11 +62,10 @@ def main(**kwargs):
     """Main function, setting up bot update->dispatcher->handler structure
 
     Relevant persistence structures:
-    user_data['group_association'] for Group
-    bot_data['orga'] for [chat_id] from Festko
+    user_data['group_association'] for group membership
     bot_data['group_association'] for dict Group -> [chat_id]
     bot_data['highest'] for int of next highest ticket id
-    bot_data['tickets'] for dict id -> (Group, message, is_wip: bool)
+    bot_data['tickets'] for dict id -> src.tickets.Ticket
     """
 
     persistence = PicklePersistence(filename="bot_persistence.cntx")
@@ -144,10 +143,10 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("status", status))
     # dispatcher.add_handler(CommandHandler("cancel", cancel))
 
-    # hidden commands (not in help)
-    dispatcher.add_handler(CommandHandler("location", location))
+    # hidden commands, potentially helpful for debugging problems (not in help)
+    # dispatcher.add_handler(CommandHandler("location", location))
+    # dispatcher.add_handler(CommandHandler("inline", inline))
     dispatcher.add_handler(CommandHandler("details", details))
-    dispatcher.add_handler(CommandHandler("inline", inline))
 
     # Orga commands
     dispatcher.add_handler(CommandHandler("help2", help2))
@@ -158,7 +157,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("close", close))
     dispatcher.add_handler(CommandHandler("wip", wip))
 
-    # Developer
+    # Developer commands
     dispatcher.add_handler(CommandHandler("resetall", reset))
     dispatcher.add_handler(CommandHandler("closeall", closeall))
 
@@ -166,9 +165,10 @@ def main(**kwargs):
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))
     dispatcher.add_error_handler(error_handler)
 
+    # Startup message
     channel_msg(f"🔘 Started from {socket.gethostname()}")
 
-    # begin action loop
+    # Begin action loop
     updater.start_polling()
     updater.idle()
 

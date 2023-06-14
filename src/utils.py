@@ -1,11 +1,12 @@
 import json
 import logging
 
-
-from telegram import Update, Bot
+from telegram import Update, Bot, ReplyKeyboardRemove, ReplyKeyboardMarkup
 import telegram
 
 from telegram.ext import CallbackContext
+
+from src.config import INITIAL_KEYBOARD, MAIN_KEYBOARD, ORGA_KEYBOARD, ORGA_GROUPS
 
 log = logging.getLogger(__name__)
 
@@ -22,13 +23,6 @@ def get_logging_level(args):
     if args.verbose >= 1:
         return logging.WARNING
     return logging.ERROR
-
-
-def load_json(filename):
-    from src.config import SECRETS_DIR
-
-    with open(SECRETS_DIR / filename, "r") as f:
-        return json.load(f)
 
 
 def save_json(data, filename):
@@ -105,3 +99,25 @@ def orga_msg(update: Update, context: CallbackContext, message: str) -> None:
 
     for group in ORGA_GROUPS:
         group_msg(update, context, group, message)
+
+
+initial_keyboard = ReplyKeyboardMarkup(
+    INITIAL_KEYBOARD, resize_keyboard=True, is_persistent=True
+)
+main_keyboard = ReplyKeyboardMarkup(
+    MAIN_KEYBOARD, resize_keyboard=True, is_persistent=True
+)
+orga_keyboard = ReplyKeyboardMarkup(
+    ORGA_KEYBOARD, resize_keyboard=True, is_persistent=True
+)
+
+
+def autoselect_keyboard(
+    update: Update, context: CallbackContext
+) -> ReplyKeyboardMarkup:
+    if group := context.user_data.get("group_association"):
+        if group in ORGA_GROUPS:
+            return orga_keyboard
+        return main_keyboard
+    else:
+        return initial_keyboard

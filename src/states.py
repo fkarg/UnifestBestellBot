@@ -16,7 +16,7 @@ from src.config import (
     CUP_OPTIONS,
     AMOUNT_OPTIONS,
 )
-from src.utils import channel_msg
+from src.utils import channel_msg, autoselect_keyboard
 from src.tickets import create_ticket
 
 import logging
@@ -48,14 +48,14 @@ def reset_user(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         "Lokale Benutzerdaten gelöscht, auch deine Gruppenmitgliedschaft. "
         "Du musst dich neu mit /register anmelden.",
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=autoselect_keyboard(update, context),
     )
 
 
 def cancel(update: Update, context: CallbackContext) -> int:
     """Cancels and ends the conversation."""
     update.message.reply_text(
-        "Anfrage abgebrochen.", reply_markup=ReplyKeyboardRemove()
+        "Anfrage abgebrochen.", reply_markup=autoselect_keyboard(update, context)
     )
     return end(update, context)
 
@@ -72,7 +72,8 @@ def request(update: Update, context: CallbackContext) -> int:
     if not context.user_data.get("group_association"):
         update.message.reply_text(
             "Bitte registriere deine Gruppenmitgliedschaft mit /register "
-            "bevor du anfragen stellst."
+            "bevor du anfragen stellst.",
+            reply_markup=autoselect_keyboard(update, context),
         )
         return end(update, context)
     if context.user_data.get("group_association"):
@@ -81,13 +82,15 @@ def request(update: Update, context: CallbackContext) -> int:
             del context.user_data["group_association"]
             update.message.reply_text(
                 "Bitte registriere deine Gruppenmitgliedschaft mit /register "
-                "bevor du anfragen stellst."
+                "bevor du anfragen stellst.",
+                reply_markup=autoselect_keyboard(update, context),
             )
             return end(update, context)
         if update.effective_chat.id not in context.bot_data["group_association"][group]:
             update.message.reply_text(
                 "Bitte registriere deine Gruppenmitgliedschaft mit /register "
-                "bevor du anfragen stellst."
+                "bevor du anfragen stellst.",
+                reply_markup=autoselect_keyboard(update, context),
             )
             return end(update, context)
     update.message.reply_text(
@@ -151,11 +154,6 @@ def ask_amount(update: Update, context: CallbackContext) -> int:
 
 
 def amount(update: Update, context: CallbackContext) -> int:
-    # try:
-    #     amount = int(update.message.text)
-    # except ValueError:
-    #     update.message.reply_text("Please enter a valid number.")
-    #     return AMOUNT
     amount = update.message.text
     group = context.user_data["group_association"]
     location = MAPPING[group]
@@ -172,7 +170,7 @@ def amount(update: Update, context: CallbackContext) -> int:
 
     channel_msg(f"🟠 OPEN #{uid}: {text}")
     update.message.reply_text(
-        f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
+        f"Ticket #{uid} erstellt.", reply_markup=autoselect_keyboard(update, context)
     )
     return end(update, context)
 
@@ -189,7 +187,10 @@ def collect(update: Update, context: CallbackContext) -> int:
     )
 
     channel_msg(f"🟠 OPEN #{uid}: {group} requested collection of money")
-    update.message.reply_text(f"Ticket #{uid} zu Geldabholen erstellt.")
+    update.message.reply_text(
+        f"Ticket #{uid} zu Geldabholen erstellt.",
+        reply_markup=autoselect_keyboard(update, context),
+    )
     return end(update, context)
 
 
@@ -200,7 +201,10 @@ def retrieval(update: Update, context: CallbackContext) -> int:
     uid = create_ticket(update, context, group, "Dreckige Becher abholen.", category)
 
     channel_msg(f"🟠 OPEN #{uid}: {group} requested retrieval of cups")
-    update.message.reply_text(f"Ticket #{uid} zu Becherabholung erstellt.")
+    update.message.reply_text(
+        f"Ticket #{uid} zu Becherabholung erstellt.",
+        reply_markup=autoselect_keyboard(update, context),
+    )
     return end(update, context)
 
 
@@ -219,7 +223,8 @@ def sammeln(update: Update, context: CallbackContext) -> int:
 
     channel_msg(f"🟠 OPEN #{uid}: {text}")
     update.message.reply_text(
-        f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
+        f"Ticket #{uid} erstellt.",
+        reply_markup=autoselect_keyboard(update, context),
     )
     return end(update, context)
 
@@ -241,7 +246,8 @@ def free(update: Update, context: CallbackContext) -> int:
 
     channel_msg(f"🟠 OPEN #{uid}: {text}")
     update.message.reply_text(
-        f"Ticket #{uid} erstellt.", reply_markup=ReplyKeyboardRemove()
+        f"Ticket #{uid} erstellt.",
+        reply_markup=autoselect_keyboard(update, context),
     )
     #     reply_markup=InlineKeyboardMarkup(
     #         [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],

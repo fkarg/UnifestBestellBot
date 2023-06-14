@@ -6,7 +6,7 @@ import logging
 import json
 
 from src.config import GROUPS_LIST, ORGA_GROUPS, DEVELOPER_CHAT_ID
-from src.utils import who, dev_msg, channel_msg
+from src.utils import who, dev_msg, channel_msg, autoselect_keyboard
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ def developer_command(func):
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
+            reply_markup=autoselect_keyboard(update, context),
         )
 
     return wrapper
@@ -43,6 +44,7 @@ def festko_command(func):
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
+                reply_markup=autoselect_keyboard(update, context),
             )
 
     return wrapper
@@ -101,15 +103,17 @@ def error_handler(update: object, context: CallbackContext) -> None:
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    message = "Hi, Ich bin der UnifestBestellBot. Über mich können Stände "
-    "Nachschub bestellen, insbesondere Kleingeld, Becher, Bier, und "
-    "Cocktailmaterialien. Als erstes solltest du deine Gruppenmitgliedschaft mit "
-    "/register festlegen, um anschließend mit /request eine Anfrage stellen zu "
-    "können. Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help "
-    "sehen."
+    message = (
+        "Hi, Ich bin der UnifestBestellBot. Über mich können Stände Nachschub "
+        "bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien."
+        " Als erstes solltest du deine Gruppenmitgliedschaft mit /register "
+        "festlegen, um anschließend mit /request eine Anfrage stellen zu können. "
+        "Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help sehen."
+    )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
+        reply_markup=autoselect_keyboard(update, context),
     )
 
 
@@ -152,6 +156,7 @@ def help(update: Update, context: CallbackContext) -> None:
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
+        reply_markup=autoselect_keyboard(update, context),
     )
 
 
@@ -168,6 +173,7 @@ def unknown(update: Update, context: CallbackContext) -> None:
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
+        reply_markup=autoselect_keyboard(update, context),
     )
 
 
@@ -236,6 +242,7 @@ def register_group(update: Update, context: CallbackContext, group_name):
         context.bot.send_message(
             chat_id=update.callback_query.message.chat.id,
             text=f"Anmelden bei Gruppe [{group_name}] erfolgreich.",
+            reply_markup=autoselect_keyboard(update, context),
         )
 
 
@@ -252,6 +259,7 @@ def unregister(update: Update, context: CallbackContext) -> None:
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
+        reply_markup=autoselect_keyboard(update, context),
     )
 
 
@@ -271,7 +279,10 @@ def status(update: Update, context: CallbackContext) -> None:
     if group:
         update.message.reply_text(f"Mitglied der Gruppe [{group}].")
     else:
-        update.message.reply_text("Keine Gruppenmitgliedschaft.")
+        update.message.reply_text(
+            "Keine Gruppenmitgliedschaft.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
     open_tickets = []
     for (uid, ticket) in context.bot_data.get("tickets", {}).items():
         if ticket.group_requesting == group:
@@ -280,21 +291,21 @@ def status(update: Update, context: CallbackContext) -> None:
     if open_tickets:
         update.message.reply_text(
             f"{group} hat {len(open_tickets)} ticket offen:\n\n"
-            + "\n\n---\n".join(open_tickets)
+            + "\n\n---\n".join(open_tickets),
+            reply_markup=autoselect_keyboard(update, context),
         )
     elif group:
-        update.message.reply_text("Deine Gruppe hat gerade keine offenen Tickets.")
+        update.message.reply_text(
+            "Deine Gruppe hat gerade keine offenen Tickets.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
 
 
 def details(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(f"{context.user_data}")
-
-    # chat_id = update.effective_chat.id
-    # context.bot.send_message(
-    #     chat_id=chat_id,
-    #     text=f"Registered as member of Group: {group_name}",
-    # )
-
+    update.message.reply_text(
+        f"{context.user_data}",
+        reply_markup=autoselect_keyboard(update, context),
+    )
 
 def location(update: Update, context: CallbackContext) -> None:
     user_location = update.message.location
@@ -356,18 +367,30 @@ def feature(update: Update, context: CallbackContext) -> None:
     if context.args:
         msg = " ".join(context.args)
         dev_msg(f"⚪️ feature request von {who(update)}: " + msg)
-        update.message.reply_text("Feature Request an Entwickler weitergeleitet.")
+        update.message.reply_text(
+            "Feature Request an Entwickler weitergeleitet.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
     else:
-        update.message.reply_text("Benutzung des Kommandos ist '/feature <message>'")
+        update.message.reply_text(
+            "Benutzung des Kommandos ist '/feature <message>'",
+            reply_markup=autoselect_keyboard(update, context),
+        )
 
 
 def bug(update: Update, context: CallbackContext) -> None:
     if context.args:
         report = " ".join(context.args)
         dev_msg(f"⚪️ Bug report von {who(update)}: " + report)
-        update.message.reply_text("Fehlerbericht an Entwickler weitergeleitet.")
+        update.message.reply_text(
+            "Fehlerbericht an Entwickler weitergeleitet.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
     else:
-        update.message.reply_text("Benutzung des Kommandos ist '/bug <message>'")
+        update.message.reply_text(
+            "Benutzung des Kommandos ist '/bug <message>'",
+            reply_markup=autoselect_keyboard(update, context),
+        )
 
 
 @developer_command

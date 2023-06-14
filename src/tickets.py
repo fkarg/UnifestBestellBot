@@ -4,7 +4,7 @@ from telegram.ext import (
 )
 
 from src.config import ORGA_GROUPS
-from src.utils import who, dev_msg, channel_msg, group_msg
+from src.utils import who, dev_msg, channel_msg, group_msg, autoselect_keyboard
 
 from enum import Enum
 import logging
@@ -134,13 +134,6 @@ def create_ticket(
 
     add_ticket(context, ticket)
 
-    # keyboard = [
-    #     [InlineKeyboardButton("Update", callback_data=f"update #{uid}")],
-    #     [InlineKeyboardButton("Working on it", callback_data=f"wip #{uid}")],
-    #     [InlineKeyboardButton("Close", callback_data=f"close #{uid}")],
-    # ]
-    # reply_markup = InlineKeyboardMarkup(keyboard)
-
     for chat_id in context.bot_data["group_association"][group_requesting]:
         if chat_id == update.effective_chat.id:
             # don't send back to original requester
@@ -148,6 +141,7 @@ def create_ticket(
         context.bot.send_message(
             chat_id=chat_id,
             text=f"{who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.",
+            reply_markup=autoselect_keyboard(update, context),
         )
     return ticket.uid
 
@@ -165,6 +159,7 @@ def orga_command(func):
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
+                reply_markup=autoselect_keyboard(update, context),
             )
 
     return wrapper
@@ -191,7 +186,10 @@ def close(update: Update, context: CallbackContext) -> None:
             keyboard_markup = InlineKeyboardMarkup(keyboard)
             update.message.reply_text("WIP Tickets:", reply_markup=keyboard_markup)
         else:
-            update.message.reply_text(f"Keine Tickets WIP von [{group_tasked}].")
+            update.message.reply_text(
+                f"Keine Tickets WIP von [{group_tasked}].",
+                reply_markup=autoselect_keyboard(update, context),
+            )
 
 
 def close_uid(update: Update, context: CallbackContext, uid) -> None:
@@ -224,12 +222,16 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
         )
         try:
             update.message.reply_text(
-                f"Ticket #{uid} ist jetzt {str(TicketStatus.CLOSED)}."
+                f"Ticket #{uid} ist jetzt {str(TicketStatus.CLOSED)}.",
+                reply_markup=autoselect_keyboard(update, context),
             )
         except AttributeError:
             pass
     else:
-        update.message.reply_text(f"Es gibt kein WIP Ticket #{uid}.")
+        update.message.reply_text(
+            f"Es gibt kein WIP Ticket #{uid}.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
 
 
 @orga_command
@@ -254,14 +256,20 @@ def wip(update: Update, context: CallbackContext) -> None:
             keyboard_markup = InlineKeyboardMarkup(keyboard)
             update.message.reply_text("Offene Tickets:", reply_markup=keyboard_markup)
         else:
-            update.message.reply_text(f"Keine offenen Tickets für [{group_tasked}].")
+            update.message.reply_text(
+                f"Keine offenen Tickets für [{group_tasked}].",
+                reply_markup=autoselect_keyboard(update, context),
+            )
 
 
 def wip_uid(update: Update, context: CallbackContext, uid: int):
     if ticket := context.bot_data["tickets"].get(uid):
         if ticket.is_wip():
             # someone is already working on it.
-            update.message.reply_text("Jemand arbeitet bereits daran.")
+            update.message.reply_text(
+                "Jemand arbeitet bereits daran.",
+                reply_markup=autoselect_keyboard(update, context),
+            )
         else:
             ticket.set_wip()
             add_ticket(context, ticket)
@@ -285,12 +293,16 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
             )
             try:
                 update.message.reply_text(
-                    f"Ticket #{uid} ist jetzt {str(TicketStatus.WIP)}."
+                    f"Ticket #{uid} ist jetzt {str(TicketStatus.WIP)}.",
+                    reply_markup=autoselect_keyboard(update, context),
                 )
             except AttributeError:
                 pass
     else:
-        update.message.reply_text(f"Es gibt kein offenes Ticket #{uid}.")
+        update.message.reply_text(
+            f"Es gibt kein offenes Ticket #{uid}.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
 
 
 @orga_command
@@ -305,7 +317,10 @@ def all(update: Update, context: CallbackContext) -> None:
     else:
         message = "Momentan gibt es keine offenen Tickets."
 
-    update.message.reply_text(message)
+    update.message.reply_text(
+        message,
+        reply_markup=autoselect_keyboard(update, context),
+    )
 
 
 @orga_command
@@ -322,7 +337,10 @@ def tickets(update: Update, context: CallbackContext) -> None:
     else:
         message = f"Momentan gibt es keine offenen Tickets für [{group_tasked}]."
 
-    update.message.reply_text(message)
+    update.message.reply_text(
+        message,
+        reply_markup=autoselect_keyboard(update, context),
+    )
 
 
 @orga_command
@@ -356,6 +374,7 @@ def help2(update: Update, context: CallbackContext) -> None:
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
+        reply_markup=autoselect_keyboard(update, context),
     )
 
 
@@ -364,7 +383,8 @@ def message(update: Update, context: CallbackContext) -> None:
 
     if len(context.args) < 2:
         update.message.reply_text(
-            "Benutzung des Kommandos ist /message <ticket-id> <nachricht>"
+            "Benutzung des Kommandos ist /message <ticket-id> <nachricht>",
+            reply_markup=autoselect_keyboard(update, context),
         )
         return
     try:
@@ -376,10 +396,14 @@ def message(update: Update, context: CallbackContext) -> None:
         )
         group_msg(update, context, ticket.group_requesting, message)
         channel_msg(f"🟣 Nachricht an {ticket.group_requesting}: {message}")
-        update.message.reply_text("Nachricht verschickt.")
+        update.message.reply_text(
+            "Nachricht verschickt.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
     except (ValueError, IndexError):
         update.message.reply_text(
             "Stelle sicher, dass <ticket-id> eine valide Zahl von "
-            "einem offenen Ticket ist."
+            "einem offenen Ticket ist.",
+            reply_markup=autoselect_keyboard(update, context),
         )
         return

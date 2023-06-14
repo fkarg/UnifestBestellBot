@@ -1,12 +1,16 @@
 from pathlib import Path
-from src.utils import load_json
+import json
 
 
-# LOGGING_FORMAT= "{asctime} [{funcName}]: {message}"
 LOGGING_FORMAT = "%(asctime)s [%(funcName)s]: %(message)s"
 
 ROOT = Path(".")
 SECRETS_DIR = ROOT / "unifest-secrets"
+
+
+def load_json(filename):
+    with open(SECRETS_DIR / filename, "r") as f:
+        return json.load(f)
 
 
 TOKEN = load_json("token.json")  # str
@@ -14,17 +18,18 @@ GROUPS_LIST = load_json("groups.json")  # [str]
 MAPPING = load_json("mapping.json")  # dict: str -> str
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
+ORGA_GROUPS = load_json("orga.json")  # [str]
 
-ORGA_GROUPS = ["Zentrale", "Finanz", "BiMi", "Catering", "Debug"]
-
-# options for state machine. You still need to manually adapt regex and functions too.
-REQUEST_OPTIONS = [["Becher", "Geld"], ["Bier", "Cocktail", "Sonstiges"]]
+# options for state machine. You still need to manually adapt regex and
+# functions too.
+REQUEST_OPTIONS = [["Becher", "Geld", "/cancel"], ["Bier", "Cocktail", "Sonstiges"]]
 MONEY_OPTIONS = [
-    ["Geld Abholen"],
+    ["Geld Abholen", "/cancel"],
     ["Wechselgeld: Münzen", "Wechselgeld: Scheine"],
-    # ["2€ Münzen", "1€ Münzen", "50ct Münzen"],
-    # ["20€ Scheine", "10€ Scheine", "5€ Scheine"],
 ]
-CUP_OPTIONS = [["Dreckige Abholen"], ["Shotbecher", "Normale Becher"]]
-# AMOUNT_OPTIONS = [["0", "<=10", ">10"]]
-AMOUNT_OPTIONS = [["0", "~10", "~20", "~50"]]
+CUP_OPTIONS = [["Dreckige Abholen", "/cancel"], ["Shotbecher", "Normale Becher"]]
+AMOUNT_OPTIONS = [["0", "/cancel"], ["~10", "~20", "~50"]]
+
+INITIAL_KEYBOARD = [["/help", "/register"]]
+MAIN_KEYBOARD = [["/help", "/status"], ["/request"]]
+ORGA_KEYBOARD = [["/help", "/help2", "/all"], ["/tickets", "/wip", "/close"]]
