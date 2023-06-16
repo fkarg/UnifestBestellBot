@@ -197,7 +197,7 @@ def inline(update: Update, context: CallbackContext) -> None:
 def register(update: Update, context: CallbackContext) -> None:
 
     name = " ".join(context.args)
-    if name.upper() in map(str.upper, GROUPS_LIST):
+    if name and name.upper() in map(str.upper, GROUPS_LIST):
         if context.user_data.get("group_association"):
             unregister(update, context)
         name_actual = GROUPS_LIST[list(map(str.upper, GROUPS_LIST)).index(name.upper())]
@@ -205,7 +205,7 @@ def register(update: Update, context: CallbackContext) -> None:
 
     elif name and name == "no group":
         unregister(update, context)
-    elif name and name in ORGA_GROUPS:
+    elif name and name.upper() in map(str.upper, ORGA_GROUPS):
         if context.user_data.get("group_association"):
             unregister(update, context)
         register_group(update, context, name)
