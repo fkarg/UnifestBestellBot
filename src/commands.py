@@ -18,8 +18,9 @@ def developer_command(func):
             message = "Successfully executed command."
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
+            group = context.user_data.get("group_association")
             dev_msg(
-                f"⚠️ {who(update)} tried to execute a command for [Developer]: "
+                f"⚠️ {who(update)} [{group}] tried to execute a command for [Developer]: "
                 f"{update.message.text}"
             )
         context.bot.send_message(
@@ -37,8 +38,9 @@ def festko_command(func):
             func(update, context)
         else:
             message = "Du bist nicht zur ausführung dieses Kommandos berechtigt."
+            group = context.user_data.get("group_association")
             dev_msg(
-                f"⚠️ {who(update)} tried to execute a command for [Zentrale]: "
+                f"⚠️ {who(update)} [{group}] tried to execute a command for [Zentrale]: "
                 f"{update.message.text}"
             )
             context.bot.send_message(

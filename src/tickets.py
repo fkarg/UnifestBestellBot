@@ -152,8 +152,9 @@ def orga_command(func):
             func(update, context)
         else:
             message = "You are not authorized to execute this command."
+            group = context.user_data.get("group_association")
             dev_msg(
-                f"⚠️ {who(update)} tried to execute a command for [ORGA]: "
+                f"⚠️ {who(update)}  [{group}] tried to execute a command for [ORGA]: "
                 f"{update.message.text}"
             )
             context.bot.send_message(
