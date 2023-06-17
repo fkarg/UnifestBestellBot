@@ -1,5 +1,6 @@
 # UnifestBestellBot
-Telegram Bot to order drinks for stalls at the unifest
+Telegram bot for stalls to order supplies such as drinks, cups or change at the unifest
+
 
 ## Usage
 Package management is done via poetry, so we need:
