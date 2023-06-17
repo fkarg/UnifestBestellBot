@@ -29,7 +29,7 @@ but also the bot token, and ids for a managed channel or to notify the
 developer.
 
 ## Demo
-     |     |
+image1 | image2 | image3
 :---:|:---:|:---:
 ![](imgs/start.jpg)  |  ![](imgs/registration1.jpg) | ![](imgs/registration2.jpg)
 ![](imgs/status1.jpg) | ![](imgs/other-2.jpg) | ![](imgs/work2.jpg)
