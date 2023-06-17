@@ -212,7 +212,8 @@ def register(update: Update, context: CallbackContext) -> None:
     elif name and name.upper() in map(str.upper, ORGA_GROUPS):
         if context.user_data.get("group_association"):
             unregister(update, context)
-        register_group(update, context, name)
+        name_actual = ORGA_GROUPS[list(map(str.upper, ORGA_GROUPS)).index(name.upper())]
+        register_group(update, context, name_actual)
         from src.tickets import help2
 
         help2(update, context)
@@ -245,7 +246,10 @@ def register_group(update: Update, context: CallbackContext, group_name):
 
     association_msg(update, group_name)
     try:
-        update.message.reply_text(f"Anmelden bei Gruppe [{group_name}] erfolgreich.")
+        update.message.reply_text(
+            text=f"Anmelden bei Gruppe [{group_name}] erfolgreich.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
     except AttributeError:
         context.bot.send_message(
             chat_id=update.callback_query.message.chat.id,
@@ -298,7 +302,7 @@ def status(update: Update, context: CallbackContext) -> None:
 
     if open_tickets:
         update.message.reply_text(
-            f"{group} hat {len(open_tickets)} ticket offen:\n\n"
+            f"{group} hat {len(open_tickets)} Ticket offen:\n\n"
             + "\n\n---\n".join(open_tickets),
             reply_markup=autoselect_keyboard(update, context),
         )

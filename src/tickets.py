@@ -290,7 +290,8 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 update,
                 context,
                 ticket.group_requesting,
-                f"Euer Ticket #{uid} wurde angefangen zu bearbeiten.",
+                f"{str(TicketStatus.WIP)}: Euer Ticket #{uid} wurde angefangen "
+                "zu bearbeiten.",
             )
             try:
                 update.message.reply_text(
