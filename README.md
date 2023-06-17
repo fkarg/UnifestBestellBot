@@ -27,3 +27,11 @@ see configuration options in `lib/config.py`.
 What you absolutely need is a directory for secrets, e.g. the list of groups,
 but also the bot token, and ids for a managed channel or to notify the
 developer.
+
+## Demo
+     |     |
+:---:|:---:|:---:
+![](imgs/start.jpg)  |  ![](imgs/registration1.jpg) | ![](imgs/registration2.jpg)
+![](imgs/status1.jpg) | ![](imgs/other-2.jpg) | ![](imgs/work2.jpg)
+![](imgs/close1.jpg) | ![](imgs/close2.jpg) | ![](imgs/all.jpg)
+
