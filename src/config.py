@@ -19,6 +19,7 @@ MAPPING = load_json("mapping.json")  # dict: str -> str
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 ORGA_GROUPS = load_json("orga.json")  # [str]
+HIDDEN_GROUPS = load_json("hidden.json")  # [str]
 
 # options for state machine. You still need to manually adapt regex and
 # functions too.

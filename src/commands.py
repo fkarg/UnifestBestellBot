@@ -5,7 +5,7 @@ from telegram.ext import CallbackContext
 import logging
 import json
 
-from src.config import GROUPS_LIST, ORGA_GROUPS, DEVELOPER_CHAT_ID
+from src.config import GROUPS_LIST, ORGA_GROUPS, HIDDEN_GROUPS, DEVELOPER_CHAT_ID
 from src.utils import who, dev_msg, channel_msg, autoselect_keyboard
 
 log = logging.getLogger(__name__)
@@ -203,8 +203,12 @@ def register(update: Update, context: CallbackContext) -> None:
         name_actual = GROUPS_LIST[list(map(str.upper, GROUPS_LIST)).index(name.upper())]
         register_group(update, context, name_actual)
 
-    elif name and name == "no group":
-        unregister(update, context)
+    elif name and name.upper() in map(str.upper, HIDDEN_GROUPS):
+        if context.user_data.get("group_association"):
+            unregister(update, context)
+        name_actual = HIDDEN_GROUPS[list(map(str.upper, HIDDEN_GROUPS)).index(name.upper())]
+        register_group(update, context, name_actual)
+
     elif name and name.upper() in map(str.upper, ORGA_GROUPS):
         if context.user_data.get("group_association"):
             unregister(update, context)
@@ -212,6 +216,8 @@ def register(update: Update, context: CallbackContext) -> None:
         from src.tickets import help2
 
         help2(update, context)
+    elif name and name == "no group":
+        unregister(update, context)
     else:
         if context.user_data.get("group_association"):
             unregister(update, context)
