@@ -1,4 +1,4 @@
-# UnifestBestellBot
+# @UnifestBestellBot
 Telegram bot for stalls to order supplies such as drinks, cups or change at the unifest
 
 

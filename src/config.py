@@ -21,6 +21,8 @@ DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 ORGA_GROUPS = load_json("orga.json")  # [str]
 HIDDEN_GROUPS = load_json("hidden.json")  # [str]
 
+ALL_GROUPS = GROUPS_LIST + ORGA_GROUPS + HIDDEN_GROUPS
+
 # options for state machine. You still need to manually adapt regex and
 # functions too.
 REQUEST_OPTIONS = [["Becher", "Geld", "/cancel"], ["Bier", "Cocktail", "Sonstiges"]]

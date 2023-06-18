@@ -34,6 +34,8 @@ log = logging.getLogger(__name__)
 
 
 def end(update: Update, context: CallbackContext) -> int:
+    """ End conversation interaction
+    """
     try:
         context.user_data["open_ticket"] = False
         del context.user_data["first_choice"]
@@ -44,6 +46,8 @@ def end(update: Update, context: CallbackContext) -> int:
 
 
 def reset_user(update: Update, context: CallbackContext) -> int:
+    """ Reset local user data. Useful for debugging purposes.
+    """
     context.user_data.clear()
     update.message.reply_text(
         "Lokale Benutzerdaten gelöscht, auch deine Gruppenmitgliedschaft. "
@@ -53,7 +57,7 @@ def reset_user(update: Update, context: CallbackContext) -> int:
 
 
 def cancel(update: Update, context: CallbackContext) -> int:
-    """Cancels and ends the conversation."""
+    """Cancels and ends the conversation to create a ticket."""
     update.message.reply_text(
         "Anfrage abgebrochen.", reply_markup=autoselect_keyboard(update, context)
     )
@@ -61,6 +65,8 @@ def cancel(update: Update, context: CallbackContext) -> int:
 
 
 def request(update: Update, context: CallbackContext) -> int:
+    """ Begin conversation to open a ticket.
+    """
     if context.user_data.get("open_ticket"):
         update.message.reply_text(
             "Deine momentane Anfrage ist noch nicht abgeschlossen. "
@@ -68,8 +74,12 @@ def request(update: Update, context: CallbackContext) -> int:
         )
         return REQUEST
     else:
+        # user is trying to open a ticket. will be set to False with `end`
+        # in case of failure, success, or cancellation.
         context.user_data["open_ticket"] = True
+
     if not context.user_data.get("group_association"):
+        # user is not member of any group.
         update.message.reply_text(
             "Bitte registriere deine Gruppenmitgliedschaft mit /register "
             "bevor du anfragen stellst.",
@@ -79,6 +89,7 @@ def request(update: Update, context: CallbackContext) -> int:
     if context.user_data.get("group_association"):
         group = context.user_data.get("group_association")
         if not context.bot_data.get("group_association"):
+            # user used to be member of a group, but bot data got reset.
             del context.user_data["group_association"]
             update.message.reply_text(
                 "Bitte registriere deine Gruppenmitgliedschaft mit /register "
@@ -86,7 +97,9 @@ def request(update: Update, context: CallbackContext) -> int:
                 reply_markup=autoselect_keyboard(update, context),
             )
             return end(update, context)
-        if update.effective_chat.id not in context.bot_data["group_association"][group]:
+        if update.effective_chat.id not in context.bot_data["group_association"].get(group):
+            # user used to be member of a group, but bot data got reset.
+            del context.user_data["group_association"]
             update.message.reply_text(
                 "Bitte registriere deine Gruppenmitgliedschaft mit /register "
                 "bevor du anfragen stellst.",
@@ -126,11 +139,6 @@ def cups(update: Update, context: CallbackContext) -> int:
         ),
     )
     return CUPS
-
-
-def change(update: Update, context: CallbackContext) -> int:
-    # requires change in either Coins or Bills, without further specification
-    pass
 
 
 def free_next(update: Update, context: CallbackContext) -> int:
@@ -176,39 +184,8 @@ def amount(update: Update, context: CallbackContext) -> int:
 
 
 def collect(update: Update, context: CallbackContext) -> int:
-    # inactive
-    context.user_data["second_choice"] = update.message.text
-    group = context.user_data["group_association"]
-    uid = create_ticket(
-        update,
-        context,
-        group,
-        "Send someone to collect money.",
-    )
-
-    channel_msg(f"🟠 OPEN #{uid}: {group} requested collection of money")
-    update.message.reply_text(
-        f"Ticket #{uid} zu Geldabholen erstellt.",
-        reply_markup=autoselect_keyboard(update, context),
-    )
-    return end(update, context)
-
-
-def retrieval(update: Update, context: CallbackContext) -> int:
-    # inactive
-    group = context.user_data["group_association"]
-    category = context.user_data["first_choice"]
-    uid = create_ticket(update, context, group, "Dreckige Becher abholen.", category)
-
-    channel_msg(f"🟠 OPEN #{uid}: {group} requested retrieval of cups")
-    update.message.reply_text(
-        f"Ticket #{uid} zu Becherabholung erstellt.",
-        reply_markup=autoselect_keyboard(update, context),
-    )
-    return end(update, context)
-
-
-def sammeln(update: Update, context: CallbackContext) -> int:
+    """ Collection of either Money or Cups.
+    """
     category = context.user_data["first_choice"]
     group = context.user_data["group_association"]
     location = MAPPING[group]
@@ -230,7 +207,10 @@ def sammeln(update: Update, context: CallbackContext) -> int:
 
 
 def free(update: Update, context: CallbackContext) -> int:
-    """free text field"""
+    """Free text field for a number of use cases.
+    Specifically, for category `Sonstiges`, as well as to
+    specify what is missing in case of Beer and Cocktail.
+    """
     # for beer and cocktail, and other requests
     group = context.user_data["group_association"]
     category = context.user_data["first_choice"]
@@ -249,8 +229,4 @@ def free(update: Update, context: CallbackContext) -> int:
         f"Ticket #{uid} erstellt.",
         reply_markup=autoselect_keyboard(update, context),
     )
-    #     reply_markup=InlineKeyboardMarkup(
-    #         [[InlineKeyboardButton("Update", callback_data=f"update #{uid}")]],
-    #     ),
-    # )
     return end(update, context)

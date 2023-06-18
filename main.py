@@ -21,17 +21,15 @@ from src.commands import (
     start,
     help,
     unknown,
-    inline,
     register,
     unregister,
     status,
     details,
-    location,
     register_button,
     task_button,
     feature,
     bug,
-    reset,
+    resetall,
     closeall,
     system_status,
 )
@@ -44,7 +42,7 @@ from src.states import (
     free_next,
     ask_amount,
     amount,
-    sammeln,
+    collect,
     free,
     REQUEST,
     MONEY,
@@ -55,6 +53,7 @@ from src.states import (
 from src.tickets import close, wip, all, tickets, help2, message
 from src.parser import create_parser
 
+# activate tracebacks with `rich` formatting support
 install(show_locals=True)
 
 
@@ -68,6 +67,7 @@ def main(**kwargs):
     bot_data['tickets'] for dict id -> src.tickets.Ticket
     """
 
+    # configure persistance
     persistence = PicklePersistence(filename="bot_persistence.cntx")
     updater = Updater(token=TOKEN, persistence=persistence)
     dispatcher = updater.dispatcher
@@ -93,7 +93,7 @@ def main(**kwargs):
                     CommandHandler("cancel", cancel),
                 ],
                 MONEY: [
-                    MessageHandler(Filters.regex("^Geld Abholen$"), sammeln),
+                    MessageHandler(Filters.regex("^Geld Abholen$"), collect),
                     MessageHandler(Filters.regex("^(2€|1€|50ct) Münzen$"), ask_amount),
                     MessageHandler(Filters.regex("^(5|10|20)€ Scheine$"), ask_amount),
                     MessageHandler(
@@ -106,7 +106,7 @@ def main(**kwargs):
                         Filters.regex("^(Shotbecher|Normale Becher)$"), ask_amount
                     ),
                     MessageHandler(Filters.regex("^Normale Becher$"), ask_amount),
-                    MessageHandler(Filters.regex("^Dreckige Abholen$"), sammeln),
+                    MessageHandler(Filters.regex("^Dreckige Abholen$"), collect),
                     CommandHandler("cancel", cancel),
                 ],
                 # and three options with free text fields
@@ -124,31 +124,29 @@ def main(**kwargs):
             },
             fallbacks=[
                 CommandHandler("cancel", cancel),
-                # CommandHandler("abbruch", cancel),
             ],
             name="ticket_requests",
             persistent=True,
         )
     )
 
-    # regular commands
+    # regular commands for users
     dispatcher.add_handler(CommandHandler("register", register))
     dispatcher.add_handler(CommandHandler("unregister", unregister))
-    dispatcher.add_handler(CommandHandler("reset", reset_user))
 
     dispatcher.add_handler(CommandHandler("request", request))
     dispatcher.add_handler(CommandHandler("bug", bug))
     dispatcher.add_handler(CommandHandler("feature", feature))
     dispatcher.add_handler(CommandHandler("help", help))
     dispatcher.add_handler(CommandHandler("status", status))
-    # dispatcher.add_handler(CommandHandler("cancel", cancel))
 
-    # hidden commands, potentially helpful for debugging problems (not in help)
-    # dispatcher.add_handler(CommandHandler("location", location))
-    # dispatcher.add_handler(CommandHandler("inline", inline))
+    # hidden commands
+    # potentially helpful for debugging problems (not in help)
     dispatcher.add_handler(CommandHandler("details", details))
+    dispatcher.add_handler(CommandHandler("reset", reset_user))
 
     # Orga commands
+    # only available for groups in ORGA_GROUPS
     dispatcher.add_handler(CommandHandler("help2", help2))
     dispatcher.add_handler(CommandHandler("system", system_status))
     dispatcher.add_handler(CommandHandler("all", all))
@@ -158,9 +156,11 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("wip", wip))
 
     # Developer commands
-    dispatcher.add_handler(CommandHandler("resetall", reset))
+    # only available from DEVELOPER_CHAT_ID
+    dispatcher.add_handler(CommandHandler("resetall", resetall))
     dispatcher.add_handler(CommandHandler("closeall", closeall))
 
+    # register handlers for unknown commands and errors
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))
     dispatcher.add_error_handler(error_handler)

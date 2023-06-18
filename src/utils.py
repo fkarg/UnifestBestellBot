@@ -1,7 +1,7 @@
 import json
 import logging
 
-from telegram import Update, Bot, ReplyKeyboardRemove, ReplyKeyboardMarkup
+from telegram import Update, Bot, ReplyKeyboardRemove, ReplyKeyboardMarkup, ParseMode
 import telegram
 
 from telegram.ext import CallbackContext
@@ -32,7 +32,9 @@ def save_json(data, filename):
         json.dump(data, file)
 
 
-def who(update: Update):
+def who(update: Update) -> str:
+    """ Based on `update`, get username and format it to a string.
+    """
     try:
         chat = update.message.chat
     except AttributeError:
@@ -45,6 +47,10 @@ def who(update: Update):
 
 
 def dev_msg(message):
+    """ Send message to developer.
+
+    For longer and formatted messages consider `dev_html` instead.
+    """
     from src.config import TOKEN, DEVELOPER_CHAT_ID
 
     bot = Bot(token=TOKEN)
@@ -56,6 +62,8 @@ def dev_msg(message):
 
 
 def channel_msg(message):
+    """ Send notification to channel for logging purposes.
+    """
     from src.config import TOKEN, UPDATES_CHANNEL_ID
 
     bot = Bot(token=TOKEN)
@@ -70,20 +78,28 @@ def channel_msg(message):
 def group_msg(
     update: Update, context: CallbackContext, group: str, message: str
 ) -> None:
+    """ Send `message` to all members of `group` except current user
+    (in case the user is member of that group).
+    """
     log.info(f"to {group}: {message}")
     remove = []
     for chat_id in context.bot_data["group_association"].get(group, []):
         if chat_id == update.effective_chat.id:
+            # don't send message to current user
             continue
         try:
             context.bot.send_message(
                 chat_id=chat_id,
                 text=message,
+                reply_markup=autoselect_keyboard(update, context),
             )
         except telegram.error.Unauthorized:
-            text = f"⚠️ Unauthorized for sending message to {chat_id} from "
-            f"{context.user_data['group_association']} in list of {group}. "
-            "Removing from list."
+            # user blocked bot.
+            text = (
+                f"⚠️ Unauthorized for sending message to {chat_id} from "
+                f"{context.user_data['group_association']} in list of [{group}]. "
+                "Removing from list."
+            )
             log.warn(text)
             dev_msg(text)
             context.dispatcher.user_data[chat_id].clear()
@@ -95,6 +111,8 @@ def group_msg(
 
 
 def orga_msg(update: Update, context: CallbackContext, message: str) -> None:
+    """ Send message to all groups in `orga.json`
+    """
     from src.config import ORGA_GROUPS
 
     for group in ORGA_GROUPS:
@@ -115,9 +133,38 @@ orga_keyboard = ReplyKeyboardMarkup(
 def autoselect_keyboard(
     update: Update, context: CallbackContext
 ) -> ReplyKeyboardMarkup:
+    """ Select keyboard with commands automatically based on group membership.
+    """
     if group := context.user_data.get("group_association"):
         if group in ORGA_GROUPS:
             return orga_keyboard
         return main_keyboard
     else:
         return initial_keyboard
+
+
+def dev_html(
+    update: Update, context: CallbackContext,
+    message: str,
+):
+    """ Send potentially long message to the developer, and have it parsed as HTML.
+    """
+    from src.config import DEVELOPER_CHAT_ID
+
+    n = 4096 - 11  # for tags <pre></pre>
+    if len(message) > n:
+        # need to split messages
+        for i in range(0, len(message), n):
+            prefix = "<pre>" if i != 0 else ""
+            suffix = "</pre>" if i + n < len(message) else ""
+            text = prefix + message[i : i + n] + suffix
+            context.bot.send_message(
+                chat_id=DEVELOPER_CHAT_ID, text=text, parse_mode=ParseMode.HTML,
+                reply_markup=autoselect_keyboard(update, context),
+            )
+    else:
+        # send full message directly
+        context.bot.send_message(
+            chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML,
+            reply_markup=autoselect_keyboard(update, context),
+        )
