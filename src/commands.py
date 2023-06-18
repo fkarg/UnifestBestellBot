@@ -145,7 +145,7 @@ def unknown(update: Update, context: CallbackContext) -> None:
         "zu bekommen. Sende alternativ /request um eine Anfrage "
         "zu stellen."
     )
-    group = context.user_data["group_association"]
+    group = context.user_data.get("group_association")
     log.warn(
         f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
     )

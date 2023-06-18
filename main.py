@@ -43,6 +43,7 @@ from src.states import (
     ask_amount,
     amount,
     collect,
+    change,
     free,
     REQUEST,
     MONEY,
@@ -94,11 +95,8 @@ def main(**kwargs):
                 ],
                 MONEY: [
                     MessageHandler(Filters.regex("^Geld Abholen$"), collect),
-                    MessageHandler(Filters.regex("^(2€|1€|50ct) Münzen$"), ask_amount),
-                    MessageHandler(Filters.regex("^(5|10|20)€ Scheine$"), ask_amount),
-                    MessageHandler(
-                        Filters.regex("^Wechselgeld: (Scheine|Münzen)$"), ask_amount
-                    ),
+                    MessageHandler(Filters.regex("^Freitext$"), free_next),
+                    MessageHandler(Filters.regex("^Wechselgeld$"), change),
                     CommandHandler("cancel", cancel),
                 ],
                 CUPS: [

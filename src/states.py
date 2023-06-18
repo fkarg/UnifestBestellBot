@@ -142,7 +142,8 @@ def cups(update: Update, context: CallbackContext) -> int:
 
 
 def free_next(update: Update, context: CallbackContext) -> int:
-    context.user_data["first_choice"] = update.message.text
+    if not context.user_data.get("first_choice"):
+       context.user_data["first_choice"] = update.message.text
     update.message.reply_text(
         "Was braucht Ihr, und wie viel habt ihr davon noch?",
         reply_markup=ReplyKeyboardRemove(),
@@ -216,6 +217,26 @@ def free(update: Update, context: CallbackContext) -> int:
     category = context.user_data["first_choice"]
     location = MAPPING[group]
     text = f"{location} [{group}] braucht {category}: '" + update.message.text + "'"
+    uid = create_ticket(
+        update,
+        context,
+        group,
+        text,
+        category,
+    )
+
+    channel_msg(f"🟠 OPEN #{uid}: {text}")
+    update.message.reply_text(
+        f"Ticket #{uid} erstellt.",
+        reply_markup=autoselect_keyboard(update, context),
+    )
+    return end(update, context)
+
+def change(update: Update, context: CallbackContext) -> int:
+    group = context.user_data["group_association"]
+    category = context.user_data["first_choice"]
+    location = MAPPING[group]
+    text = f"{location} [{group}] braucht Wechselgeld"
     uid = create_ticket(
         update,
         context,

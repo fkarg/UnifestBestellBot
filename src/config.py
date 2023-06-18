@@ -28,7 +28,7 @@ ALL_GROUPS = GROUPS_LIST + ORGA_GROUPS + HIDDEN_GROUPS
 REQUEST_OPTIONS = [["Becher", "Geld", "/cancel"], ["Bier", "Cocktail", "Sonstiges"]]
 MONEY_OPTIONS = [
     ["Geld Abholen", "/cancel"],
-    ["Wechselgeld: Münzen", "Wechselgeld: Scheine"],
+    ["Wechselgeld", "Freitext"],
 ]
 CUP_OPTIONS = [["Dreckige Abholen", "/cancel"], ["Shotbecher", "Normale Becher"]]
 AMOUNT_OPTIONS = [["0", "/cancel"], ["~10", "~20", "~50"]]

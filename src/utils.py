@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from telegram import Update, Bot, ReplyKeyboardRemove, ReplyKeyboardMarkup, ParseMode
 import telegram
@@ -69,10 +70,15 @@ def channel_msg(message):
     bot = Bot(token=TOKEN)
 
     log.info(f"to channel: {message}")
-    bot.send_message(
-        chat_id=UPDATES_CHANNEL_ID,
-        text=message,
-    )
+    try:
+        bot.send_message(
+            chat_id=UPDATES_CHANNEL_ID,
+            text=message,
+        )
+    except telegram.error.RetryAfter as r:
+        dev_msg(f"🔴 Rate limited. Continuing in {r.retry_after}s")
+        time.sleep(r.retry_after)
+        channel_msg(message)
 
 
 def group_msg(

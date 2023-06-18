@@ -150,7 +150,7 @@ def orga_command(func):
         if context.user_data.get("group_association") in ORGA_GROUPS:
             func(update, context)
         else:
-            message = "You are not authorized to execute this command."
+            message = "Dieser Befehl ist dir nicht erlaubt. Mit /status siehst du deine Gruppenmitgliedschaft und offene Tickets in deiner Gruppe."
             group = context.user_data.get("group_association")
             dev_msg(
                 f"⚠️ {who(update)}  [{group}] tried to execute a command for [ORGA]: "
