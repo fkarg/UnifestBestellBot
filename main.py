@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 import socket
 
 from rich.traceback import install
@@ -14,6 +15,7 @@ from telegram.ext import (
     PicklePersistence,
 )
 
+from src.dashboard_bridge import dashboard_init, dashboard_publish, dashboard_start, dashboard_stop
 from src.config import TOKEN
 from src.utils import set_log_level_format, get_logging_level, channel_msg
 from src.commands import (
@@ -69,6 +71,7 @@ def main(**kwargs):
     """
 
     # configure persistance
+    clear_broker = not Path("bot_persistence.cntx").exists()
     persistence = PicklePersistence(filename="bot_persistence.cntx")
     updater = Updater(token=TOKEN, persistence=persistence)
     dispatcher = updater.dispatcher
@@ -163,12 +166,17 @@ def main(**kwargs):
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))
     dispatcher.add_error_handler(error_handler)
 
+    dashboard_init(clear_broker)
+
     # Startup message
     channel_msg(f"🔘 Started from {socket.gethostname()}")
+    dashboard_publish("status", {"status": "BOT_CONNECTED"})
 
     # Begin action loop
+    dashboard_start()
     updater.start_polling()
     updater.idle()
+    dashboard_stop()
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ UPDATES_CHANNEL_ID = load_json("channel.json")  # int
 DEVELOPER_CHAT_ID = load_json("developer.json")  # int
 ORGA_GROUPS = load_json("orga.json")  # [str]
 HIDDEN_GROUPS = load_json("hidden.json")  # [str]
+MQTT_HOST = load_json("mqtt.json")  # str
 
 ALL_GROUPS = GROUPS_LIST + ORGA_GROUPS + HIDDEN_GROUPS
 
