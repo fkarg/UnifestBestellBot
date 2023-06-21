@@ -15,8 +15,8 @@ from telegram.ext import (
     PicklePersistence,
 )
 
-from src.dashboard_bridge import dashboard_init, dashboard_publish, dashboard_start, dashboard_stop
-from src.config import TOKEN
+from src.dashboard_bridge import dashboard_init, dashboard_publish, dashboard_start, dashboard_stop, mqtt_send_all_tickets, mqtt_set_tickets
+from src.config import CONNECT_BROKER, TOKEN
 from src.utils import set_log_level_format, get_logging_level, channel_msg
 from src.commands import (
     error_handler,
@@ -70,8 +70,6 @@ def main(**kwargs):
     bot_data['tickets'] for dict id -> src.tickets.Ticket
     """
 
-    # configure persistance
-    clear_broker = not Path("bot_persistence.cntx").exists()
     persistence = PicklePersistence(filename="bot_persistence.cntx")
     updater = Updater(token=TOKEN, persistence=persistence)
     dispatcher = updater.dispatcher
@@ -166,7 +164,11 @@ def main(**kwargs):
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, unknown))
     dispatcher.add_error_handler(error_handler)
 
-    dashboard_init(clear_broker)
+    if CONNECT_BROKER:
+        dashboard_init()
+        if dispatcher.bot_data.get("tickets"):
+            mqtt_set_tickets(dispatcher.bot_data["tickets"])
+            mqtt_send_all_tickets()
 
     # Startup message
     channel_msg(f"🔘 Started from {socket.gethostname()}")

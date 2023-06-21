@@ -131,6 +131,7 @@ dmypy.json
 # secrets
 unifest-secrets
 *.cntx
+mosquitto_pass
 
 # node
 

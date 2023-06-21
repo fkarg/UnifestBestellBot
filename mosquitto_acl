@@ -1,0 +1,6 @@
+topic read status
+topic read tickets/#
+
+user bot
+topic write status
+topic write tickets/#

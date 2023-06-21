@@ -25,18 +25,9 @@ to run the program. See `-h` for help on arguments.
 
 ## Dashboard
 
-  * Run mosquitto broker.
-  * Configure to only accept trusted ip of bot on port 1883 mqtt protocol.
-  * Configure to accept anonymous read only via websocket on port 9001.
-  * Run `npx parcel build index.html` in dashboard subdir
-  * Deploy and send links like `http://web_host/#finanz|mqtt_host:mqtt_ws_port` to user.
+If you do not want to run the dashboard, create `mqtt.json`, containing only `{}`.
 
-Soundfile used: https://pixabay.com/de/sound-effects/call-to-attention-123107/
-
-### Todo
-
-  * Validate crash safety.
-  * Validate consistency when resetting bot data.
+Otherwise see DASHBOARD.md for information.
 
 ## Config
 see configuration options in `lib/config.py`.
