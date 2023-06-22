@@ -167,6 +167,7 @@ def main(**kwargs):
     if CONNECT_BROKER:
         dashboard_init()
         if dispatcher.bot_data.get("tickets"):
+            # send out initial tickets if there are any.
             mqtt_set_tickets(dispatcher.bot_data["tickets"])
             mqtt_send_all_tickets()
 

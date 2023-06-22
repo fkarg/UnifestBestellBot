@@ -1,10 +1,13 @@
 import json
 import socket
+import logging
 
 import paho.mqtt.client as mqtt
 
 from src.config import MQTT_HOST, MQTT_PASS, MQTT_PORT, MQTT_USER
 from src.tickets_data import Ticket, TicketStatus
+
+log = logging.getLogger(__name__)
 
 _client = None
 _tickets = {}
@@ -26,6 +29,7 @@ def on_connect(client, userdata, flags, reasonCode, properties=None):
     mqtt_send_all_tickets()
 
 def dashboard_init():
+    log.info("Initializing connection to MQTT broker")
     global _client
     global _tickets
     _client = mqtt.Client(client_id=socket.gethostname(), clean_session=False, transport="websockets")

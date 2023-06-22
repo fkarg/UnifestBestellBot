@@ -84,6 +84,8 @@ def start(update: Update, context: CallbackContext) -> None:
         "festlegen, um anschließend mit /request eine Anfrage stellen zu können. "
         "Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help sehen."
     )
+    if not context.user_data:
+        context.user_data = {}
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -145,7 +147,9 @@ def unknown(update: Update, context: CallbackContext) -> None:
         "zu bekommen. Sende alternativ /request um eine Anfrage "
         "zu stellen."
     )
-    group = context.user_data.get("group_association")
+    group = "Unknown"
+    if context.user_data:
+        group = context.user_data.get("group_association")
     log.warn(
         f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
     )
@@ -406,7 +410,7 @@ def system_status(update: Update, context: CallbackContext) -> None:
     """
     import html
     from telegram import ParseMode
-    from src.tickets import TicketEncoder
+    from src.tickets_data import TicketEncoder
 
     update.message.reply_text(f"{context.user_data}")
 

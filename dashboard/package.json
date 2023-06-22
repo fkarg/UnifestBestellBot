@@ -4,6 +4,7 @@
   "description": "",
   "source": "index.html",
   "scripts": {
+    "build": "npx parcel build index.html",
     "serve": "npx parcel index.html"
   },
   "author": "",

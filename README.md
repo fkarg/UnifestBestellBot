@@ -24,10 +24,10 @@ after that, simply execute
 to run the program. See `-h` for help on arguments.
 
 ## Dashboard
+There also is a simple MQTT-driven dashboard available. See [DASHBOARD.md][] for
+more information. If you do not want to run the dashboard, create `mqtt.json`,
+containing only `{}`.
 
-If you do not want to run the dashboard, create `mqtt.json`, containing only `{}`.
-
-Otherwise see DASHBOARD.md for information.
 
 ## Config
 see configuration options in `lib/config.py`.
