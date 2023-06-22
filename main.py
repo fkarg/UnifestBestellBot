@@ -54,7 +54,7 @@ from src.states import (
     AMOUNT,
     FREE,
 )
-from src.tickets import close, wip, all, tickets, help2, message
+from src.tickets import close, wip, all, tickets, help2, message, dashboard, revoke
 from src.parser import create_parser
 
 # activate tracebacks with `rich` formatting support
@@ -79,7 +79,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("start", start))
 
     dispatcher.add_handler(
-        CallbackQueryHandler(task_button, pattern="^(cancel|wip|close) #[0-9]+$")
+        CallbackQueryHandler(task_button, pattern="^(cancel|wip|close|revoke) #[0-9]+$")
     )
     dispatcher.add_handler(CallbackQueryHandler(register_button))
 
@@ -139,6 +139,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("feature", feature))
     dispatcher.add_handler(CommandHandler("help", help))
     dispatcher.add_handler(CommandHandler("status", status))
+    dispatcher.add_handler(CommandHandler("revoke", revoke))
 
     # hidden commands
     # potentially helpful for debugging problems (not in help)
@@ -154,6 +155,7 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("message", message))
     dispatcher.add_handler(CommandHandler("close", close))
     dispatcher.add_handler(CommandHandler("wip", wip))
+    dispatcher.add_handler(CommandHandler("dashboard", dashboard))
 
     # Developer commands
     # only available from DEVELOPER_CHAT_ID

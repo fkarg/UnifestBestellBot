@@ -25,7 +25,7 @@ def mqtt_send_all_tickets():
 def on_connect(client, userdata, flags, reasonCode, properties=None):
     if not reasonCode == 0:
         return
-    
+
     mqtt_send_all_tickets()
 
 def dashboard_init():
@@ -52,7 +52,7 @@ def dashboard_publish(topic: str, message):
 
     retain = True
     if isinstance(message, Ticket):
-        if message.status == TicketStatus.CLOSED:
+        if message.status == TicketStatus.CLOSED or message.status == TicketStatus.REVOKED:
             _client.publish(topic, None, qos=1, retain=True)
             retain = False
         message = {
@@ -67,12 +67,19 @@ def dashboard_publish(topic: str, message):
         message = json.dumps(message, indent=2)
     _client.publish(topic, message, qos=1, retain=retain)
 
+def is_dashboard():
+    global _client
+    if _client:
+        # don't leak the client
+        return True
+    return False
+
 def dashboard_start():
     global _client
 
     if not _client:
         return
-    
+
     _client.loop_start()
 
 def dashboard_stop():

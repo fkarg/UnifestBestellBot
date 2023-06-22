@@ -141,6 +141,8 @@ def autoselect_keyboard(
 ) -> ReplyKeyboardMarkup:
     """ Select keyboard with commands automatically based on group membership.
     """
+    if not context.user_data:
+        return initial_keyboard
     if group := context.user_data.get("group_association"):
         if group in ORGA_GROUPS:
             return orga_keyboard

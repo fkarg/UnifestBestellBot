@@ -20,6 +20,7 @@ class TicketStatus(Enum):
     OPEN = "🟠 OPEN"
     WIP = "🟢 WIP"
     CLOSED = "✅ CLOSED"
+    REVOKED = "🔃 REVOKED"
 
     def __repr__(self):
         return "%s.%s" % (self.__class__.__name__, self._name_)
@@ -78,6 +79,12 @@ class Ticket:
 
     def close(self):
         self.status = TicketStatus.CLOSED
+
+    def revoke(self):
+        self.status = TicketStatus.REVOKED
+
+    def is_requesting(self, group: str) -> bool:
+        return self.group_requesting == group
 
     def is_tasked(self, group: str) -> bool:
         return self.group_tasked == group

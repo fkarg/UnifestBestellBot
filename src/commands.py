@@ -84,8 +84,6 @@ def start(update: Update, context: CallbackContext) -> None:
         "festlegen, um anschließend mit /request eine Anfrage stellen zu können. "
         "Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help sehen."
     )
-    if not context.user_data:
-        context.user_data = {}
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -120,6 +118,10 @@ def help(update: Update, context: CallbackContext) -> None:
 /cancel
     Breche das erstellen der momentanen
     Anfrage ab.
+/revoke [ticket-id]
+    Ziehe eine eben erstellte Anfrage zurück.
+    Nur möglich, solange noch nicht
+    angefangen wurde, daran zu arbeiten.
 /bug <message>
     Schreibe einen Fehlerbericht. Bitte
     erkläre, wie der Fehler reproduziert
@@ -150,9 +152,17 @@ def unknown(update: Update, context: CallbackContext) -> None:
     group = "Unknown"
     if context.user_data:
         group = context.user_data.get("group_association")
-    log.warn(
-        f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
-    )
+    if update.message:
+        log.warn(
+            f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
+        )
+    else:
+        log.warn(
+            f"⚠️ Something weird happened in chat with {who(update)} [{group}]"
+        )
+        dev_msg(
+            f"⚠️ Something weird happened in chat with {who(update)} [{group}]"
+        )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -318,11 +328,12 @@ def register_button(update: Update, context: CallbackContext) -> None:
 
 
 def task_button(update: Update, context: CallbackContext) -> None:
-    """ Parse the CallbackQuery for inline buttons of `/wip` and `/close`.
+    """ Parse the CallbackQuery for inline buttons of `/wip`, `/close` and
+    `revoke`.
     """
     query = update.callback_query
 
-    from src.tickets import close_uid, wip_uid, TicketStatus
+    from src.tickets import close_uid, wip_uid, revoke_uid, TicketStatus
 
     try:
         if "wip #" in query.data:
@@ -335,6 +346,12 @@ def task_button(update: Update, context: CallbackContext) -> None:
             ticket = context.bot_data["tickets"].get(uid)
             close_uid(update, context, uid)
             ticket.close()
+            query.edit_message_text(text=f"{str(ticket)}")
+        elif "revoke #" in query.data:
+            uid = int(query.data[8:])
+            ticket = context.bot_data["tickets"].get(uid)
+            revoke_uid(update, context, uid)
+            ticket.revoke()
             query.edit_message_text(text=f"{str(ticket)}")
         elif "cancel" in query.data:
             query.edit_message_text(text="❌ Abgebrochen.")
@@ -351,7 +368,8 @@ def feature(update: Update, context: CallbackContext) -> None:
     """
     if context.args:
         msg = " ".join(context.args)
-        dev_msg(f"⚪️ feature request von {who(update)}: " + msg)
+        group = context.user_data.get("group_association", "Unknown")
+        dev_msg(f"⚪️ Feature request von {who(update)} [{group}]: " + msg)
         update.message.reply_text(
             "Feature Request an Entwickler weitergeleitet.",
             reply_markup=autoselect_keyboard(update, context),
@@ -368,7 +386,8 @@ def bug(update: Update, context: CallbackContext) -> None:
     """
     if context.args:
         report = " ".join(context.args)
-        dev_msg(f"⚪️ Bug report von {who(update)}: " + report)
+        group = context.user_data.get("group_association", "Unknown")
+        dev_msg(f"⚪️ Bug report von {who(update)} [{group}]: " + report)
         update.message.reply_text(
             "Fehlerbericht an Entwickler weitergeleitet.",
             reply_markup=autoselect_keyboard(update, context),

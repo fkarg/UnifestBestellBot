@@ -21,7 +21,7 @@ def add_ticket(context, ticket: Ticket):
     if not tickets:
         context.bot_data["tickets"] = {}
         mqtt_set_tickets(context.bot_data["tickets"])
-    
+
     context.bot_data["tickets"][ticket.uid] = ticket
     dashboard_publish(f"tickets/{ticket.group_tasked}/{ticket.uid}", ticket)
 
@@ -141,6 +141,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
             f"{str(TicketStatus.CLOSED)}: Euer Ticket #{uid} wurde bearbeitet.",
         )
         try:
+            # no message object in case of inline response
             update.message.reply_text(
                 f"Ticket #{uid} ist jetzt {str(TicketStatus.CLOSED)}.",
                 reply_markup=autoselect_keyboard(update, context),
@@ -186,6 +187,11 @@ def wip(update: Update, context: CallbackContext) -> None:
 def wip_uid(update: Update, context: CallbackContext, uid: int):
     """ Change status of ticket with `uid` to WIP.
     """
+    worker = who(update)
+    try:
+        worker = " ".join(context.args[1:])
+    except (ValueError, IndexError):
+        pass
     if ticket := context.bot_data["tickets"].get(uid):
         if ticket.is_wip():
             # someone is already working on it.
@@ -194,16 +200,16 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 reply_markup=autoselect_keyboard(update, context),
             )
         else:
-            ticket.set_wip(who(update))
+            ticket.set_wip(worker)
             add_ticket(context, ticket)
             group_msg(
                 update,
                 context,
                 context.user_data["group_association"],
-                f"{who(update)} arbeitet jetzt an Ticket #{uid}.",
+                f"{worker} arbeitet jetzt an Ticket #{uid}.",
             )
             channel_msg(
-                f"{str(TicketStatus.WIP)}: {who(update)} von "
+                f"{str(TicketStatus.WIP)}: {worker} von "
                 f"[{context.user_data['group_association']}] arbeitet jetzt "
                 f"an Ticket #{uid}."
             )
@@ -216,6 +222,7 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 "zu bearbeiten.",
             )
             try:
+                # no message object in case of inline response
                 update.message.reply_text(
                     f"Ticket #{uid} ist jetzt {str(TicketStatus.WIP)}.",
                     reply_markup=autoselect_keyboard(update, context),
@@ -228,6 +235,53 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
             reply_markup=autoselect_keyboard(update, context),
         )
 
+
+def revoke(update: Update, context: CallbackContext) -> None:
+    """ Revoke a ticket your group created, e.g. because you resolved it
+    yourself. Otherwise, show an inline list of applicable tickets.
+    """
+    try:
+        uid = int(context.args[0])
+        revoke_uid(update, context, uid)
+    except (ValueError, IndexError):
+        group_requesting = context.user_data.get("group_association")
+        keyboard = [
+            [InlineKeyboardButton(str(t), callback_data=f"revoke #{t.uid}")]
+            for t in context.bot_data["tickets"].values()
+            if t.is_requesting(group_requesting) and t.is_open()
+        ]
+
+        if keyboard:
+            keyboard.append(
+                [InlineKeyboardButton("❌ Abbrechen", callback_data="cancel #0")]
+            )
+            keyboard_markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text("Offene Tickets:", reply_markup=keyboard_markup)
+        else:
+            update.message.reply_text(
+                f"Keine offenen Tickets von [{group_requesting}].",
+                reply_markup=autoselect_keyboard(update, context),
+            )
+
+def revoke_uid(update: Update, context: CallbackContext, uid: int) -> None:
+    if ticket := context.bot_data["tickets"].get(uid):
+        ticket.revoke()
+        add_ticket(context, ticket)
+        del context.bot_data["tickets"][uid]
+        revoke_text = (
+            f"{str(TicketStatus.REVOKED)}: {who(update)} von "
+            f"[{context.user_data['group_association']}] hat "
+            f"Ticket #{uid} zurückgezogen."
+        )
+        channel_msg(revoke_text)
+        group_msg(update, context, ticket.group_requesting,
+            f"{str(TicketStatus.REVOKED)}: {who(update)} in deiner Gruppe hat gerade ticket '{ticket.text}' zurückgezogen."
+        )
+    else:
+        update.message.reply_text(
+            f"Ticket #{uid} wurde bereits geschlossen, existiert noch nicht, oder ist bereits in arbeit.",
+            reply_markup=autoselect_keyboard(update, context),
+        )
 
 @orga_command
 def all(update: Update, context: CallbackContext) -> None:
@@ -281,12 +335,16 @@ def help2(update: Update, context: CallbackContext) -> None:
 /tickets
     Zeige die Liste der offenen tickets
     und deren <id>, für deine Gruppe.
-/wip [ticket-id]
+/wip [ticket-id] [tasked-worker]
     Zeige liste an offenen Tickets für
     deine Gruppe. Beginne Arbeit an
     einem Ticket durch Auswahl.
     Alternativ: sende die <ticket-id>
-    mit, um die Auswahl zu überspringen.
+    mit, um die Auswahl zu überspringen,
+    und setze mit <tasked-worker> den
+    arbeitenden auf jemand anders dich.
+    Wer am Ticket arbeitet ist nur im
+    Dashboard zu sehen.
 /close [ticket-id]
     Zeige liste an WIP Tickets für
     deine Gruppe. Schließe ein
@@ -297,6 +355,9 @@ def help2(update: Update, context: CallbackContext) -> None:
     Sende eine Nachricht an alle Mitglieder
     der Gruppe, die Ticket <ticket-id>
     erstellt haben.
+/dashboard
+    Zeige an, ob das dashboard gerade
+    verfügbar ist, und unter welchen links.
 /help2
     Zeige diese Hilfenachricht.
     """
@@ -341,3 +402,29 @@ def message(update: Update, context: CallbackContext) -> None:
             reply_markup=autoselect_keyboard(update, context),
         )
         return
+
+
+@orga_command
+def dashboard(update: Update, context: CallbackContext) -> None:
+    from src.dashboard_bridge import is_dashboard
+    message = """Du kannst das dashboard unter den folgenden Links finden:
+
+    Alle Tickets:
+    http://<host>:<port>/#
+
+    Nur Zentrale
+    http://<host>:<port>/#zentrale
+
+    Nur Finanz
+    http://<host>:<port>/#finanz
+
+    Nur BiMi
+    http://<host>:<port>/#bimi
+    """
+    if not is_dashboard():
+        message = "Das Dashboard ist gerade nicht verfügbar."
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message,
+        reply_markup=autoselect_keyboard(update, context),
+    )
