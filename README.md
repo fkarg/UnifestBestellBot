@@ -24,7 +24,7 @@ after that, simply execute
 to run the program. See `-h` for help on arguments.
 
 ## Dashboard
-There also is a simple MQTT-driven dashboard available. See [DASHBOARD.md][] for
+There also is a simple MQTT-driven dashboard available. See [DASHBOARD.md]() for
 more information. If you do not want to run the dashboard, create `mqtt.json`,
 containing only `{}`.
 
