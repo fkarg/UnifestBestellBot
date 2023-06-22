@@ -131,3 +131,9 @@ dmypy.json
 # secrets
 unifest-secrets
 *.cntx
+mosquitto_pass
+
+# node
+
+node_modules/
+.parcel-cache/

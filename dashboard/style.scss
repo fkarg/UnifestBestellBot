@@ -1,0 +1,76 @@
+$text-color: black;
+$dim-text-color: #F1F1F1;
+
+$background-color: #B0DEF1;
+$background-color-wip: #84c8e6;
+$bright-background-color-wip: #000080;
+$background-color-open: #E0A3AA;
+$bright-background-color-open: #c92f41;
+
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Exo+2&display=swap');
+
+* {
+    color: $text-color;
+    font-size: 22px;
+    font-family: 'Exo 2', sans-serif;
+}
+
+body {
+    margin: 0;
+    height: 100%;
+}
+
+html {
+    background-color: $background-color;
+    height: 100%;
+}
+
+#container-tickets  {
+    padding: 20px;
+}
+
+#container-tickets > div {
+    border-radius: 7px;
+    padding: 10px;
+    margin-bottom: 20px;
+    box-shadow: 3px 3px black;
+}
+
+#container-tickets > div > * {
+    margin: 0;
+}
+
+.ticket-no {
+    width: 100%;
+    text-align: right;
+    color: $dim-text-color;
+}
+
+
+
+.WIP {
+    background-color: $background-color-wip;
+    border: 3px solid $bright-background-color-wip;
+}
+
+.OPEN {
+    background-color: $background-color-open;
+    animation: blink 0.4s linear 5 alternate;
+    border: 3px solid $bright-background-color-open;
+}
+
+@keyframes blink {
+    0% {
+        background-color: $background-color-open;
+        border: 3px solid $bright-background-color-open;
+    }
+    50% {
+        background-color: $bright-background-color-open;
+        border: 3px solid $background-color-open;
+    }
+    100% {
+        background-color: $background-color-open;
+        border: 3px solid $bright-background-color-open;
+    }
+  }
