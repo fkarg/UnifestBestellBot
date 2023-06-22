@@ -33,6 +33,7 @@ from src.commands import (
     bug,
     resetall,
     closeall,
+    reset_counter,
     system_status,
 )
 from src.states import (
@@ -158,6 +159,7 @@ def main(**kwargs):
     # only available from DEVELOPER_CHAT_ID
     dispatcher.add_handler(CommandHandler("resetall", resetall))
     dispatcher.add_handler(CommandHandler("closeall", closeall))
+    dispatcher.add_handler(CommandHandler("resetcount", reset_counter))
 
     # register handlers for unknown commands and errors
     dispatcher.add_handler(MessageHandler(Filters.command, unknown))

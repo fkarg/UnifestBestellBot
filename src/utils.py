@@ -76,7 +76,7 @@ def channel_msg(message):
             text=message,
         )
     except telegram.error.RetryAfter as r:
-        dev_msg(f"🔴 Rate limited. Continuing in {r.retry_after}s")
+        dev_msg(f"🔴 Flood Control. Backing off for {r.retry_after}s")
         time.sleep(r.retry_after)
         channel_msg(message)
 

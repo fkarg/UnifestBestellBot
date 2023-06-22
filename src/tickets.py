@@ -149,7 +149,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
             pass
     else:
         update.message.reply_text(
-            f"Es gibt kein WIP Ticket #{uid}.",
+            f"Ticket #{uid} wurde bereits geschlossen oder existiert noch nicht.",
             reply_markup=autoselect_keyboard(update, context),
         )
 
@@ -224,7 +224,7 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
                 pass
     else:
         update.message.reply_text(
-            f"Es gibt kein offenes Ticket #{uid}.",
+            f"Ticket #{uid} wurde bereits geschlossen oder existiert noch nicht.",
             reply_markup=autoselect_keyboard(update, context),
         )
 

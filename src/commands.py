@@ -419,3 +419,8 @@ def system_status(update: Update, context: CallbackContext) -> None:
     message = f"<pre>update = {html.escape(js)}</pre>\n\n"
 
     dev_html(update, context, message)
+
+@developer_command
+def reset_counter(update: Update, context: CallbackContext) -> None:
+    context.bot_data["highest_id"] = 0
+    dev_msg("☑️ successfully reset counter.")
