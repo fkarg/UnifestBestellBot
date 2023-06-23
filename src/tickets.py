@@ -397,7 +397,8 @@ def message(update: Update, context: CallbackContext) -> None:
         group_msg(update, context, ticket.group_requesting, message)
         channel_msg(
             f"🟣 Nachricht von {context.user_data['group_association']} an "
-            f"{ticket.group_requesting}: {' '.join(context.args[1:])}"
+            f"{ticket.group_requesting} zu #{ticket.uid}: "
+            f"{' '.join(context.args[1:])}"
         )
         update.message.reply_text(
             "Nachricht verschickt.",
