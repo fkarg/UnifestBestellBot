@@ -190,7 +190,7 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
     worker = who(update)
     try:
         worker = " ".join(context.args[1:])
-    except (ValueError, IndexError):
+    except (ValueError, IndexError, TypeError):
         pass
     if ticket := context.bot_data["tickets"].get(uid):
         if ticket.is_wip():
