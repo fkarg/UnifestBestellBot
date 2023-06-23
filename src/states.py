@@ -34,8 +34,7 @@ log = logging.getLogger(__name__)
 
 
 def end(update: Update, context: CallbackContext) -> int:
-    """ End conversation interaction
-    """
+    """End conversation interaction"""
     try:
         context.user_data["open_ticket"] = False
         del context.user_data["first_choice"]
@@ -46,8 +45,7 @@ def end(update: Update, context: CallbackContext) -> int:
 
 
 def reset_user(update: Update, context: CallbackContext) -> int:
-    """ Reset local user data. Useful for debugging purposes.
-    """
+    """Reset local user data. Useful for debugging purposes."""
     context.user_data.clear()
     update.message.reply_text(
         "Lokale Benutzerdaten gelöscht, auch deine Gruppenmitgliedschaft. "
@@ -65,8 +63,7 @@ def cancel(update: Update, context: CallbackContext) -> int:
 
 
 def request(update: Update, context: CallbackContext) -> int:
-    """ Begin conversation to open a ticket.
-    """
+    """Begin conversation to open a ticket."""
     if context.user_data.get("open_ticket"):
         update.message.reply_text(
             "Deine momentane Anfrage ist noch nicht abgeschlossen. "
@@ -97,7 +94,9 @@ def request(update: Update, context: CallbackContext) -> int:
                 reply_markup=autoselect_keyboard(update, context),
             )
             return end(update, context)
-        if update.effective_chat.id not in context.bot_data["group_association"].get(group):
+        if update.effective_chat.id not in context.bot_data["group_association"].get(
+            group
+        ):
             # user used to be member of a group, but bot data got reset.
             del context.user_data["group_association"]
             update.message.reply_text(
@@ -143,7 +142,7 @@ def cups(update: Update, context: CallbackContext) -> int:
 
 def free_next(update: Update, context: CallbackContext) -> int:
     if not context.user_data.get("first_choice"):
-       context.user_data["first_choice"] = update.message.text
+        context.user_data["first_choice"] = update.message.text
     update.message.reply_text(
         "Was braucht Ihr, und wie viel habt ihr davon noch?",
         reply_markup=ReplyKeyboardRemove(),
@@ -185,8 +184,7 @@ def amount(update: Update, context: CallbackContext) -> int:
 
 
 def collect(update: Update, context: CallbackContext) -> int:
-    """ Collection of either Money or Cups.
-    """
+    """Collection of either Money or Cups."""
     category = context.user_data["first_choice"]
     group = context.user_data["group_association"]
     location = MAPPING[group]
@@ -231,6 +229,7 @@ def free(update: Update, context: CallbackContext) -> int:
         reply_markup=autoselect_keyboard(update, context),
     )
     return end(update, context)
+
 
 def change(update: Update, context: CallbackContext) -> int:
     group = context.user_data["group_association"]

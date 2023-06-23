@@ -2,7 +2,7 @@ import json
 import logging
 import time
 
-from telegram import Update, Bot, ReplyKeyboardRemove, ReplyKeyboardMarkup, ParseMode
+from telegram import Update, Bot, ReplyKeyboardMarkup, ParseMode
 import telegram
 
 from telegram.ext import CallbackContext
@@ -34,8 +34,7 @@ def save_json(data, filename):
 
 
 def who(update: Update) -> str:
-    """ Based on `update`, get username and format it to a string.
-    """
+    """Based on `update`, get username and format it to a string."""
     try:
         chat = update.message.chat
     except AttributeError:
@@ -48,7 +47,7 @@ def who(update: Update) -> str:
 
 
 def dev_msg(message):
-    """ Send message to developer.
+    """Send message to developer.
 
     For longer and formatted messages consider `dev_html` instead.
     """
@@ -63,8 +62,7 @@ def dev_msg(message):
 
 
 def channel_msg(message):
-    """ Send notification to channel for logging purposes.
-    """
+    """Send notification to channel for logging purposes."""
     from src.config import TOKEN, UPDATES_CHANNEL_ID
 
     bot = Bot(token=TOKEN)
@@ -84,7 +82,7 @@ def channel_msg(message):
 def group_msg(
     update: Update, context: CallbackContext, group: str, message: str
 ) -> None:
-    """ Send `message` to all members of `group` except current user
+    """Send `message` to all members of `group` except current user
     (in case the user is member of that group).
     """
     log.info(f"to {group}: {message}")
@@ -117,8 +115,7 @@ def group_msg(
 
 
 def orga_msg(update: Update, context: CallbackContext, message: str) -> None:
-    """ Send message to all groups in `orga.json`
-    """
+    """Send message to all groups in `orga.json`"""
     from src.config import ORGA_GROUPS
 
     for group in ORGA_GROUPS:
@@ -139,8 +136,7 @@ orga_keyboard = ReplyKeyboardMarkup(
 def autoselect_keyboard(
     update: Update, context: CallbackContext
 ) -> ReplyKeyboardMarkup:
-    """ Select keyboard with commands automatically based on group membership.
-    """
+    """Select keyboard with commands automatically based on group membership."""
     if not context.user_data:
         return initial_keyboard
     if group := context.user_data.get("group_association"):
@@ -152,11 +148,11 @@ def autoselect_keyboard(
 
 
 def dev_html(
-    update: Update, context: CallbackContext,
+    update: Update,
+    context: CallbackContext,
     message: str,
 ):
-    """ Send potentially long message to the developer, and have it parsed as HTML.
-    """
+    """Send potentially long message to the developer, and have it parsed as HTML."""
     from src.config import DEVELOPER_CHAT_ID
 
     n = 4096 - 11  # for tags <pre></pre>
@@ -167,12 +163,16 @@ def dev_html(
             suffix = "</pre>" if i + n < len(message) else ""
             text = prefix + message[i : i + n] + suffix
             context.bot.send_message(
-                chat_id=DEVELOPER_CHAT_ID, text=text, parse_mode=ParseMode.HTML,
+                chat_id=DEVELOPER_CHAT_ID,
+                text=text,
+                parse_mode=ParseMode.HTML,
                 reply_markup=autoselect_keyboard(update, context),
             )
     else:
         # send full message directly
         context.bot.send_message(
-            chat_id=DEVELOPER_CHAT_ID, text=message, parse_mode=ParseMode.HTML,
+            chat_id=DEVELOPER_CHAT_ID,
+            text=message,
+            parse_mode=ParseMode.HTML,
             reply_markup=autoselect_keyboard(update, context),
         )

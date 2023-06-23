@@ -1,6 +1,5 @@
 import os
 import logging
-from pathlib import Path
 import socket
 
 from rich.traceback import install
@@ -15,7 +14,14 @@ from telegram.ext import (
     PicklePersistence,
 )
 
-from src.dashboard_bridge import dashboard_init, dashboard_publish, dashboard_start, dashboard_stop, mqtt_send_all_tickets, mqtt_set_tickets
+from src.dashboard_bridge import (
+    dashboard_init,
+    dashboard_publish,
+    dashboard_start,
+    dashboard_stop,
+    mqtt_send_all_tickets,
+    mqtt_set_tickets,
+)
 from src.config import CONNECT_BROKER, TOKEN
 from src.utils import set_log_level_format, get_logging_level, channel_msg
 from src.commands import (

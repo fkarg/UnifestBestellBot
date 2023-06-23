@@ -15,8 +15,7 @@ log = logging.getLogger(__name__)
 
 
 def add_ticket(context, ticket: Ticket):
-    """ Add ticket to bot data, or update ticket in bot data under its uid
-    """
+    """Add ticket to bot data, or update ticket in bot data under its uid"""
     tickets = context.bot_data.get("tickets")
     if not tickets:
         context.bot_data["tickets"] = {}
@@ -33,7 +32,7 @@ def create_ticket(
     text: str,
     category=None,
 ) -> int:
-    """ Create new ticket from `group_requesting` in `category`.
+    """Create new ticket from `group_requesting` in `category`.
     Tasks group based on `category`. Return uid of newly created ticket.
     """
 
@@ -53,13 +52,18 @@ def create_ticket(
     )
 
     add_ticket(context, ticket)
-    group_msg(update, context, group_requesting, f"{str(TicketStatus.OPEN)}: {who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.")
+    group_msg(
+        update,
+        context,
+        group_requesting,
+        f"{str(TicketStatus.OPEN)}: {who(update)} in deiner Gruppe hat gerade ticket '{text}' erstellt.",
+    )
     return ticket.uid
 
 
 def orga_command(func):
-    """ Decorator for commands only groups in `orga.json` are allowed to execute.
-    """
+    """Decorator for commands only groups in `orga.json` are allowed to execute."""
+
     def wrapper(update: Update, context: CallbackContext):
         if context.user_data.get("group_association") in ORGA_GROUPS:
             func(update, context)
@@ -81,7 +85,7 @@ def orga_command(func):
 
 @orga_command
 def close(update: Update, context: CallbackContext) -> None:
-    """ Close a ticket when provided with a uid. Otherwise, provide inline
+    """Close a ticket when provided with a uid. Otherwise, provide inline
     list of WIP tickets for group.
     """
     try:
@@ -109,8 +113,7 @@ def close(update: Update, context: CallbackContext) -> None:
 
 
 def close_uid(update: Update, context: CallbackContext, uid) -> None:
-    """ Close ticket with `uid`.
-    """
+    """Close ticket with `uid`."""
     from src.commands import channel_msg
 
     if ticket := context.bot_data["tickets"].get(uid):
@@ -157,7 +160,7 @@ def close_uid(update: Update, context: CallbackContext, uid) -> None:
 
 @orga_command
 def wip(update: Update, context: CallbackContext) -> None:
-    """ Change Ticket status to WIP when provided with a uid. Otherwise,
+    """Change Ticket status to WIP when provided with a uid. Otherwise,
     provide inline list of OPEN tickets for group.
     """
     try:
@@ -185,8 +188,7 @@ def wip(update: Update, context: CallbackContext) -> None:
 
 
 def wip_uid(update: Update, context: CallbackContext, uid: int):
-    """ Change status of ticket with `uid` to WIP.
-    """
+    """Change status of ticket with `uid` to WIP."""
     worker = who(update)
     try:
         worker = " ".join(context.args[1:])
@@ -237,7 +239,7 @@ def wip_uid(update: Update, context: CallbackContext, uid: int):
 
 
 def revoke(update: Update, context: CallbackContext) -> None:
-    """ Revoke a ticket your group created, e.g. because you resolved it
+    """Revoke a ticket your group created, e.g. because you resolved it
     yourself. Otherwise, show an inline list of applicable tickets.
     """
     try:
@@ -263,6 +265,7 @@ def revoke(update: Update, context: CallbackContext) -> None:
                 reply_markup=autoselect_keyboard(update, context),
             )
 
+
 def revoke_uid(update: Update, context: CallbackContext, uid: int) -> None:
     if ticket := context.bot_data["tickets"].get(uid):
         ticket.revoke()
@@ -274,8 +277,11 @@ def revoke_uid(update: Update, context: CallbackContext, uid: int) -> None:
             f"Ticket #{uid} zurückgezogen."
         )
         channel_msg(revoke_text)
-        group_msg(update, context, ticket.group_requesting,
-            f"{str(TicketStatus.REVOKED)}: {who(update)} in deiner Gruppe hat gerade ticket '{ticket.text}' zurückgezogen."
+        group_msg(
+            update,
+            context,
+            ticket.group_requesting,
+            f"{str(TicketStatus.REVOKED)}: {who(update)} in deiner Gruppe hat gerade ticket '{ticket.text}' zurückgezogen.",
         )
     else:
         update.message.reply_text(
@@ -283,10 +289,10 @@ def revoke_uid(update: Update, context: CallbackContext, uid: int) -> None:
             reply_markup=autoselect_keyboard(update, context),
         )
 
+
 @orga_command
 def all(update: Update, context: CallbackContext) -> None:
-    """ Show list of all tickets, OPEN or WIP.
-    """
+    """Show list of all tickets, OPEN or WIP."""
     message = ""
 
     tickets_list = {orga_group: [] for orga_group in ORGA_GROUPS}
@@ -309,11 +315,14 @@ def all(update: Update, context: CallbackContext) -> None:
 
 @orga_command
 def tickets(update: Update, context: CallbackContext) -> None:
-    """ Show list of OPEN and WIP tickets to be done by [ORGA-GROUP] of user.
-    """
+    """Show list of OPEN and WIP tickets to be done by [ORGA-GROUP] of user."""
     user_group = context.user_data.get("group_association")
 
-    message = "\n\n".join(str(ticket) for ticket in context.bot_data["tickets"].values() if ticket.is_tasked(user_group))
+    message = "\n\n".join(
+        str(ticket)
+        for ticket in context.bot_data["tickets"].values()
+        if ticket.is_tasked(user_group)
+    )
 
     if message:
         message = f"Liste der offenen Tickets für [{user_group}]:\n\n{message}"
@@ -370,8 +379,7 @@ def help2(update: Update, context: CallbackContext) -> None:
 
 @orga_command
 def message(update: Update, context: CallbackContext) -> None:
-    """ Send message to members of a group who opened a ticket
-    """
+    """Send message to members of a group who opened a ticket"""
 
     if len(context.args) < 2:
         update.message.reply_text(
@@ -388,8 +396,8 @@ def message(update: Update, context: CallbackContext) -> None:
         )
         group_msg(update, context, ticket.group_requesting, message)
         channel_msg(
-                f"🟣 Nachricht von {context.user_data['group_association']} an "
-                f"{ticket.group_requesting}: {' '.join(context.args[1:])}"
+            f"🟣 Nachricht von {context.user_data['group_association']} an "
+            f"{ticket.group_requesting}: {' '.join(context.args[1:])}"
         )
         update.message.reply_text(
             "Nachricht verschickt.",

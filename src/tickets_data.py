@@ -7,16 +7,15 @@ from telegram.ext import (
 
 
 def increase_highest_id(context: CallbackContext):
-    """ Keep internal counter of 'next' ticket id.
-    """
+    """Keep internal counter of 'next' ticket id."""
     highest = context.bot_data.get("highest_id", 0)
     context.bot_data["highest_id"] = highest + 1
     return highest
 
 
 class TicketStatus(Enum):
-    """ Define Ticket Status and its different representations
-    """
+    """Define Ticket Status and its different representations"""
+
     OPEN = "🟠 OPEN"
     WIP = "🟢 WIP"
     CLOSED = "✅ CLOSED"
@@ -33,8 +32,8 @@ class TicketStatus(Enum):
 
 
 class Ticket:
-    """ Collection of fields and functions directly related to Tickets.
-    """
+    """Collection of fields and functions directly related to Tickets."""
+
     def __init__(
         self,
         group_requesting: str,
@@ -94,8 +93,8 @@ class Ticket:
 
 
 class TicketEncoder(json.JSONEncoder):
-    """ JSON-Encoder also providing serialization of Ticket and TicketStatus.
-    """
+    """JSON-Encoder also providing serialization of Ticket and TicketStatus."""
+
     def default(self, obj):
         if isinstance(obj, Ticket):
             return obj.toJSON()

@@ -5,15 +5,20 @@ from telegram.ext import CallbackContext
 import logging
 import json
 
-from src.config import GROUPS_LIST, ORGA_GROUPS, HIDDEN_GROUPS, ALL_GROUPS, DEVELOPER_CHAT_ID
+from src.config import (
+    GROUPS_LIST,
+    ORGA_GROUPS,
+    ALL_GROUPS,
+    DEVELOPER_CHAT_ID,
+)
 from src.utils import who, dev_msg, channel_msg, autoselect_keyboard, dev_html
 
 log = logging.getLogger(__name__)
 
 
 def developer_command(func):
-    """ Decorator for commands only the developer is allowed to execute
-    """
+    """Decorator for commands only the developer is allowed to execute"""
+
     def wrapper(update: Update, context: CallbackContext):
         if update.effective_chat.id == DEVELOPER_CHAT_ID:
             func(update, context)
@@ -35,7 +40,7 @@ def developer_command(func):
 
 
 def error_handler(update: object, context: CallbackContext) -> None:
-    """ Instead of having errors crash the whole bot, log them and send the trace
+    """Instead of having errors crash the whole bot, log them and send the trace
     to the developer.
     """
     import html
@@ -75,8 +80,7 @@ def error_handler(update: object, context: CallbackContext) -> None:
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    """ Send initial welcoming message
-    """
+    """Send initial welcoming message"""
     message = (
         "Hi, Ich bin der UnifestBestellBot. Über mich können Stände Nachschub "
         "bestellen, insbesondere Kleingeld, Becher, Bier, und Cocktailmaterialien."
@@ -92,8 +96,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 def help(update: Update, context: CallbackContext) -> None:
-    """ Send message with help / usage information
-    """
+    """Send message with help / usage information"""
     message = """Verfügbare Befehle:
 /start
     Zeige initiale Willkommensnachricht an.
@@ -141,8 +144,7 @@ def help(update: Update, context: CallbackContext) -> None:
 
 
 def unknown(update: Update, context: CallbackContext) -> None:
-    """ Reaction to an unrecognized command.
-    """
+    """Reaction to an unrecognized command."""
     message = (
         "Kommando nicht erkannt oder im falschen Zusammenhang.\n\n"
         "Sende /help um eine Übersicht zu allen verfügbaren Kommandos "
@@ -157,12 +159,8 @@ def unknown(update: Update, context: CallbackContext) -> None:
             f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
         )
     else:
-        log.warn(
-            f"⚠️ Something weird happened in chat with {who(update)} [{group}]"
-        )
-        dev_msg(
-            f"⚠️ Something weird happened in chat with {who(update)} [{group}]"
-        )
+        log.warn(f"⚠️ Something weird happened in chat with {who(update)} [{group}]")
+        dev_msg(f"⚠️ Something weird happened in chat with {who(update)} [{group}]")
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
@@ -171,7 +169,7 @@ def unknown(update: Update, context: CallbackContext) -> None:
 
 
 def register(update: Update, context: CallbackContext) -> None:
-    """ Command to register group membership. If no group name is passed
+    """Command to register group membership. If no group name is passed
     as argument, show non-hidden and non-orga groups as inline buttons.
     Unregisters previous group membership regardless of successful registration
     at another group.
@@ -187,6 +185,7 @@ def register(update: Update, context: CallbackContext) -> None:
         register_group(update, context, name_actual)
         if name_actual in ORGA_GROUPS:
             from src.tickets import help2
+
             help2(update, context)
     elif name and name == "no group":
         unregister(update, context)
@@ -229,7 +228,7 @@ def register_group(update: Update, context: CallbackContext, group_name: str):
 
 
 def unregister(update: Update, context: CallbackContext) -> None:
-    """ Unregister user from current group membership and send
+    """Unregister user from current group membership and send
     respective logs / messages
     """
     try:
@@ -249,8 +248,7 @@ def unregister(update: Update, context: CallbackContext) -> None:
 
 
 def association_msg(update, group_name, register=True) -> None:
-    """ Log the registering / unregistering of a user.
-    """
+    """Log the registering / unregistering of a user."""
     if register:
         channel_msg(
             f"🔵 {who(update)} registered as member of group {group_name}.",
@@ -262,7 +260,7 @@ def association_msg(update, group_name, register=True) -> None:
 
 
 def status(update: Update, context: CallbackContext) -> None:
-    """ Give a status update to the user. Includes group association
+    """Give a status update to the user. Includes group association
     and status of unclosed (open and wip) tickets for the users group.
     """
     group = context.user_data.get("group_association")
@@ -292,8 +290,7 @@ def status(update: Update, context: CallbackContext) -> None:
 
 
 def details(update: Update, context: CallbackContext) -> None:
-    """ Answer with the full user context data. For debugging purposes.
-    """
+    """Answer with the full user context data. For debugging purposes."""
     update.message.reply_text(
         f"{context.user_data}",
         reply_markup=autoselect_keyboard(update, context),
@@ -328,12 +325,12 @@ def register_button(update: Update, context: CallbackContext) -> None:
 
 
 def task_button(update: Update, context: CallbackContext) -> None:
-    """ Parse the CallbackQuery for inline buttons of `/wip`, `/close` and
+    """Parse the CallbackQuery for inline buttons of `/wip`, `/close` and
     `revoke`.
     """
     query = update.callback_query
 
-    from src.tickets import close_uid, wip_uid, revoke_uid, TicketStatus
+    from src.tickets import close_uid, wip_uid, revoke_uid
 
     try:
         if "wip #" in query.data:
@@ -364,8 +361,7 @@ def task_button(update: Update, context: CallbackContext) -> None:
 
 
 def feature(update: Update, context: CallbackContext) -> None:
-    """ Send a feature request to the developer.
-    """
+    """Send a feature request to the developer."""
     if context.args:
         msg = " ".join(context.args)
         group = context.user_data.get("group_association", "Unknown")
@@ -382,8 +378,7 @@ def feature(update: Update, context: CallbackContext) -> None:
 
 
 def bug(update: Update, context: CallbackContext) -> None:
-    """ Send a bug report to the developer.
-    """
+    """Send a bug report to the developer."""
     if context.args:
         report = " ".join(context.args)
         group = context.user_data.get("group_association", "Unknown")
@@ -401,8 +396,7 @@ def bug(update: Update, context: CallbackContext) -> None:
 
 @developer_command
 def resetall(update: Update, context: CallbackContext) -> None:
-    """ Developer command to reset all bot context data.
-    """
+    """Developer command to reset all bot context data."""
     log.critical("resetting all bot context data.")
     context.bot_data.clear()
     dev_msg("☑️ successfully cleared all context data.")
@@ -410,8 +404,7 @@ def resetall(update: Update, context: CallbackContext) -> None:
 
 @developer_command
 def closeall(update: Update, context: CallbackContext) -> None:
-    """ Developer command to close all open tickets.
-    """
+    """Developer command to close all open tickets."""
     from src.tickets import close_uid
 
     log.critical("closing all open tickets.")
@@ -425,10 +418,8 @@ def closeall(update: Update, context: CallbackContext) -> None:
 
 @developer_command
 def system_status(update: Update, context: CallbackContext) -> None:
-    """ Developer command to show system status.
-    """
+    """Developer command to show system status."""
     import html
-    from telegram import ParseMode
     from src.tickets_data import TicketEncoder
 
     update.message.reply_text(f"{context.user_data}")
@@ -438,6 +429,7 @@ def system_status(update: Update, context: CallbackContext) -> None:
     message = f"<pre>update = {html.escape(js)}</pre>\n\n"
 
     dev_html(update, context, message)
+
 
 @developer_command
 def reset_counter(update: Update, context: CallbackContext) -> None:
