@@ -38,7 +38,10 @@ def who(update: Update) -> str:
     try:
         chat = update.message.chat
     except AttributeError:
-        chat = update.callback_query.message.chat
+        try:
+            chat = update.callback_query.message.chat
+        except AttributeError:
+            return "Unknown"
     # username is 'guaranteed' to exist (might be None tho),
     # but first_name and last_name aren't
     first_name = str(chat.to_dict().get("first_name") or "")
@@ -95,7 +98,7 @@ def group_msg(
             context.bot.send_message(
                 chat_id=chat_id,
                 text=message,
-                reply_markup=autoselect_keyboard(update, context),
+                reply_markup=autoselect_keyboard(update, context, group),
             )
         except telegram.error.Unauthorized:
             # user blocked bot.
@@ -134,12 +137,16 @@ orga_keyboard = ReplyKeyboardMarkup(
 
 
 def autoselect_keyboard(
-    update: Update, context: CallbackContext
+        update: Update, context: CallbackContext, group: str = None
 ) -> ReplyKeyboardMarkup:
     """Select keyboard with commands automatically based on group membership."""
     if not context.user_data:
         return initial_keyboard
-    if group := context.user_data.get("group_association"):
+    if group:
+        if group in ORGA_GROUPS:
+            return orga_keyboard
+        return main_keyboard
+    elif group := context.user_data.get("group_association"):
         if group in ORGA_GROUPS:
             return orga_keyboard
         return main_keyboard
