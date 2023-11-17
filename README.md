@@ -8,20 +8,17 @@ Package management is done via poetry, so we need:
 - `poetry`
 - `poetry` to install dependencies
 ```sh
-> # first, the virtual environment:
-> virtualenv .venv -p 3.9
-> source .venv/bin/activate.fish  # or what your shell needs
-> # now, install poetry
+> # install poetry
 > pip install poetry
 > # install dependencies
 > poetry install
 ```
 
-after that, simply execute
+after that, execute
 ```sh
-> python main.py
+> poetry run python main.py
 ```
-to run the program. See `-h` for help on arguments.
+to run the program. See `-h` for help on arguments. Ensure you have a complete configuration first, though.
 
 ## Dashboard
 There also is a simple MQTT-driven dashboard available. See [DASHBOARD.md]() for
