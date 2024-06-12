@@ -13,7 +13,7 @@ def load_json(filename):
         return json.load(f)
 
 
-TOKEN = load_json("debug_token.json")  # str              # Token of telegram-bot
+TOKEN = load_json("token.json")  # str                    # Token of telegram-bot
 GROUPS_LIST = load_json("groups.json")  # [str]           # main list of groups that can write tickets
 MAPPING = load_json("mapping.json")  # dict: str -> str   # maps each group to a location.
 UPDATES_CHANNEL_ID = load_json("channel.json")  # int     # channel to log various updates to

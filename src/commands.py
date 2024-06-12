@@ -85,7 +85,10 @@ def start(update: Update, context: CallbackContext) -> None:
         "Alle verfügbaren Kommandos und deren Erklärung kannst du mit /help sehen."
     )
     if not context.user_data:
-        context.user_data = {}
+        try:
+            context.user_data = {}
+        except AttributeError as e:
+            log.warning(f"AttributeError on attempting to create empty user context for {who(update)}")
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
