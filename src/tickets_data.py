@@ -76,6 +76,11 @@ class Ticket:
         self.status = TicketStatus.WIP
         self.who = who
 
+    def move_to(self, new_group_tasked):
+        assert self.status == TicketStatus.CLOSED
+        self.status = TicketStatus.OPEN
+        self.group_tasked = new_group_tasked
+
     def close(self):
         self.status = TicketStatus.CLOSED
 

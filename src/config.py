@@ -21,7 +21,11 @@ DEVELOPER_CHAT_ID = load_json("developer.json")  # int    # chat id of developer
 ORGA_GROUPS = load_json("orga.json")  # [str]             # list of orga-groups that can get tickets and work on them
 HIDDEN_GROUPS = load_json("hidden.json")  # [str]         # list of additional (hidden) groups that can write tickets
 
+LOCATIONS = load_json("location.json") # dict: str -> int
+
 ALL_GROUPS = GROUPS_LIST + ORGA_GROUPS + HIDDEN_GROUPS
+
+ENGELSYSTEM_API_KEY = load_json("engelsystem_api.json")
 
 # If not used, create json file with "{}" as file content
 MQTT_HOST = None  # str | None
@@ -40,14 +44,15 @@ CONNECT_BROKER = MQTT_HOST and MQTT_PORT and MQTT_USER and MQTT_PASS
 
 # options for state machine. You still need to manually adapt regex and
 # functions too.
-REQUEST_OPTIONS = [["Becher", "Geld", "/cancel"], ["Bier", "Cocktail", "Sonstiges"]]
+REQUEST_OPTIONS = [["Becher", "Geld", "/cancel"], ["Bier", "Cocktail", "Sonstiges"], ["Helfer"]]
 MONEY_OPTIONS = [
     ["Geld Abholen", "/cancel"],
     ["Wechselgeld", "Freitext"],
 ]
 CUP_OPTIONS = [["Dreckige Abholen", "/cancel"], ["Shotbecher", "Normale Becher"]]
-AMOUNT_OPTIONS = [["0", "/cancel"], ["~10", "~20", "~50"]]
+AMOUNT_OPTIONS = [["0", "Freitext", "/cancel"], ["~10", "~20", "~50"]]
+HELPER_OPTIONS = [["zu viele", "zu wenige"], ["Helfer nicht da", "Liste Schichten"]]
 
 INITIAL_KEYBOARD = [["/help", "/register"]]
 MAIN_KEYBOARD = [["/help", "/status"], ["/request"]]
-ORGA_KEYBOARD = [["/help", "/help2", "/all"], ["/tickets", "/wip", "/close"]]
+ORGA_KEYBOARD = [["/help", "/help2"], ["/all", "/tickets", "/move"], ["/wip", "/close"]]

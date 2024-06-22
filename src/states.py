@@ -15,6 +15,7 @@ from src.config import (
     MONEY_OPTIONS,
     CUP_OPTIONS,
     AMOUNT_OPTIONS,
+    HELPER_OPTIONS,
 )
 from src.utils import channel_msg, autoselect_keyboard
 from src.tickets import create_ticket
@@ -30,7 +31,8 @@ log = logging.getLogger(__name__)
     CUPS,
     AMOUNT,
     FREE,
-) = range(5)
+    HELPER,
+) = range(6)
 
 
 def end(update: Update, context: CallbackContext) -> int:
@@ -86,6 +88,7 @@ def request(update: Update, context: CallbackContext) -> int:
             reply_markup=autoselect_keyboard(update, context),
         )
         return end(update, context)
+
     if context.user_data.get("group_association"):
         group = context.user_data.get("group_association")
         if not context.bot_data.get("group_association"):
@@ -154,7 +157,7 @@ def free_next(update: Update, context: CallbackContext) -> int:
 def ask_amount(update: Update, context: CallbackContext) -> int:
     context.user_data["second_choice"] = update.message.text
     update.message.reply_text(
-        "Wie viel habt ihr noch?",
+        "Wie viel habt ihr noch bzw. braucht ihr?",
         reply_markup=ReplyKeyboardMarkup(
             AMOUNT_OPTIONS,
         ),
@@ -251,3 +254,26 @@ def change(update: Update, context: CallbackContext) -> int:
         reply_markup=autoselect_keyboard(update, context),
     )
     return end(update, context)
+
+
+def helper(update: Update, context: CallbackContext) -> int:
+    context.user_data["first_choice"] = update.message.text
+    update.message.reply_text(
+        "Habt ihr zu viele (langweilen sich), zu wenige "
+        "(alle die da sein sollten sind da, aber es reicht nicht) "
+        " oder fehlen welche (schichthelfer sind nicht aufgetaucht)?",
+        reply_markup=ReplyKeyboardMarkup(
+            HELPER_OPTIONS,
+        ),
+    )
+    return HELPER
+
+
+def helper_free_next(update: Update, context: CallbackContext) -> int:
+    if not context.user_data.get("first_choice"):
+       context.user_data["first_choice"] = update.message.text
+    update.message.reply_text(
+        "Wie ist der username der nicht aufgetauchten Helfer?",
+        reply_markup=ReplyKeyboardRemove(),
+    ),
+    return FREE

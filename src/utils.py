@@ -97,7 +97,7 @@ def group_msg(
             context.bot.send_message(
                 chat_id=chat_id,
                 text=message,
-                reply_markup=autoselect_keyboard(update, context),
+                reply_markup=autoselect_keyboard(update, context, group),
             )
         except telegram.error.Unauthorized:
             # user blocked bot.
@@ -137,11 +137,16 @@ orga_keyboard = ReplyKeyboardMarkup(
 
 
 def autoselect_keyboard(
-    update: Update, context: CallbackContext
+    update: Update, context: CallbackContext, group_members=None,
 ) -> ReplyKeyboardMarkup:
     """ Select keyboard with commands automatically based on group membership.
     """
-    if group := context.user_data.get("group_association"):
+    if group_members:
+        group = group_members
+    else:
+        group = context.user_data.get("group_association")
+
+    if group:
         if group in ORGA_GROUPS:
             return orga_keyboard
         return main_keyboard

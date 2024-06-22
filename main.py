@@ -44,6 +44,8 @@ from src.states import (
     cups,
     free_next,
     ask_amount,
+    helper,
+    helper_free_next,
     amount,
     collect,
     change,
@@ -53,9 +55,11 @@ from src.states import (
     CUPS,
     AMOUNT,
     FREE,
+    HELPER,
 )
-from src.tickets import close, wip, all, tickets, help2, message
+from src.tickets import close, wip, all, tickets, help2, message, move
 from src.parser import create_parser
+from src.engelsystem import helpers
 
 # activate tracebacks with `rich` formatting support
 install(show_locals=True)
@@ -91,6 +95,7 @@ def main(**kwargs):
                 REQUEST: [
                     MessageHandler(Filters.regex("^Geld$"), money),
                     MessageHandler(Filters.regex("^Becher$"), cups),
+                    MessageHandler(Filters.regex("^Helfer$"), helper),
                     MessageHandler(Filters.regex("^Sonstiges$"), free_next),
                     MessageHandler(Filters.regex("^(Bier|Cocktail)$"), free_next),
                     CommandHandler("cancel", cancel),
@@ -118,7 +123,14 @@ def main(**kwargs):
                     CommandHandler("cancel", cancel),
                 ],
                 AMOUNT: [
+                    MessageHandler(Filters.regex("^Freitext$"), free_next),
                     MessageHandler(Filters.text & ~Filters.command, amount),
+                    CommandHandler("cancel", cancel),
+                ],
+                HELPER: [
+                    MessageHandler(Filters.regex("^Liste Schichten$"), helpers),
+                    MessageHandler(Filters.regex("^Helfer nicht da$"), helper_free_next),
+                    MessageHandler(Filters.text & ~Filters.command, ask_amount),
                     CommandHandler("cancel", cancel),
                 ],
             },
@@ -154,10 +166,12 @@ def main(**kwargs):
     dispatcher.add_handler(CommandHandler("message", message))
     dispatcher.add_handler(CommandHandler("close", close))
     dispatcher.add_handler(CommandHandler("wip", wip))
+    dispatcher.add_handler(CommandHandler("move", move))
+    dispatcher.add_handler(CommandHandler("helpers", helpers))
 
     # Developer commands
     # only available from DEVELOPER_CHAT_ID
-    dispatcher.add_handler(CommandHandler("resetall", resetall))
+    # dispatcher.add_handler(CommandHandler("resetall", resetall))
     dispatcher.add_handler(CommandHandler("closeall", closeall))
     dispatcher.add_handler(CommandHandler("resetcount", reset_counter))
 

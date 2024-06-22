@@ -44,6 +44,8 @@ def create_ticket(
         group_tasked = "Finanz"
     elif category in ["Bier", "Cocktail", "Becher"]:
         group_tasked = "BiMi"
+    elif category == "Helfer":
+        group_tasked = "Helfen"
 
     ticket = Ticket(
         group_requesting,
@@ -281,6 +283,11 @@ def help2(update: Update, context: CallbackContext) -> None:
 /tickets
     Zeige die Liste der offenen tickets
     und deren <id>, für deine Gruppe.
+/move <ticket-id> <orga-gruppe>
+    Weise ein Ticket einer anderen Orga-
+    Gruppe zu. Stelle sicher, dass das ticket
+    noch nicht in bearbeitung ist, und dass
+    <orga-gruppe> richtig geschrieben ist.
 /wip [ticket-id]
     Zeige liste an offenen Tickets für
     deine Gruppe. Beginne Arbeit an
@@ -341,3 +348,61 @@ def message(update: Update, context: CallbackContext) -> None:
             reply_markup=autoselect_keyboard(update, context),
         )
         return
+
+@orga_command
+def move(update: Update, context: CallbackContext) -> None:
+    if len(context.args) < 2:
+        update.message.reply_text(
+            "Benutzung des Kommandos ist /move <ticket-id> <orga-group>",
+            reply_markup=autoselect_keyboard(update, context),
+        )
+        return
+    try:
+        uid = int(context.args[0])
+        _ = context.bot_data["tickets"][uid]
+        group = context.args[1]
+
+        if group not in ORGA_GROUPS:
+            raise ValueError
+
+        move_uid(update, context, uid, group)
+
+
+    except (ValueError, IndexError):
+        update.message.reply_text(
+            "Stelle sicher, dass <ticket-id> eine valide Zahl von "
+            "einem offenen Ticket ist, und <orga-group> existiert. "
+            f"Existierende Gruppen sind: {ORGA_GROUPS}",
+            reply_markup=autoselect_keyboard(update, context),
+        )
+        return
+
+
+def move_uid(update: Update, context: CallbackContext, uid: int, group: str):
+    """ Move ticket with `uid` to be taken care of by another group.
+    """
+    ticket = context.bot_data["tickets"][uid]
+    try:
+        assert ticket.is_open()
+        ticket.close()
+        add_ticket(context, ticket)
+        ticket.move_to(group)
+        add_ticket(context, ticket)
+    except AssertionError:
+        update.message.reply_text(
+            f"Ticket #{uid} wird bereits bearbeitet und kann daher nicht verschoben werden."
+        )
+
+    channel_msg(
+            f"🟠 MOVED {ticket} to be handled by {group}"
+    )
+
+
+
+    try:
+        update.message.reply_text(
+            f"Ticket #{uid} ist jetzt {group} zugewiesen",
+            reply_markup=autoselect_keyboard(update, context),
+        )
+    except AttributeError:
+        log.info(f"could not reply to message in chat with {who(update)} while attempting a move")
