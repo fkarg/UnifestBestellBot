@@ -5,9 +5,11 @@ let hash = window.location.hash.substring(1);
 let params = hash.split("|")
 
 let filter = "tickets/" + params[0].toLocaleLowerCase();
-let host_port = params[1];
+// let host_port = params[1];
+let host_port = "dashboard.unifest.fsmi.org/ws"
+// let host_port = "dashboard.unifest.fsmi.org:8002"
 
-let client = mqtt.connect('ws://' + host_port); // create a client
+let client = mqtt.connect('wss://' + host_port); // create a client
 
 let sound_a = new Audio(sound_a_file);
 let allow_play = false;
