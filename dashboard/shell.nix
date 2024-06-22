@@ -12,8 +12,8 @@ stdenv.mkDerivation {
     shellHook = ''
         export ENVNAME=dashboard
         npm install
-        npx run build
-        npm run serve
+        npx parcel build index.html
+        # npm run serve
         python3 -m http.server 8003
     '';
 }
