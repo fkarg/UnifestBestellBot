@@ -1,4 +1,5 @@
-import * as mqtt from "mqtt";  // import everything inside the mqtt module and give it the namespace "mqtt"
+import * as mqtt from "mqtt";
+
 let sound_a_file = require('./sound_a.mp3');
 
 let hash = window.location.hash.substring(1);
@@ -6,30 +7,64 @@ let params = hash.split("|")
 
 let filter = "tickets/" + params[0].toLocaleLowerCase();
 // let host_port = params[1];
-let host_port = "dashboard.unifest.fsmi.org/ws"
-// let host_port = "dashboard.unifest.fsmi.org:8002"
+let mqtt_url = 'ws://162.55.42.21:8002/mqtt';
+// let mqtt_url = 'ws://localhost:8002/mqtt';
+// let mqtt_url = 'wss://domain:8002/mqtt'; // websocket connection with SSL
 
-let client = mqtt.connect('wss://' + host_port); // create a client
+function createClient() {
+    console.log('Connecting to:', mqtt_url);
+
+    let client = mqtt.connect(mqtt_url, {
+        protocolId: 'MQTT',
+        protocolVersion: 4,
+        clean: true,
+        connectTimeout: 4000,
+        reconnectPeriod: 1000
+    });
+
+    console.log('MQTT client identifier: ', client.options.clientId);
+
+    return client;
+}
+
+function setupClientEvents(client) {
+    client.on('connect', function () {
+        console.log('MQTT connected successfully!', new Date().toISOString());
+        client.subscribe('#', { qos: 0 });
+    });
+
+    client.on('error', function (error) {
+        console.error('MQTT connection error:', error, new Date().toISOString());
+    });
+
+    client.on('close', function () {
+        console.log('MQTT connection closed', new Date().toISOString());
+    });
+
+    client.on('offline', function () {
+        console.log('MQTT client offline', new Date().toISOString());
+    });
+
+    client.on('message', function (topic, message) {
+      // message is Buffer
+        message = message.toString();
+        if (message == "") {
+            return;
+        }
+        message = JSON.parse(message);
+        if (topic.toLocaleLowerCase().startsWith(filter)) {
+            handleTicket(message);
+        }
+    });
+}
+
+let client = createClient(); // create a client
+setupClientEvents(client);
 
 let sound_a = new Audio(sound_a_file);
 let allow_play = false;
 
 alert("Drücke irgendwo um in Vollbild zu wechseln. Wenn Sound nervig, den Tab muten.");
-  
-client.on('connect', function () {
-    client.subscribe('#', { qos: 0 })
-})
-client.on('message', function (topic, message) {
-  // message is Buffer
-  message = message.toString();
-  if (message == "") {
-    return;
-  }
-  message = JSON.parse(message);
-  if (topic.toLocaleLowerCase().startsWith(filter)) {
-    handleTicket(message);
-  }
-})
 
 function handleTicket(message) {
     let uid = message.uid;

@@ -6,7 +6,7 @@ stdenv.mkDerivation {
       # misc
       fish
       git
-      nodejs_18
+      nodejs
       mosquitto
     ];
     shellHook = ''
@@ -14,6 +14,6 @@ stdenv.mkDerivation {
         npm install
         npx parcel build index.html
         # npm run serve
-        python3 -m http.server 8003
+        python3 -m http.server --directory dist 80
     '';
 }
