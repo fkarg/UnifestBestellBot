@@ -51,7 +51,7 @@ def helpers(update: Update, context: CallbackContext):
 
         def is_next(shift):
             shift_start = datetime.fromisoformat(shift['starts_at'])
-            shift_end = datetime.fromisoformat(shift['ends_at'])
+            # shift_end = datetime.fromisoformat(shift['ends_at'])
             return shift_start > now and shift_start - delta < now
 
         shifts_current = [shift for shift in shifts if is_current(shift)]

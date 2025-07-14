@@ -21,7 +21,7 @@ def add_ticket(context, ticket: Ticket):
     if not tickets:
         context.bot_data["tickets"] = {}
         mqtt_set_tickets(context.bot_data["tickets"])
-    
+
     context.bot_data["tickets"][ticket.uid] = ticket
     dashboard_publish(f"tickets/{ticket.group_tasked}/{ticket.uid}", ticket)
 
@@ -306,6 +306,11 @@ def help2(update: Update, context: CallbackContext) -> None:
     erstellt haben.
 /help2
     Zeige diese Hilfenachricht.
+
+Außerdem findest du ein Dashboard aller Tickets auf http://162.55.42.21/#
+
+Du kannst die Dashboard-Ansicht auf deine Gruppe einschränken, indem du deinen [ORGA]-gruppennamen hinter `#` anhängst, also
+z.b. http://162.55.42.21/#finanz , http://162.55.42.21/#bimi oder http://162.55.42.21/#zentrale
     """
     context.bot.send_message(
         chat_id=update.effective_chat.id,

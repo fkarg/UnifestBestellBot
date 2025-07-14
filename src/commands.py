@@ -34,7 +34,7 @@ def developer_command(func):
     return wrapper
 
 
-def error_handler(update: object, context: CallbackContext) -> None:
+def error_handler(update: Update, context: CallbackContext) -> None:
     """ Instead of having errors crash the whole bot, log them and send the trace
     to the developer.
     """
@@ -148,14 +148,20 @@ def unknown(update: Update, context: CallbackContext) -> None:
         "Kommando nicht erkannt oder im falschen Zusammenhang.\n\n"
         "Sende /help um eine Übersicht zu allen verfügbaren Kommandos "
         "zu bekommen. Sende alternativ /request um eine Anfrage "
-        "zu stellen."
+        "zu stellen. Editieren von vorigen Nachrichten führt zu fehlern."
     )
     group = "Unknown"
     if context.user_data:
         group = context.user_data.get("group_association")
-    log.warn(
-        f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
-    )
+
+    if update.edited_message:
+        log.warning(
+            f"⚠️ received edited command '{update.edited_message.text}' from {who(update)} [{group}]"
+        )
+    else:
+        log.warning(
+            f"⚠️ received unrecognized command '{update.message.text}' from {who(update)} [{group}]"
+        )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,

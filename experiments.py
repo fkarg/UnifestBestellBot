@@ -57,7 +57,7 @@ dispatcher.add_handler(echo_handler)
 
 # adding handler to return stuff in caps
 def caps(update: Update, context: CallbackContext):
-    text_caps = " ".join(context.args).upper()
+    text_caps = " ".join(context.args).upper()  # type: ignore
     context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
 
 

@@ -56,6 +56,7 @@ def reset_user(update: Update, context: CallbackContext) -> int:
         "Du musst dich neu mit /register anmelden.",
         reply_markup=autoselect_keyboard(update, context),
     )
+    return end(update, context)
 
 
 def cancel(update: Update, context: CallbackContext) -> int:

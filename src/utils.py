@@ -39,7 +39,10 @@ def who(update: Update) -> str:
     try:
         chat = update.message.chat
     except AttributeError:
-        chat = update.callback_query.message.chat
+        try:
+            chat = update.callback_query.message.chat
+        except AttributeError:
+            chat = update.edited_message.chat
     # username is 'guaranteed' to exist (might be None tho),
     # but first_name and last_name aren't
     first_name = str(chat.to_dict().get("first_name") or "")
@@ -141,9 +144,10 @@ def autoselect_keyboard(
 ) -> ReplyKeyboardMarkup:
     """ Select keyboard with commands automatically based on group membership.
     """
+    group = None
     if group_members:
         group = group_members
-    else:
+    elif context.user_data:
         group = context.user_data.get("group_association")
 
     if group:
