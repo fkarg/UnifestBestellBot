@@ -41,6 +41,7 @@ from src.states import (
     cancel,
     request,
     money,
+    money_change,
     cups,
     free_next,
     ask_amount,
@@ -52,6 +53,7 @@ from src.states import (
     free,
     REQUEST,
     MONEY,
+    MONEY_CHANGE,
     CUPS,
     AMOUNT,
     FREE,
@@ -103,7 +105,12 @@ def main(**kwargs):
                 MONEY: [
                     MessageHandler(Filters.regex("^Geld Abholen$"), collect),
                     MessageHandler(Filters.regex("^Freitext$"), free_next),
-                    MessageHandler(Filters.regex("^Wechselgeld$"), change),
+                    MessageHandler(Filters.regex("^Wechselgeld$"), money_change),
+                    CommandHandler("cancel", cancel),
+                ],
+                MONEY_CHANGE: [
+                    MessageHandler(Filters.regex("^Scheine$"), change),
+                    MessageHandler(Filters.regex("^Münzen$"), change),
                     CommandHandler("cancel", cancel),
                 ],
                 CUPS: [
