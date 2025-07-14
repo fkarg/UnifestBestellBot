@@ -13,6 +13,7 @@ from src.config import (
     MAPPING,
     REQUEST_OPTIONS,
     MONEY_OPTIONS,
+    MONEY_CHANGE_OPTIONS,
     CUP_OPTIONS,
     AMOUNT_OPTIONS,
     HELPER_OPTIONS,
@@ -28,11 +29,12 @@ log = logging.getLogger(__name__)
 (
     REQUEST,
     MONEY,
+    MONEY_CHANGE,
     CUPS,
     AMOUNT,
     FREE,
     HELPER,
-) = range(6)
+) = range(7)
 
 
 def end(update: Update, context: CallbackContext) -> int:
@@ -131,6 +133,17 @@ def money(update: Update, context: CallbackContext) -> int:
         ),
     )
     return MONEY
+
+def money_change(update: Update, context: CallbackContext) -> int:
+    context.user_data["first_choice"] = update.message.text
+
+    update.message.reply_text(
+        "Braucht ihr Scheine oder Münzen?",
+        reply_markup=ReplyKeyboardMarkup(
+            MONEY_CHANGE_OPTIONS,
+        ),
+    )
+    return MONEY_CHANGE
 
 
 def cups(update: Update, context: CallbackContext) -> int:
@@ -240,7 +253,7 @@ def change(update: Update, context: CallbackContext) -> int:
     group = context.user_data["group_association"]
     category = context.user_data["first_choice"]
     location = MAPPING[group]
-    text = f"{location} [{group}] braucht Wechselgeld"
+    text = f"{location} [{group}] braucht {update.message.text}"
     uid = create_ticket(
         update,
         context,

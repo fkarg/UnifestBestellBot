@@ -46,9 +46,10 @@ CONNECT_BROKER = MQTT_HOST and MQTT_PORT and MQTT_USER and MQTT_PASS
 # functions too.
 REQUEST_OPTIONS = [["Becher", "Geld", "/cancel"], ["Bier", "Cocktail", "Sonstiges"], ["Helfer"]]
 MONEY_OPTIONS = [
-    ["Geld Abholen", "/cancel"],
-    ["Wechselgeld", "Freitext"],
+    ["Geld Abholen", "Wechselgeld"],
+    ["Freitext", "/cancel"],
 ]
+MONEY_CHANGE_OPTIONS = [["Scheine", "Münzen"], ["/cancel"]]
 CUP_OPTIONS = [["Dreckige Abholen", "/cancel"], ["Shotbecher", "Normale Becher"]]
 AMOUNT_OPTIONS = [["0", "Freitext", "/cancel"], ["~10", "~20", "~50"]]
 HELPER_OPTIONS = [["zu viele", "zu wenige"], ["Helfer nicht da", "Liste Schichten"]]
