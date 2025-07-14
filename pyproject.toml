@@ -1,24 +1,16 @@
-[tool.poetry]
+[project]
 name = "unifestbestellbot"
 version = "0.1.0"
 description = ""
-authors = ["Felix Karg <f.karg10@gmail.com>"]
-
-[tool.poetry.dependencies]
-python = "^3.10"
-requests = "^2.27.1"
-argparse = "^1.4.0"
-python-telegram-bot = "^13.12"
-rich = "^13.4.1"
-paho-mqtt = "^1.6.1"
-
-[tool.poetry.dev-dependencies]
-black = "^22.3.0"
-ipython = "^8.4.0"
-poetry = "^1.1.13"
-ruff = "^0.0.272"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
+authors = [
+    {name = "Felix Karg", email = "f.karg10@gmail.com"},
+]
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "requests<3.0.0,>=2.27.1",
+    "argparse<2.0.0,>=1.4.0",
+    "python-telegram-bot>=13.12,<14.0",
+    "rich<14.0.0,>=13.4.1",
+    "paho-mqtt<2.0.0,>=1.6.1",
+    "urllib3>=1.26,<=2.0",
+]
