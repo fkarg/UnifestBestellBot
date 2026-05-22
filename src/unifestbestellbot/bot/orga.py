@@ -1,7 +1,8 @@
 """Orga-only commands: /wip /close /move /message /all /tickets /help2
-and the related inline ticket pickers."""
+/history and the related inline ticket pickers."""
 
 from collections.abc import Awaitable, Callable
+from datetime import UTC
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -398,3 +399,44 @@ async def cmd_feature(msg: Message, db_session: Session, config: AppConfig) -> N
     )
     reg = repo.registration_for(db_session, user.id)
     await msg.answer(i18n.FEATURE_FORWARDED, reply_markup=keyboards.for_user(reg, config))
+
+
+# --- /history -------------------------------------------------------------
+
+_HISTORY_MAX = 50
+
+
+@router.message(Command("history"), IsOrga())
+async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = _require_reg(db_session, msg)
+    parts = (msg.text or "").split(maxsplit=1)
+    limit = 10
+    if len(parts) > 1:
+        try:
+            limit = int(parts[1].strip())
+        except ValueError:
+            await msg.answer(i18n.HISTORY_USAGE, reply_markup=keyboards.for_user(reg, config))
+            return
+        if limit < 1 or limit > _HISTORY_MAX:
+            await msg.answer(i18n.HISTORY_USAGE, reply_markup=keyboards.for_user(reg, config))
+            return
+
+    summaries = repo.recent_closes(db_session, group_tasked=reg.group_name, limit=limit)
+    if not summaries:
+        await msg.answer(
+            i18n.HISTORY_EMPTY.format(group=reg.group_name),
+            reply_markup=keyboards.for_user(reg, config),
+        )
+        return
+
+    lines = []
+    for cs in summaries:
+        # Stored timestamps are naive UTC; display in the operator's local
+        # timezone so "21:00" means what they expect.
+        local_ts = cs.closed_at.replace(tzinfo=UTC).astimezone(tz=None)
+        when = local_ts.strftime("%d.%m. %H:%M")
+        lines.append(
+            f"#{cs.ticket.id} ({when}) – {cs.closer_display}\n  {cs.ticket.text}"
+        )
+    body = i18n.HISTORY_HEADER.format(group=reg.group_name) + "\n\n" + "\n\n".join(lines)
+    await msg.answer(body, reply_markup=keyboards.for_user(reg, config))

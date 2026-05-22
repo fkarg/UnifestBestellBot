@@ -2,6 +2,7 @@
 Audit events are written in the same transaction as the action they describe."""
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import or_
@@ -205,6 +206,58 @@ def tickets_requested_by(s: Session, group: str) -> list[Ticket]:
         .order_by(Ticket.id)  # ty: ignore[invalid-argument-type]
     )
     return list(s.exec(stmt))
+
+
+@dataclass
+class CloseSummary:
+    """One closed ticket, with metadata for display in /history."""
+
+    ticket: Ticket
+    closed_at: datetime
+    closer_chat_id: int | None
+    closer_display: str
+
+
+def recent_closes(
+    s: Session, *, group_tasked: str | None = None, limit: int = 10
+) -> list[CloseSummary]:
+    """Return up to `limit` most recently closed tickets, newest first.
+    Each entry carries the closer's display name (from their registration
+    if they still have one; otherwise their raw chat id)."""
+    # SQLAlchemy comparison expressions look like `bool` to ty/mypy but
+    # are ColumnElements at runtime; the join condition needs one ignore.
+    stmt = (
+        select(Ticket, AuditEvent)
+        .join(AuditEvent, AuditEvent.ticket_id == Ticket.id)  # ty: ignore[invalid-argument-type]
+        .where(Ticket.status == TicketStatus.CLOSED)
+        .where(AuditEvent.kind == "close")
+    )
+    if group_tasked is not None:
+        stmt = stmt.where(Ticket.group_tasked == group_tasked)
+    stmt = stmt.order_by(AuditEvent.ts.desc()).limit(limit)  # ty: ignore[unresolved-attribute]
+
+    summaries: list[CloseSummary] = []
+    for ticket, event in s.exec(stmt):
+        reg = (
+            s.get(Registration, event.actor_chat_id)
+            if event.actor_chat_id is not None
+            else None
+        )
+        if reg is not None:
+            display = reg.display_name()
+        elif event.actor_chat_id is not None:
+            display = f"chat {event.actor_chat_id}"
+        else:
+            display = "Unbekannt"
+        summaries.append(
+            CloseSummary(
+                ticket=ticket,
+                closed_at=event.ts,
+                closer_chat_id=event.actor_chat_id,
+                closer_display=display,
+            )
+        )
+    return summaries
 
 
 def record_message(

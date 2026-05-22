@@ -59,6 +59,10 @@ HELP_ORGA = """Zusätzlich verfügbare Kommandos für [ORGA]:
     die das Ticket erstellt hat.
 /helpers
     Zeige Helfer-Schichten am Standort.
+/history [n]
+    Letzte n geschlossene Tickets deiner
+    Gruppe (default 10, max 50) mit wer
+    sie geschlossen hat.
 /help2
     Zeige diese Hilfenachricht.
 """
@@ -154,6 +158,10 @@ TICKET_MOVE_BLOCKED_WIP = "Ticket #{uid} wird bereits bearbeitet und kann daher 
 MOVE_USAGE = "Benutzung: /move <ticket-id> <orga-gruppe>. Existierende Gruppen: {groups}"
 MESSAGE_USAGE = "Benutzung: /message <ticket-id> <nachricht>"
 MESSAGE_DELIVERED = "Nachricht verschickt."
+
+HISTORY_USAGE = "Benutzung: /history [n]. n zwischen 1 und 50."
+HISTORY_EMPTY = "Keine geschlossenen Tickets für [{group}]."
+HISTORY_HEADER = "Letzte geschlossene Tickets für [{group}]:"
 
 # --- group fanout messages ----------------------------------------------
 
