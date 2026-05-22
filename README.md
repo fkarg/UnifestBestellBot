@@ -54,3 +54,5 @@ the event bus.
   common fixes
 - [`docs/MIGRATION.md`](docs/MIGRATION.md) — observable behaviour and
   config differences vs. the legacy bot
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — open GitHub issues, with a
+  short case and implementation plan for each
