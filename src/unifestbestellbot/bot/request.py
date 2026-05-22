@@ -21,7 +21,7 @@ from .. import i18n, repo
 from ..config import AppConfig
 from ..events import EventBus
 from . import keyboards, notify
-from .common import who
+from .common import actor, bot_of, who
 
 router = Router(name="request")
 
@@ -106,7 +106,7 @@ def render_change(group: str, location: str, kind: str) -> str:
 @router.message(Command("cancel"))
 async def cmd_cancel(msg: Message, state: FSMContext, db_session: Session, config: AppConfig) -> None:
     await state.clear()
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, actor(msg).id)
     await msg.answer(i18n.REQUEST_CANCELLED, reply_markup=keyboards.for_user(reg, config))
 
 
@@ -119,7 +119,7 @@ async def cmd_request(
         await msg.answer(i18n.REQUEST_IN_PROGRESS)
         return
 
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, actor(msg).id)
     if reg is None:
         await msg.answer(
             i18n.NOT_REGISTERED, reply_markup=keyboards.for_user(None, config)
@@ -137,6 +137,7 @@ async def cmd_request(
 @router.message(RequestFSM.category, F.text.in_(CATEGORY_LABELS))
 async def pick_category(msg: Message, state: FSMContext) -> None:
     category = msg.text
+    assert category is not None  # F.text.in_ filter guarantees this
     await state.update_data(category=category)
     branch = FOLLOWUPS[category]
     await state.set_state(branch.next_state)
@@ -194,7 +195,7 @@ async def money_change_pick(
 ) -> None:
     data = await state.get_data()
     location = _location_for(data["group"], config)
-    text = render_change(data["group"], location, msg.text)
+    text = render_change(data["group"], location, msg.text or "")
     await _finalize(msg, state, db_session, config, events, text=text)
 
 
@@ -289,7 +290,7 @@ async def helper_list_shifts(
     data = await state.get_data()
     summary = await shift_lookup(data["group"], config)
     await state.clear()
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, actor(msg).id)
     await msg.answer(summary, reply_markup=keyboards.for_user(reg, config))
 
 
@@ -327,33 +328,35 @@ async def _finalize(
     data = await state.get_data()
     category = data["category"]
     group_tasked = config.route_category(category)
+    user = actor(msg)
+    bot = bot_of(msg)
     ticket = repo.create_ticket(
         db_session,
         category=category,
         text=text,
         group_requesting=data["group"],
         group_tasked=group_tasked,
-        actor_chat_id=msg.from_user.id,
+        actor_chat_id=user.id,
     )
     await state.clear()
 
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, user.id)
     await msg.answer(
         i18n.REQUEST_TICKET_CREATED.format(uid=ticket.id),
         reply_markup=keyboards.for_user(reg, config),
     )
 
     await events.publish_ticket(ticket)
-    await notify.channel_msg(msg.bot, i18n.CH_OPEN.format(uid=ticket.id, text=text))
+    await notify.channel_msg(bot, i18n.CH_OPEN.format(uid=ticket.id, text=text))
     await notify.group_msg(
-        msg.bot,
+        bot,
         db_session,
         data["group"],
-        i18n.GROUP_TICKET_OPENED.format(who=who(msg.from_user), text=text),
-        exclude_chat_id=msg.from_user.id,
+        i18n.GROUP_TICKET_OPENED.format(who=who(user), text=text),
+        exclude_chat_id=user.id,
     )
     await notify.group_msg(
-        msg.bot,
+        bot,
         db_session,
         group_tasked,
         i18n.GROUP_TICKET_FOR_ORGA.format(uid=ticket.id, text=text),

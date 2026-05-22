@@ -171,7 +171,9 @@ def active_tickets(
         stmt = stmt.where(Ticket.group_tasked == group_tasked)
     if status is not None:
         stmt = stmt.where(Ticket.status == status)
-    stmt = stmt.order_by(Ticket.id)
+    # Ticket.id is an InstrumentedAttribute at the class level, but its
+    # declared type is `int | None`; ty/mypy can't see the descriptor magic.
+    stmt = stmt.order_by(Ticket.id)  # ty: ignore[invalid-argument-type]
     return list(s.exec(stmt))
 
 
@@ -180,7 +182,7 @@ def tickets_requested_by(s: Session, group: str) -> list[Ticket]:
         select(Ticket)
         .where(Ticket.group_requesting == group)
         .where(Ticket.status != TicketStatus.CLOSED)
-        .order_by(Ticket.id)
+        .order_by(Ticket.id)  # ty: ignore[invalid-argument-type]
     )
     return list(s.exec(stmt))
 

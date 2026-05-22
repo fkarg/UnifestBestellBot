@@ -13,20 +13,20 @@ from sqlmodel import Session
 from .. import i18n, repo
 from ..config import AppConfig
 from . import keyboards, notify
-from .common import registration_from, who
+from .common import actor, bot_of, registration_from, who
 
 router = Router(name="register")
 
 
 @router.message(CommandStart())
 async def cmd_start(msg: Message, db_session: Session, config: AppConfig) -> None:
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, actor(msg).id)
     await msg.answer(i18n.START, reply_markup=keyboards.for_user(reg, config))
 
 
 @router.message(Command("help"))
 async def cmd_help(msg: Message, db_session: Session, config: AppConfig) -> None:
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, actor(msg).id)
     text = i18n.HELP_ORGA if reg and config.is_orga(reg.group_name) else i18n.HELP
     await msg.answer(text, reply_markup=keyboards.for_user(reg, config))
 
@@ -48,9 +48,10 @@ async def cmd_register(msg: Message, config: AppConfig) -> None:
 async def on_register_choice(
     cb: CallbackQuery, db_session: Session, config: AppConfig
 ) -> None:
+    assert cb.data is not None  # F.data.startswith filter guarantees this
     choice = cb.data.removeprefix("reg:")
     if choice == "_cancel":
-        if cb.message is not None:
+        if isinstance(cb.message, Message):
             await cb.message.edit_text(i18n.REGISTER_CANCELLED)
         await cb.answer()
         return
@@ -58,31 +59,34 @@ async def on_register_choice(
         await cb.answer(i18n.UNKNOWN_GROUP, show_alert=True)
         return
 
-    reg = repo.upsert_registration(db_session, registration_from(cb.from_user, choice))
-    if cb.message is not None:
+    user = actor(cb)
+    reg = repo.upsert_registration(db_session, registration_from(user, choice))
+    if isinstance(cb.message, Message):
         await cb.message.edit_text(i18n.REGISTER_SUCCESS.format(group=choice))
     # Send a follow-up message with the new reply keyboard.
-    await cb.bot.send_message(
-        chat_id=cb.from_user.id,
+    bot = bot_of(cb)
+    await bot.send_message(
+        chat_id=user.id,
         text=i18n.REGISTER_KEYBOARD_UPDATE,
         reply_markup=keyboards.for_user(reg, config),
     )
     await notify.channel_msg(
-        cb.bot, i18n.CH_REGISTER.format(who=who(cb.from_user), group=choice)
+        bot, i18n.CH_REGISTER.format(who=who(user), group=choice)
     )
     await cb.answer()
 
 
 @router.message(Command("unregister"))
 async def cmd_unregister(msg: Message, db_session: Session, config: AppConfig) -> None:
-    previous = repo.unregister(db_session, msg.from_user.id)
+    user = actor(msg)
+    previous = repo.unregister(db_session, user.id)
     if previous:
         await msg.answer(
             i18n.UNREGISTER_SUCCESS.format(group=previous),
             reply_markup=keyboards.for_user(None, config),
         )
         await notify.channel_msg(
-            msg.bot, i18n.CH_UNREGISTER.format(who=who(msg.from_user), group=previous)
+            bot_of(msg), i18n.CH_UNREGISTER.format(who=who(user), group=previous)
         )
     else:
         await msg.answer(
@@ -92,7 +96,7 @@ async def cmd_unregister(msg: Message, db_session: Session, config: AppConfig) -
 
 @router.message(Command("status"))
 async def cmd_status(msg: Message, db_session: Session, config: AppConfig) -> None:
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, actor(msg).id)
     if reg is None:
         await msg.answer(
             i18n.STATUS_NO_REGISTRATION,

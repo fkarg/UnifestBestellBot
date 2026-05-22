@@ -17,7 +17,7 @@ from .. import i18n, repo
 from ..config import AppConfig
 from ..models import Ticket, TicketStatus
 from . import keyboards, notify
-from .common import who
+from .common import actor, bot_of, who
 from .filters import IsOrga
 
 router = Router(name="orga")
@@ -50,9 +50,23 @@ def _arg_id(msg: Message) -> int | None:
 # --- /tickets, /all ------------------------------------------------------
 
 
+def _require_reg(s: Session, event: Message | CallbackQuery):
+    """IsOrga filter guarantees the user is registered. Helper that asserts
+    that invariant so callers can read .group_name without an Optional check."""
+    reg = repo.registration_for(s, actor(event).id)
+    assert reg is not None, "IsOrga filter guarantees a registration"
+    return reg
+
+
+def _reply_target(event: Message | CallbackQuery) -> Message | None:
+    if isinstance(event, CallbackQuery):
+        return event.message if isinstance(event.message, Message) else None
+    return event
+
+
 @router.message(Command("tickets"), IsOrga())
 async def cmd_tickets(msg: Message, db_session: Session, config: AppConfig) -> None:
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = _require_reg(db_session, msg)
     open_for_group = repo.active_tickets(db_session, group_tasked=reg.group_name)
     if not open_for_group:
         await msg.answer(
@@ -81,14 +95,14 @@ async def cmd_all(msg: Message, db_session: Session, config: AppConfig) -> None:
                 f"\n🔷 Offene Tickets für [{orga}]:\n\n"
                 + "\n\n".join(t.display() for t in for_orga)
             )
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = _require_reg(db_session, msg)
     await msg.answer("\n".join(parts) or i18n.NO_OPEN_TICKETS_ANYWHERE,
                      reply_markup=keyboards.for_user(reg, config))
 
 
 @router.message(Command("help2"), IsOrga())
 async def cmd_help2(msg: Message, db_session: Session, config: AppConfig) -> None:
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = _require_reg(db_session, msg)
     await msg.answer(i18n.HELP_ORGA, reply_markup=keyboards.for_user(reg, config))
 
 
@@ -100,7 +114,7 @@ async def cmd_wip(msg: Message, db_session: Session, config: AppConfig) -> None:
     if (tid := _arg_id(msg)) is not None:
         await _do_wip(msg, db_session, config, tid)
         return
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = _require_reg(db_session, msg)
     candidates = repo.active_tickets(
         db_session, group_tasked=reg.group_name, status=TicketStatus.OPEN
     )
@@ -117,9 +131,10 @@ async def cmd_wip(msg: Message, db_session: Session, config: AppConfig) -> None:
 async def on_wip_choice(
     cb: CallbackQuery, db_session: Session, config: AppConfig
 ) -> None:
+    assert cb.data is not None
     suffix = cb.data.removeprefix("wip:")
     if suffix == "_cancel":
-        if cb.message is not None:
+        if isinstance(cb.message, Message):
             await cb.message.edit_text(i18n.PICKER_CANCELLED)
         await cb.answer()
         return
@@ -139,7 +154,7 @@ async def _do_wip(
     tid: int,
 ) -> None:
     ticket = repo.get_ticket(s, tid)
-    reply_to = event.message if isinstance(event, CallbackQuery) else event
+    reply_to = _reply_target(event)
     if ticket is None or ticket.is_closed():
         if reply_to is not None:
             await reply_to.answer(i18n.TICKET_NOT_FOUND_OR_CLOSED.format(uid=tid))
@@ -148,11 +163,12 @@ async def _do_wip(
         if reply_to is not None:
             await reply_to.answer(i18n.TICKET_ALREADY_WIP)
         return
-    actor = event.from_user
-    updated = repo.set_wip(s, tid, who=who(actor), actor_chat_id=actor.id)
-    reg = repo.registration_for(s, actor.id)
+    user = actor(event)
+    bot = bot_of(event)
+    updated = repo.set_wip(s, tid, who=who(user), actor_chat_id=user.id)
+    reg = _require_reg(s, event)
 
-    if isinstance(event, CallbackQuery) and event.message is not None:
+    if isinstance(event, CallbackQuery) and isinstance(event.message, Message):
         await event.message.edit_text(updated.display())
     elif reply_to is not None:
         await reply_to.answer(
@@ -161,15 +177,15 @@ async def _do_wip(
         )
 
     await notify.channel_msg(
-        event.bot, i18n.CH_WIP.format(who=who(actor), group=reg.group_name, uid=tid)
+        bot, i18n.CH_WIP.format(who=who(user), group=reg.group_name, uid=tid)
     )
     await notify.group_msg(
-        event.bot, s, reg.group_name,
-        i18n.GROUP_TICKET_WIP_PEER.format(who=who(actor), uid=tid),
-        exclude_chat_id=actor.id,
+        bot, s, reg.group_name,
+        i18n.GROUP_TICKET_WIP_PEER.format(who=who(user), uid=tid),
+        exclude_chat_id=user.id,
     )
     await notify.group_msg(
-        event.bot, s, ticket.group_requesting,
+        bot, s, ticket.group_requesting,
         i18n.GROUP_TICKET_WIP_OWNER.format(uid=tid),
     )
 
@@ -182,7 +198,7 @@ async def cmd_close(msg: Message, db_session: Session, config: AppConfig) -> Non
     if (tid := _arg_id(msg)) is not None:
         await _do_close(msg, db_session, config, tid)
         return
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = _require_reg(db_session, msg)
     candidates = repo.active_tickets(
         db_session, group_tasked=reg.group_name, status=TicketStatus.WIP
     )
@@ -199,9 +215,10 @@ async def cmd_close(msg: Message, db_session: Session, config: AppConfig) -> Non
 async def on_close_choice(
     cb: CallbackQuery, db_session: Session, config: AppConfig
 ) -> None:
+    assert cb.data is not None
     suffix = cb.data.removeprefix("close:")
     if suffix == "_cancel":
-        if cb.message is not None:
+        if isinstance(cb.message, Message):
             await cb.message.edit_text(i18n.PICKER_CANCELLED)
         await cb.answer()
         return
@@ -221,16 +238,17 @@ async def _do_close(
     tid: int,
 ) -> None:
     ticket = repo.get_ticket(s, tid)
-    reply_to = event.message if isinstance(event, CallbackQuery) else event
+    reply_to = _reply_target(event)
     if ticket is None or ticket.is_closed():
         if reply_to is not None:
             await reply_to.answer(i18n.TICKET_NOT_FOUND_OR_CLOSED.format(uid=tid))
         return
-    actor = event.from_user
-    updated = repo.close_ticket(s, tid, actor_chat_id=actor.id)
-    reg = repo.registration_for(s, actor.id)
+    user = actor(event)
+    bot = bot_of(event)
+    updated = repo.close_ticket(s, tid, actor_chat_id=user.id)
+    reg = _require_reg(s, event)
 
-    if isinstance(event, CallbackQuery) and event.message is not None:
+    if isinstance(event, CallbackQuery) and isinstance(event.message, Message):
         await event.message.edit_text(updated.display())
     elif reply_to is not None:
         await reply_to.answer(
@@ -239,15 +257,15 @@ async def _do_close(
         )
 
     await notify.channel_msg(
-        event.bot, i18n.CH_CLOSED.format(who=who(actor), group=reg.group_name, uid=tid)
+        bot, i18n.CH_CLOSED.format(who=who(user), group=reg.group_name, uid=tid)
     )
     await notify.group_msg(
-        event.bot, s, reg.group_name,
-        i18n.GROUP_TICKET_CLOSED_PEER.format(who=who(actor), uid=tid),
-        exclude_chat_id=actor.id,
+        bot, s, reg.group_name,
+        i18n.GROUP_TICKET_CLOSED_PEER.format(who=who(user), uid=tid),
+        exclude_chat_id=user.id,
     )
     await notify.group_msg(
-        event.bot, s, ticket.group_requesting,
+        bot, s, ticket.group_requesting,
         i18n.GROUP_TICKET_CLOSED_OWNER.format(uid=tid),
     )
 
@@ -277,17 +295,19 @@ async def cmd_move(msg: Message, db_session: Session, config: AppConfig) -> None
     if ticket.is_wip():
         await msg.answer(i18n.TICKET_MOVE_BLOCKED_WIP.format(uid=tid))
         return
-    repo.move_ticket(db_session, tid, new_group=target, actor_chat_id=msg.from_user.id)
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    user = actor(msg)
+    bot = bot_of(msg)
+    repo.move_ticket(db_session, tid, new_group=target, actor_chat_id=user.id)
+    reg = _require_reg(db_session, msg)
     await msg.answer(
         i18n.TICKET_MOVED_NOTICE.format(uid=tid, group=target),
         reply_markup=keyboards.for_user(reg, config),
     )
     await notify.channel_msg(
-        msg.bot, i18n.CH_MOVED.format(uid=tid, group=target)
+        bot, i18n.CH_MOVED.format(uid=tid, group=target)
     )
     await notify.group_msg(
-        msg.bot, db_session, target,
+        bot, db_session, target,
         i18n.GROUP_TICKET_FOR_ORGA.format(uid=tid, text=ticket.text),
     )
 
@@ -311,13 +331,15 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
     if ticket is None:
         await msg.answer(i18n.TICKET_NOT_FOUND_OR_CLOSED.format(uid=tid))
         return
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    user = actor(msg)
+    bot = bot_of(msg)
+    reg = _require_reg(db_session, msg)
     await notify.group_msg(
-        msg.bot, db_session, ticket.group_requesting,
+        bot, db_session, ticket.group_requesting,
         i18n.GROUP_INCOMING_MESSAGE.format(sender=reg.group_name, message=body),
     )
     await notify.channel_msg(
-        msg.bot,
+        bot,
         i18n.CH_MESSAGE.format(
             sender=reg.group_name, recipient=ticket.group_requesting, message=body
         ),
@@ -325,7 +347,7 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
     repo.record_message(
         db_session,
         ticket_id=tid,
-        actor_chat_id=msg.from_user.id,
+        actor_chat_id=user.id,
         message=body,
     )
     await msg.answer(i18n.MESSAGE_DELIVERED, reply_markup=keyboards.for_user(reg, config))
@@ -340,7 +362,7 @@ ShiftLookup = Callable[[str, AppConfig], Awaitable[str]]
 async def cmd_helpers(
     msg: Message, db_session: Session, config: AppConfig, shift_lookup: ShiftLookup
 ) -> None:
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = _require_reg(db_session, msg)
     parts = (msg.text or "").split(maxsplit=1)
     group = parts[1].strip() if len(parts) > 1 else reg.group_name
     summary = await shift_lookup(group, config)
@@ -356,10 +378,11 @@ async def cmd_bug(msg: Message, db_session: Session, config: AppConfig) -> None:
     if len(parts) < 2:
         await msg.answer(i18n.BUG_USAGE)
         return
+    user = actor(msg)
     await notify.dev_msg(
-        msg.bot, i18n.DEV_BUG.format(who=who(msg.from_user), message=parts[1])
+        bot_of(msg), i18n.DEV_BUG.format(who=who(user), message=parts[1])
     )
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, user.id)
     await msg.answer(i18n.BUG_FORWARDED, reply_markup=keyboards.for_user(reg, config))
 
 
@@ -369,8 +392,9 @@ async def cmd_feature(msg: Message, db_session: Session, config: AppConfig) -> N
     if len(parts) < 2:
         await msg.answer(i18n.FEATURE_USAGE)
         return
+    user = actor(msg)
     await notify.dev_msg(
-        msg.bot, i18n.DEV_FEATURE.format(who=who(msg.from_user), message=parts[1])
+        bot_of(msg), i18n.DEV_FEATURE.format(who=who(user), message=parts[1])
     )
-    reg = repo.registration_for(db_session, msg.from_user.id)
+    reg = repo.registration_for(db_session, user.id)
     await msg.answer(i18n.FEATURE_FORWARDED, reply_markup=keyboards.for_user(reg, config))

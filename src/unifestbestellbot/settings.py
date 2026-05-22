@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     engelsystem_api_key: str = ""
     engelsystem_base_url: HttpUrl = Field(
-        default="https://helfen.unifest-karlsruhe.de/api/v0-beta/"
+        default_factory=lambda: HttpUrl("https://helfen.unifest-karlsruhe.de/api/v0-beta/")
     )
 
     database_url: str = "sqlite:///./bot.db"

@@ -1,5 +1,6 @@
 """Small helpers shared across bot flows."""
 
+from aiogram import Bot
 from aiogram.types import CallbackQuery, Message, User
 
 from ..models import Registration
@@ -12,6 +13,18 @@ def who(user: User | None) -> str:
     parts = [p for p in (user.first_name, user.last_name) if p]
     name = " ".join(parts) or "Unbekannt"
     return f"{name} <@{user.username}>" if user.username else name
+
+
+def actor(event: Message | CallbackQuery) -> User:
+    """Telegram always populates from_user on user-initiated updates.
+    The assert narrows the type for callers and documents the invariant."""
+    assert event.from_user is not None, "event must have from_user"
+    return event.from_user
+
+
+def bot_of(event: Message | CallbackQuery) -> Bot:
+    assert event.bot is not None, "event must have bot attached"
+    return event.bot
 
 
 def registration_from(user: User, group_name: str) -> Registration:
@@ -27,7 +40,7 @@ def registration_from(user: User, group_name: str) -> Registration:
 async def answer(event: Message | CallbackQuery, text: str, **kwargs) -> None:
     """Answer either a Message or a CallbackQuery's underlying message."""
     if isinstance(event, CallbackQuery):
-        if event.message is not None:
+        if isinstance(event.message, Message):
             await event.message.answer(text, **kwargs)
         await event.answer()
     else:

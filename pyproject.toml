@@ -36,6 +36,7 @@ dev = [
     "pytest-asyncio>=0.24,<0.30",
     "pytest-cov>=6.0,<7.0",
     "ruff>=0.8,<0.20",
+    "ty>=0.0.38",
 ]
 
 [tool.pytest.ini_options]
@@ -50,6 +51,14 @@ filterwarnings = [
 line-length = 100
 target-version = "py312"
 src = ["src/unifestbestellbot", "tests"]
+
+[tool.ty.src]
+include = ["src/unifestbestellbot"]
+
+[tool.ty.rules]
+# pydantic-settings reads field values from the environment at runtime;
+# ty can't statically prove the required fields are provided.
+missing-argument = "ignore"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
