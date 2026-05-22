@@ -17,43 +17,60 @@ def test_route_category_falls_back_to_default(config):
 
 def test_visible_stalls_excludes_hidden(config):
     names = config.visible_stall_names()
-    assert "Cocktailbar" in names
-    assert "Biertheke 1" in names
-    assert "Tickets" not in names
+    assert "Innenhof Cocktail" in names
+    assert "Außenbereich Bier" in names
+    assert "Eingang Tickets" not in names
 
 
 def test_all_stalls_includes_hidden(config):
-    assert "Tickets" in config.all_stall_names()
+    assert "Eingang Tickets" in config.all_stall_names()
 
 
 def test_stall_lookup(config):
-    s = config.stall("Cocktailbar")
+    s = config.stall("Innenhof Cocktail")
     assert s is not None
     assert s.location == "Innenhof"
+    assert s.type == "Cocktail"
     assert config.stall("missing") is None
+
+
+def test_stall_display_shows_location_and_type(config):
+    s = config.stall("Innenhof Cocktail")
+    assert s is not None
+    assert s.display == "Innenhof [Cocktail]"
+
+
+def test_display_for_stand_renders_brackets(config):
+    assert config.display_for("Innenhof Cocktail") == "Innenhof [Cocktail]"
+    assert config.display_for("Außenbereich Bier") == "Außenbereich [Bier]"
+
+
+def test_display_for_orga_falls_back_to_group_name(config):
+    # Orga members have no stand; their display is just their group name.
+    assert config.display_for("Finanz") == "Finanz"
 
 
 def test_is_orga(config):
     assert config.is_orga("Finanz")
-    assert not config.is_orga("Cocktailbar")
+    assert not config.is_orga("Innenhof Cocktail")
     assert not config.is_orga(None)
     assert not config.is_orga("unknown")
 
 
 def test_is_known_group(config):
-    assert config.is_known_group("Cocktailbar")
-    assert config.is_known_group("Tickets")  # hidden but still known
+    assert config.is_known_group("Innenhof Cocktail")
+    assert config.is_known_group("Eingang Tickets")  # hidden but still known
     assert config.is_known_group("Finanz")
     assert not config.is_known_group("nope")
     assert not config.is_known_group(None)
 
 
 def test_location_id_for_group(config):
-    assert config.location_id_for_group("Cocktailbar") == 12
-    assert config.location_id_for_group("Biertheke 1") == 15
-    # Eingang has no engelsystem id configured
-    assert config.location_id_for_group("Tickets") is None
-    # Non-existent stall
+    assert config.location_id_for_group("Innenhof Cocktail") == 12
+    assert config.location_id_for_group("Außenbereich Bier") == 15
+    # Eingang is not in `locations:`
+    assert config.location_id_for_group("Eingang Tickets") is None
+    # Non-existent stand
     assert config.location_id_for_group("ghost") is None
 
 
@@ -113,16 +130,31 @@ def test_duplicate_orga_name_rejected():
         )
 
 
-def test_duplicate_stall_name_rejected():
+def test_duplicate_stand_pair_rejected():
     with pytest.raises(ValueError, match="duplicate"):
         AppConfig.model_validate(
             {
                 "stalls": [
-                    {"name": "X", "location": "L1"},
-                    {"name": "X", "location": "L2"},
+                    {"location": "L", "type": "Bier"},
+                    {"location": "L", "type": "Bier"},
                 ],
                 "orga_groups": [
                     {"name": "A", "categories": ["x"], "default": True},
+                ],
+            }
+        )
+
+
+def test_orga_name_colliding_with_stand_rejected():
+    with pytest.raises(ValueError, match="collides"):
+        AppConfig.model_validate(
+            {
+                "stalls": [
+                    {"location": "Finanz", "type": ""},  # produces name "Finanz "
+                    {"location": "L", "type": "Bier"},
+                ],
+                "orga_groups": [
+                    {"name": "Finanz ", "categories": ["Geld"], "default": True},
                 ],
             }
         )
@@ -133,7 +165,7 @@ def test_load_config_from_file(tmp_path):
     p.write_text(
         yaml.dump(
             {
-                "stalls": [{"name": "X", "location": "L"}],
+                "stalls": [{"location": "X", "type": "Bier"}],
                 "orga_groups": [
                     {"name": "Z", "categories": ["any"], "default": True},
                 ],
@@ -141,7 +173,8 @@ def test_load_config_from_file(tmp_path):
         )
     )
     cfg = load_config(p)
-    assert cfg.stalls[0].name == "X"
+    assert cfg.stalls[0].location == "X"
+    assert cfg.stalls[0].name == "X Bier"
     assert cfg.route_category("any") == "Z"
     assert cfg.route_category("not-listed") == "Z"
 
@@ -150,4 +183,5 @@ def test_example_config_yaml_loads():
     """The committed example file must always be a valid config."""
     cfg = load_config("config.yaml.example")
     assert cfg.route_category("Geld") == "Finanz"
-    assert "Cocktailbar" in cfg.visible_stall_names()
+    # The example uses Forum Süd Cocktail as one of the visible stands.
+    assert "Forum Süd Cocktail" in cfg.visible_stall_names()

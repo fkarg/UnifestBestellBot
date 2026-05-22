@@ -59,18 +59,27 @@ settings = Settings()  # raises at import time if anything is missing
 
 ### 1.3 `config.yaml`
 
-The whole stall/orga/routing structure for one event. Edited by the
+The whole stand/orga/routing structure for one event. Edited by the
 maintainer between events and committed.
+
+A `stalls:` entry is a **stand** identified by `(location, type)` — no
+separate team identity. Whichever crew is on shift /registers at the
+stand. Multiple crews can come and go at the same stand over the event;
+the bot never tracks who they are.
 
 ```yaml
 # config.yaml
 stalls:
-  - name: "Cocktailbar"
-    location: "Innenhof"
-  - name: "Biertheke 1"
-    location: "Außenbereich"
-  - name: "Tickets"
-    location: "Eingang"
+  - location: "Forum Süd"
+    type: "Cocktail"
+  - location: "Forum Süd"
+    type: "Bier"
+  - location: "DJ"
+    type: "Bier"
+  - location: "Mitte"
+    type: "Cocktail"
+  - location: "Eingang"
+    type: "Tickets"
     hidden: true             # not offered in /register list
 
 orga_groups:
@@ -86,10 +95,15 @@ orga_groups:
 
 # Optional. Used only by the Engelsystem helper-shift integration.
 locations:
-  "Innenhof": 12
-  "Außenbereich": 15
+  "Forum Süd": 12
+  "DJ": 15
+  "Mitte": 9
   "Eingang": 3
 ```
+
+Tickets render the requesting stand as `"{location} [{type}]"`, e.g.
+`"Forum Süd [Cocktail] hat noch ~20 Normale Becher"`. Orga handlers
+(BiMi etc.) orient on that string and never see crew identity.
 
 ### 1.4 `config.py`
 

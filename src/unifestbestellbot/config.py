@@ -10,9 +10,26 @@ from pydantic import BaseModel, model_validator
 
 
 class Stall(BaseModel):
-    name: str
-    location: str
+    """A stand at the event. Identified by (location, type) — there is no
+    separate team identity in the bot. Whichever crew is currently on shift
+    `/register`s at this stand; multiple crews may cycle through the same
+    stand over the event."""
+
+    location: str  # physical area, e.g. "Forum Süd", "DJ", "Mitte"
+    type: str  # what the stand sells / does, e.g. "Bier", "Cocktail", "Tickets"
     hidden: bool = False
+
+    @property
+    def name(self) -> str:
+        """Stable identifier shown in the /register picker and stored as
+        Registration.group_name. Volunteers see this exact string."""
+        return f"{self.location} {self.type}"
+
+    @property
+    def display(self) -> str:
+        """How the stand appears in ticket text to orga: location first
+        (the thing they walk to), type in brackets (what they bring)."""
+        return f"{self.location} [{self.type}]"
 
 
 class OrgaGroup(BaseModel):
@@ -38,9 +55,18 @@ class AppConfig(BaseModel):
         if len(orga_names) != len(set(orga_names)):
             raise ValueError("orga_groups have duplicate names")
 
-        stall_names = [s.name for s in self.stalls]
-        if len(stall_names) != len(set(stall_names)):
-            raise ValueError("stalls have duplicate names")
+        stall_keys = [(s.location, s.type) for s in self.stalls]
+        if len(stall_keys) != len(set(stall_keys)):
+            raise ValueError("stalls have duplicate (location, type) pairs")
+
+        # Orga names must not collide with stand identifiers — both live in
+        # the same registration namespace.
+        stall_names = {s.name for s in self.stalls}
+        for name in orga_names:
+            if name in stall_names:
+                raise ValueError(
+                    f"orga group {name!r} collides with a stand identifier"
+                )
 
         seen: dict[str, str] = {}
         for g in self.orga_groups:
@@ -85,6 +111,13 @@ class AppConfig(BaseModel):
         if stall is None:
             return None
         return self.locations.get(stall.location)
+
+    def display_for(self, group_name: str) -> str:
+        """What to show in ticket text for the requesting group: a stand's
+        location+type, or the orga group's name verbatim if the requester is
+        an orga member (rare but possible)."""
+        stall = self.stall(group_name)
+        return stall.display if stall is not None else group_name
 
 
 def load_config(path: str | Path) -> AppConfig:

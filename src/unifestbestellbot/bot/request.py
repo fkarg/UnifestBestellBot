@@ -82,22 +82,27 @@ FOLLOWUPS: dict[str, _Branch] = {
 
 
 # --- Text renderers (pure functions, easy to unit-test) -------------------
+#
+# `stand` is the display string for the requesting stand — typically
+# "Forum Süd [Cocktail]" via AppConfig.display_for. For orga members who
+# request things (rare), it's just the orga group name. No team identity
+# is ever included — orga handlers orient on location + stand type.
 
 
-def render_collect(category: str, group: str, location: str) -> str:
-    return f"{category} abholen an Stand {location} [{group}]"
+def render_collect(category: str, stand: str) -> str:
+    return f"{category} abholen an {stand}"
 
 
-def render_amount(group: str, location: str, amount: str, detail: str) -> str:
-    return f"{location} [{group}] hat noch {amount} {detail}"
+def render_amount(stand: str, amount: str, detail: str) -> str:
+    return f"{stand} hat noch {amount} {detail}"
 
 
-def render_free(category: str, group: str, location: str, free_text: str) -> str:
-    return f"{location} [{group}] braucht {category}: '{free_text}'"
+def render_free(category: str, stand: str, free_text: str) -> str:
+    return f"{stand} braucht {category}: '{free_text}'"
 
 
-def render_change(group: str, location: str, kind: str) -> str:
-    return f"{location} [{group}] braucht {kind}"
+def render_change(stand: str, kind: str) -> str:
+    return f"{stand} braucht {kind}"
 
 
 # --- Entry ----------------------------------------------------------------
@@ -161,8 +166,8 @@ async def money_collect(
     events: EventBus,
 ) -> None:
     data = await state.get_data()
-    location = _location_for(data["group"], config)
-    text = render_collect(data["category"], data["group"], location)
+    stand = config.display_for(data["group"])
+    text = render_collect(data["category"], stand)
     await _finalize(msg, state, db_session, config, events, text=text)
 
 
@@ -194,8 +199,8 @@ async def money_change_pick(
     events: EventBus,
 ) -> None:
     data = await state.get_data()
-    location = _location_for(data["group"], config)
-    text = render_change(data["group"], location, msg.text or "")
+    stand = config.display_for(data["group"])
+    text = render_change(stand, msg.text or "")
     await _finalize(msg, state, db_session, config, events, text=text)
 
 
@@ -216,8 +221,8 @@ async def cups_collect(
     events: EventBus,
 ) -> None:
     data = await state.get_data()
-    location = _location_for(data["group"], config)
-    text = render_collect(data["category"], data["group"], location)
+    stand = config.display_for(data["group"])
+    text = render_collect(data["category"], stand)
     await _finalize(msg, state, db_session, config, events, text=text)
 
 
@@ -251,9 +256,9 @@ async def amount_value(
     events: EventBus,
 ) -> None:
     data = await state.get_data()
-    location = _location_for(data["group"], config)
+    stand = config.display_for(data["group"])
     detail = data.get("detail", "")
-    text = render_amount(data["group"], location, msg.text or "", detail)
+    text = render_amount(stand, msg.text or "", detail)
     await _finalize(msg, state, db_session, config, events, text=text)
 
 
@@ -269,8 +274,8 @@ async def free_text(
     events: EventBus,
 ) -> None:
     data = await state.get_data()
-    location = _location_for(data["group"], config)
-    text = render_free(data["category"], data["group"], location, msg.text or "")
+    stand = config.display_for(data["group"])
+    text = render_free(data["category"], stand, msg.text or "")
     await _finalize(msg, state, db_session, config, events, text=text)
 
 
@@ -309,11 +314,6 @@ async def helper_amount(msg: Message, state: FSMContext) -> None:
 
 
 # --- Finalize -------------------------------------------------------------
-
-
-def _location_for(group: str, config: AppConfig) -> str:
-    stall = config.stall(group)
-    return stall.location if stall else group
 
 
 async def _finalize(

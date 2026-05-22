@@ -52,32 +52,36 @@ Two files. Restart the bot to pick up changes.
 
 ### Mental model for `config.yaml`
 
-The bot does not track teams separately from stalls. A `stalls:` entry's
-`name:` is both:
+A `stalls:` entry is a **stand** — identified by `(location, type)`,
+not by team. The bot stores no crew identity. Whichever volunteers are
+on shift `/register` at the stand; multiple crews can pass through the
+same stand over the event without any config change.
 
-- the identifier volunteers type when they `/register` ("I work at the
-  Cocktailbar"), and
-- the stall identifier shown in every ticket the bot creates.
+- `stalls[].location` — physical area, e.g. "Forum Süd", "DJ", "Mitte".
+- `stalls[].type` — what the stand does, e.g. "Bier", "Cocktail",
+  "Tickets".
+- The display string in tickets is `"{location} [{type}]"`, e.g.
+  `"Forum Süd [Cocktail]"`. Orga teams orient on this — no team name
+  is ever included.
 
-`stalls[].location` is the physical spot ("Innenhof", "Außenbereich"),
-shown in ticket text and used by `/helpers` to look up shifts.
-
-`orga_groups:` are the *handler* teams (Finanz, BiMi, ...) — distinct
-from the stalls that write tickets. Each category routes to one orga
-group, with exactly one `default: true` as the fallback.
+`orga_groups:` are the **handler** teams (Finanz, BiMi, ...). Each
+ticket category routes to one orga group; one orga group is the
+`default:` for any category not explicitly listed. Orga group names
+cannot collide with any stand identifier.
 
 ### Year-to-year edits
 
-| Change                                     | Where                              |
-| ------------------------------------------ | ---------------------------------- |
-| New stall                                  | Add to `stalls:`                   |
-| Stall closed                               | Remove from `stalls:`              |
-| Stall moved to a different location        | Edit `stalls[].location`           |
-| Different crew runs an existing stall      | No config change needed            |
-| Stall exists but should not be advertised  | `hidden: true`                     |
-| Orga teams renamed / reorganised           | `orga_groups:`                     |
-| New ticket category                        | One row in `orga_groups[].categories` + one row in `FOLLOWUPS` in `bot/request.py` |
-| Engelsystem location id changed            | `locations:`                       |
+| Change                                       | Where                              |
+| -------------------------------------------- | ---------------------------------- |
+| New stand                                    | Add to `stalls:`                   |
+| Stand closed                                 | Remove from `stalls:`              |
+| Stand moved to a different location          | Edit `stalls[].location`           |
+| Stand changed what it does (Bier → Cocktail) | Edit `stalls[].type`               |
+| Different crew on shift                      | No config change — crew /registers at the same stand |
+| Stand exists but should not be advertised    | `hidden: true`                     |
+| Orga teams renamed / reorganised             | `orga_groups:`                     |
+| New ticket category                          | One row in `orga_groups[].categories` + one row in `FOLLOWUPS` in `bot/request.py` |
+| Engelsystem location id changed              | `locations:`                       |
 
 ## Database
 

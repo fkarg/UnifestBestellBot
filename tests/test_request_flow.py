@@ -101,7 +101,7 @@ async def test_pick_category_unknown_re_prompts(state):
 # --- End-to-end per category ----------------------------------------------
 
 
-async def _start(state, group: str = "Cocktailbar"):
+async def _start(state, group: str = "Innenhof Cocktail"):
     await state.set_state(request_flow.RequestFSM.category)
     await state.update_data(group=group)
 
@@ -126,8 +126,8 @@ async def test_geld_wechselgeld_muenzen_routes_to_finanz(s, state, config, event
     tickets = repo.active_tickets(s, group_tasked="Finanz")
     assert len(tickets) == 1
     assert "Münzen" in tickets[0].text
-    assert "Cocktailbar" in tickets[0].text
-    assert "Innenhof" in tickets[0].text  # location from config
+    # BiMi-style display: location and type in brackets, no team identity.
+    assert "Innenhof [Cocktail]" in tickets[0].text
     assert await state.get_state() is None
 
 
@@ -220,7 +220,7 @@ async def test_helfer_liste_schichten_uses_shift_lookup(s, state, config, shift_
         msg, state, db_session=s, config=config, shift_lookup=shift_lookup
     )
     body = msg.answer.call_args.args[0]
-    assert "Schichten für Cocktailbar" in body
+    assert "Schichten für Innenhof Cocktail" in body
     assert await state.get_state() is None  # conversation ends
 
 
@@ -283,32 +283,35 @@ async def test_finalize_sets_ticket_status_open(s, state, config, events):
 
 def test_render_collect():
     assert (
-        request_flow.render_collect("Geld", "Cocktailbar", "Innenhof")
-        == "Geld abholen an Stand Innenhof [Cocktailbar]"
+        request_flow.render_collect("Geld", "Innenhof [Cocktail]")
+        == "Geld abholen an Innenhof [Cocktail]"
     )
 
 
 def test_render_amount():
     assert (
-        request_flow.render_amount("Cocktailbar", "Innenhof", "~20", "Normale Becher")
-        == "Innenhof [Cocktailbar] hat noch ~20 Normale Becher"
+        request_flow.render_amount("Innenhof [Cocktail]", "~20", "Normale Becher")
+        == "Innenhof [Cocktail] hat noch ~20 Normale Becher"
     )
 
 
 def test_render_free():
     assert (
-        request_flow.render_free("Bier", "Cocktailbar", "Innenhof", "2 Fässer")
-        == "Innenhof [Cocktailbar] braucht Bier: '2 Fässer'"
+        request_flow.render_free("Bier", "Außenbereich [Bier]", "2 Fässer")
+        == "Außenbereich [Bier] braucht Bier: '2 Fässer'"
     )
 
 
 def test_render_change():
     assert (
-        request_flow.render_change("Cocktailbar", "Innenhof", "Münzen")
-        == "Innenhof [Cocktailbar] braucht Münzen"
+        request_flow.render_change("Innenhof [Cocktail]", "Münzen")
+        == "Innenhof [Cocktail] braucht Münzen"
     )
 
 
-def test_location_falls_back_to_group_name_for_unknown_stall(config):
-    assert request_flow._location_for("OrgaCrew", config) == "OrgaCrew"
-    assert request_flow._location_for("Cocktailbar", config) == "Innenhof"
+def test_display_for_falls_back_to_group_name_for_unknown_stand(config):
+    # Orga groups don't have a stand; their display is the orga name itself.
+    assert config.display_for("OrgaCrew") == "OrgaCrew"
+    assert config.display_for("Finanz") == "Finanz"
+    # Known stands render as "location [type]"
+    assert config.display_for("Innenhof Cocktail") == "Innenhof [Cocktail]"

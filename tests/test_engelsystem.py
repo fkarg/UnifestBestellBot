@@ -80,10 +80,11 @@ def test_summarize_remaining_time_renders_hours():
 
 
 async def test_lookup_reports_missing_location_mapping(config):
-    """Tickets stall has location 'Eingang' which is not in config.locations."""
+    """The 'Eingang Tickets' stand has location 'Eingang' which the fixture
+    does not include in `locations:`."""
     client = AsyncMock(spec=EngelsystemClient)
     lookup = make_shift_lookup(client)
-    out = await lookup("Tickets", config)
+    out = await lookup("Eingang Tickets", config)
     assert "nicht korrekt konfiguriert" in out or "keine Schichten" in out
     client.shifts_at.assert_not_called()
 
@@ -92,7 +93,7 @@ async def test_lookup_calls_client_with_resolved_location_id(config, shifts):
     client = AsyncMock(spec=EngelsystemClient)
     client.shifts_at = AsyncMock(return_value=shifts)
     lookup = make_shift_lookup(client)
-    await lookup("Cocktailbar", config)
+    await lookup("Innenhof Cocktail", config)
     client.shifts_at.assert_awaited_once_with(12)  # Innenhof -> 12
 
 
@@ -100,5 +101,5 @@ async def test_lookup_handles_http_failure_gracefully(config):
     client = AsyncMock(spec=EngelsystemClient)
     client.shifts_at = AsyncMock(side_effect=RuntimeError("boom"))
     lookup = make_shift_lookup(client)
-    out = await lookup("Cocktailbar", config)
+    out = await lookup("Innenhof Cocktail", config)
     assert "fehlgeschlagen" in out

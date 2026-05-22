@@ -4,46 +4,52 @@
 # is validated at startup: a typo here will refuse to boot the bot.
 #
 # Mental model:
-#   - Each `stalls:` entry is both the team identity (what volunteers type
-#     when they /register) AND the stall identifier shown in tickets.
-#     There is no separate "team" concept — the stall name IS the team.
-#   - `stalls[].location` is the physical spot the stall is at. It is what
-#     orga sees in ticket text ("Innenhof [Cocktailbar] braucht Bier: ...")
-#     and what /helpers uses to find Engelsystem shifts.
-#   - `orga_groups:` are the teams that handle tickets (not the stalls that
-#     write them). Each category routes to exactly one orga group; one orga
-#     group is the `default:` for any category not explicitly listed.
+#   - Each `stalls:` entry is a STAND, identified by (location, type). There
+#     is NO team identity in the bot. Whichever crew is on shift /registers
+#     at the stand; multiple crews can cycle through the same stand over the
+#     event without any config change.
+#   - `stalls[].location` is the physical area (e.g. "Forum Süd", "DJ").
+#     `stalls[].type` is what the stand does (e.g. "Bier", "Cocktail",
+#     "Tickets"). Both appear in every ticket as "Forum Süd [Cocktail]" so
+#     orga handlers can find the stand without knowing who's on shift.
+#   - `orga_groups:` are the handler teams (Finanz, BiMi, ...). Each
+#     ticket category routes to exactly one orga group; one orga group is
+#     the `default:` for any category not explicitly listed.
 #   - `locations:` maps a location name to its Engelsystem location id.
 #     Optional — only needed for /helpers to return shift lists.
 #
 # Year-to-year changes:
-#   - New / renamed / closed stall? Edit `stalls:`.
-#   - Stall has moved? Change its `location:`.
-#   - New crew running an existing stall? No config change needed — the
-#     stall name stays; the humans behind it just /register fresh.
-#   - New ticket category? Add it to one orga group's `categories:`,
+#   - Stands moved / renamed / closed?  Edit `stalls:`.
+#   - Stand changed type (e.g. Bier → Cocktail)?  Edit its `type:`.
+#   - Different crew on shift?  No config change — they just /register
+#     at the same stand identifier.
+#   - New ticket category?  Add it to one orga group's `categories:`,
 #     then add a row to FOLLOWUPS in src/unifestbestellbot/bot/request.py.
 
 stalls:
-  # Visible stalls — offered as options in /register.
-  - name: "Cocktailbar"
-    location: "Innenhof"
-  - name: "Biertheke 1"
-    location: "Außenbereich"
-  - name: "Biertheke 2"
-    location: "Außenbereich"
-  - name: "Foodtruck"
-    location: "Hinterhof"
+  # Visible stands — offered as options in /register. Identifier shown to
+  # users is "{location} {type}", e.g. "Forum Süd Cocktail".
+  - location: "Forum Süd"
+    type: "Cocktail"
+  - location: "Forum Süd"
+    type: "Bier"
+  - location: "DJ"
+    type: "Bier"
+  - location: "Mitte"
+    type: "Cocktail"
+  - location: "Mitte"
+    type: "Bier"
 
-  # Hidden stalls — accepted as a registration target but NOT shown in
-  # the /register inline picker. Use for internal / staff-only groups.
-  - name: "Tickets"
-    location: "Eingang"
+  # Hidden stands — accepted as a registration target but NOT shown in the
+  # /register inline picker. Use for internal / staff-only groups.
+  - location: "Eingang"
+    type: "Tickets"
     hidden: true
 
 orga_groups:
-  # The orga teams. Each category a /request can produce routes to one of
-  # these. Exactly one orga group must have `default: true`.
+  # The orga teams that handle tickets. Names here must not collide with
+  # any stand identifier ("{location} {type}"). Exactly one orga group
+  # must have `default: true` — it catches categories not listed below.
   - name: "Finanz"
     categories: ["Geld"]
   - name: "BiMi"
@@ -54,11 +60,11 @@ orga_groups:
     categories: ["Sonstiges"]
     default: true
 
-# Optional. Map every location name above to its Engelsystem location id.
-# Only required for /helpers (shift lookup) to work for that location;
-# stalls whose location isn't listed here just won't return shifts.
+# Optional. Maps each `stalls[].location` to its Engelsystem location id.
+# Only required for /helpers (shift lookup) to work; stalls whose location
+# isn't listed here just won't return shifts.
 locations:
-  "Innenhof": 12
-  "Außenbereich": 15
-  "Hinterhof": 9
+  "Forum Süd": 12
+  "DJ": 15
+  "Mitte": 9
   "Eingang": 3

@@ -84,21 +84,21 @@ async def test_register_shows_inline_keyboard_with_visible_groups(s, config):
     await register_flow.cmd_register(msg, config=config)
     kb = msg.answer.call_args.kwargs["reply_markup"]
     labels = [b.text for row in kb.inline_keyboard for b in row]
-    assert "Cocktailbar" in labels
+    assert "Innenhof Cocktail" in labels
     assert "Finanz" in labels  # orga groups also offered
-    assert "Tickets" not in labels  # hidden stall excluded
+    assert "Eingang Tickets" not in labels  # hidden stand excluded
     assert "❌ Abbrechen" in labels
 
 
 async def test_register_choice_persists_and_announces(s, config):
-    cb = fake_callback(user_id=1, data="reg:Cocktailbar")
+    cb = fake_callback(user_id=1, data="reg:Innenhof Cocktail")
     await register_flow.on_register_choice(cb, db_session=s, config=config)
     saved = repo.registration_for(s, 1)
     assert saved is not None
-    assert saved.group_name == "Cocktailbar"
+    assert saved.group_name == "Innenhof Cocktail"
     cb.message.edit_text.assert_awaited_once()
     edit_text = cb.message.edit_text.call_args.args[0]
-    assert "Cocktailbar" in edit_text and "erfolgreich" in edit_text
+    assert "Innenhof Cocktail" in edit_text and "erfolgreich" in edit_text
     # Follow-up DM updates the reply keyboard, then the channel log fires.
     cb.bot.send_message.assert_any_await(
         chat_id=1,
@@ -124,10 +124,10 @@ async def test_register_choice_unknown_group_alerts_user(s, config):
 
 
 async def test_register_overwrites_previous_group(s, config):
-    repo.upsert_registration(s, Registration(chat_id=1, group_name="Biertheke 1"))
-    cb = fake_callback(user_id=1, data="reg:Cocktailbar")
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Außenbereich Bier"))
+    cb = fake_callback(user_id=1, data="reg:Innenhof Cocktail")
     await register_flow.on_register_choice(cb, db_session=s, config=config)
-    assert repo.registration_for(s, 1).group_name == "Cocktailbar"
+    assert repo.registration_for(s, 1).group_name == "Innenhof Cocktail"
 
 
 # --- /unregister ----------------------------------------------------------
