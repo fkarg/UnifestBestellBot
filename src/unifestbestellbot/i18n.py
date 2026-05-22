@@ -30,6 +30,13 @@ HELP = """Verfügbare Befehle:
 /cancel
     Breche das Erstellen der momentanen
     Anfrage ab.
+/quiet [minutes]
+    Unterdrücke Aktivitätsmeldungen
+    deiner Gruppe für eine Anzahl
+    Minuten (Standard: 30, Max: 1440).
+    Eigene Ticket-Updates kommen weiter.
+/loud
+    Aktivitätsmeldungen wieder einschalten.
 /help
     Zeige diese Hilfenachricht an.
 """
@@ -66,6 +73,14 @@ UNKNOWN_GROUP = "Unbekannte Gruppe."
 
 UNREGISTER_SUCCESS = "Mitgliedschaft bei Gruppe [{group}] entfernt."
 UNREGISTER_NONE = "Keine Gruppenmitgliedschaft registriert. Nichts zu entfernen."
+
+QUIET_USAGE = "Benutzung: /quiet [minutes]. Standard 30, Maximum 1440."
+QUIET_SET = (
+    "🔕 Aktivitätsmeldungen für {minutes} Minute(n) ausgeschaltet. "
+    "Eigene Ticket-Updates erhältst du weiter. Mit /loud sofort beenden."
+)
+LOUD_SET = "🔔 Aktivitätsmeldungen wieder eingeschaltet."
+LOUD_ALREADY = "Aktivitätsmeldungen waren nicht ausgeschaltet."
 
 NOT_REGISTERED = (
     "Bitte registriere deine Gruppenmitgliedschaft mit /register, "

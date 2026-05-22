@@ -2,11 +2,12 @@
 Audit events are written in the same transaction as the action they describe."""
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
-from .models import AuditEvent, Registration, Ticket, TicketStatus
+from .models import AuditEvent, Registration, Ticket, TicketStatus, now_utc
 
 # ---------------------------------------------------------------------------
 # Registration
@@ -62,12 +63,31 @@ def registration_for(s: Session, chat_id: int) -> Registration | None:
     return s.get(Registration, chat_id)
 
 
-def group_members(s: Session, group_name: str) -> list[int]:
-    return list(
-        s.exec(
-            select(Registration.chat_id).where(Registration.group_name == group_name)
+def group_members(
+    s: Session, group_name: str, *, exclude_muted: bool = False
+) -> list[int]:
+    stmt = select(Registration.chat_id).where(Registration.group_name == group_name)
+    if exclude_muted:
+        now = now_utc()
+        # ty/mypy can't see SQLAlchemy's column descriptor; the runtime
+        # column expression supports both `.is_(None)` and `<= now`.
+        mute_col = Registration.mute_peer_until
+        stmt = stmt.where(
+            or_(mute_col.is_(None), mute_col <= now)  # ty: ignore[unresolved-attribute, unsupported-operator]
         )
-    )
+    return list(s.exec(stmt))
+
+
+def set_mute(s: Session, chat_id: int, *, until: datetime | None) -> bool:
+    """Set or clear the peer-activity mute on a registration. Returns
+    True if the row existed and was updated."""
+    reg = s.get(Registration, chat_id)
+    if reg is None:
+        return False
+    reg.mute_peer_until = until
+    s.add(reg)
+    s.commit()
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +147,7 @@ def close_ticket(s: Session, ticket_id: int, *, actor_chat_id: int) -> Ticket:
     if t.status == TicketStatus.CLOSED:
         raise ValueError(f"ticket {ticket_id} is already closed")
     t.status = TicketStatus.CLOSED
-    t.closed_at = datetime.now(UTC)
+    t.closed_at = now_utc()
     s.add(t)
     s.add(AuditEvent(kind="close", ticket_id=t.id, actor_chat_id=actor_chat_id))
     s.commit()

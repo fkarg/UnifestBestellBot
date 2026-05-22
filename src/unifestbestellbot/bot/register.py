@@ -1,4 +1,6 @@
-"""/start, /help, /register, /unregister, /status."""
+"""/start, /help, /register, /unregister, /status, /quiet, /loud."""
+
+from datetime import timedelta
 
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
@@ -12,8 +14,12 @@ from sqlmodel import Session
 
 from .. import i18n, repo
 from ..config import AppConfig
+from ..models import now_utc
 from . import keyboards, notify
 from .common import actor, bot_of, registration_from, who
+
+DEFAULT_QUIET_MINUTES = 30
+MAX_QUIET_MINUTES = 24 * 60
 
 router = Router(name="register")
 
@@ -151,4 +157,44 @@ async def cmd_status(msg: Message, db_session: Session, config: AppConfig) -> No
         )
     else:
         text = i18n.STATUS_NO_TICKETS.format(group=reg.group_name)
+    await msg.answer(text, reply_markup=keyboards.for_user(reg, config))
+
+
+@router.message(Command("quiet"))
+async def cmd_quiet(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = repo.registration_for(db_session, actor(msg).id)
+    if reg is None:
+        await msg.answer(i18n.NOT_REGISTERED, reply_markup=keyboards.for_user(None, config))
+        return
+
+    parts = (msg.text or "").split(maxsplit=1)
+    minutes = DEFAULT_QUIET_MINUTES
+    if len(parts) > 1:
+        try:
+            minutes = int(parts[1].strip())
+        except ValueError:
+            await msg.answer(i18n.QUIET_USAGE, reply_markup=keyboards.for_user(reg, config))
+            return
+        if minutes < 1 or minutes > MAX_QUIET_MINUTES:
+            await msg.answer(i18n.QUIET_USAGE, reply_markup=keyboards.for_user(reg, config))
+            return
+
+    until = now_utc() + timedelta(minutes=minutes)
+    repo.set_mute(db_session, reg.chat_id, until=until)
+    await msg.answer(
+        i18n.QUIET_SET.format(minutes=minutes),
+        reply_markup=keyboards.for_user(reg, config),
+    )
+
+
+@router.message(Command("loud"))
+async def cmd_loud(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = repo.registration_for(db_session, actor(msg).id)
+    if reg is None:
+        await msg.answer(i18n.NOT_REGISTERED, reply_markup=keyboards.for_user(None, config))
+        return
+
+    was_muted = reg.mute_peer_until is not None
+    repo.set_mute(db_session, reg.chat_id, until=None)
+    text = i18n.LOUD_SET if was_muted else i18n.LOUD_ALREADY
     await msg.answer(text, reply_markup=keyboards.for_user(reg, config))

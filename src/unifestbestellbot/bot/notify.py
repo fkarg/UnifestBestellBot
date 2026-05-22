@@ -41,9 +41,18 @@ async def group_msg(
     exclude_chat_id: int | None = None,
     reply_markup=None,
 ) -> None:
-    """Send `text` to all members of `group_name` except `exclude_chat_id`.
-    Drops registrations whose chat blocked the bot."""
-    members = repo.group_members(s, group_name)
+    """Send `text` to all members of `group_name`.
+
+    When `exclude_chat_id` is set, the message is treated as a
+    *peer-activity* notification (something one of the user's
+    colleagues just did): the actor themselves is skipped, and
+    members who set a /quiet mute that is still in effect are also
+    skipped. When `exclude_chat_id` is None the message is broadcast
+    to every member of the group regardless of mute state (used for
+    actionable lifecycle notifications like the initial OPEN to an
+    orga group or a /message forward to the requesting stand)."""
+    peer_mode = exclude_chat_id is not None
+    members = repo.group_members(s, group_name, exclude_muted=peer_mode)
     for chat_id in members:
         if chat_id == exclude_chat_id:
             continue

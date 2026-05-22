@@ -19,8 +19,15 @@ _STATUS_DISPLAY = {
 }
 
 
+def now_utc() -> datetime:
+    """Naive UTC. SQLite does not round-trip timezone info, so we keep
+    every datetime that's stored or compared with a stored value naive
+    and in UTC."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 def _now() -> datetime:
-    return datetime.now(UTC)
+    return now_utc()
 
 
 class Registration(SQLModel, table=True):
@@ -30,6 +37,10 @@ class Registration(SQLModel, table=True):
     first_name: str | None = None
     last_name: str | None = None
     registered_at: datetime = Field(default_factory=_now)
+    # If set and in the future, suppress peer-activity DMs (group_msg with
+    # an `exclude_chat_id`). Actionable DMs about the user's own tickets
+    # (CLOSED on their ticket, /message forwards, ...) are NOT suppressed.
+    mute_peer_until: datetime | None = None
 
     def display_name(self) -> str:
         parts = [p for p in (self.first_name, self.last_name) if p]
