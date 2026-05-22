@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     config_path: str = "./config.yaml"
     web_bind: str = "0.0.0.0:8000"
     log_level: str = "INFO"
+    log_dir: str = "./logs"
+    log_retention_days: int = 14
 
 
 @lru_cache(maxsize=1)

@@ -37,10 +37,14 @@ def _build_shift_lookup() -> tuple[ShiftLookup, EngelsystemClient | None]:
 
 async def amain() -> None:
     settings = get_settings()
-    logging.basicConfig(
-        level=settings.log_level.upper(),
-        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    from .logging_setup import setup_logging
+
+    log_file = setup_logging(
+        level=settings.log_level,
+        log_dir=settings.log_dir,
+        retention_days=settings.log_retention_days,
     )
+    log.info("logs rotating daily into %s", log_file)
 
     config = load_config(settings.config_path)
     init_db()

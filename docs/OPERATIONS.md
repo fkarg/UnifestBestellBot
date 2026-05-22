@@ -5,13 +5,16 @@ where to look and what to do when something is wrong.
 
 ## Deploy
 
-One VM, one systemd unit. The bot polls Telegram and serves the dashboard
-HTTP from the same process.
+One VM, one `tmux` (or `screen`) session. The bot polls Telegram and
+serves the dashboard HTTP from the same process. For a few days of
+operating, this is more practical than a systemd indirection: the
+operator can watch the live coloured output, paste a Python REPL in
+the next tmux window, and bounce the process with `Ctrl-C` + up-arrow.
 
 ```sh
-# On the VM
-git clone <repo> /opt/unifestbestellbot
-cd /opt/unifestbestellbot
+# On the VM, in a long-lived tmux session
+git clone <repo> ~/unifestbestellbot
+cd ~/unifestbestellbot
 
 # Install uv if missing
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -21,26 +24,73 @@ cp .env.example .env       # fill in TELEGRAM_TOKEN, DEVELOPER_CHAT_ID,
                            # UPDATES_CHANNEL_ID, ENGELSYSTEM_API_KEY
 cp config.yaml.example config.yaml   # edit for the year's stalls / orga
 
-# Install the systemd unit
-sudo cp systemd/unifestbestellbot.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now unifestbestellbot
-
-# Tail logs
-journalctl -u unifestbestellbot -f
+# Run it
+uv run unifestbestellbot
 ```
+
+A typical workflow:
+
+```sh
+tmux new -s bot                       # start (or `tmux attach -t bot`)
+uv run unifestbestellbot              # foreground; logs print live
+                                       # detach with Ctrl-b d
+```
+
+`Ctrl-C` exits cleanly: SSE subscribers are disconnected, the bot session
+is closed, and the Engelsystem HTTP client is shut down.
 
 ## Update
 
 ```sh
-cd /opt/unifestbestellbot
+cd ~/unifestbestellbot
 git pull
 uv sync
-sudo systemctl restart unifestbestellbot
+# In the tmux window running the bot:
+#   Ctrl-C   (graceful stop)
+#   ↑ Enter  (restart from shell history)
 ```
 
 Restart drops in-flight `/request` conversations (FSM state is in-memory)
 but does not lose tickets or registrations (those live in `bot.db`).
+
+## Logs
+
+Two destinations, configured by `setup_logging()` at startup:
+
+- **Terminal** — coloured by level (INFO green, WARNING yellow, ERROR red,
+  CRITICAL on red background). Intended for the human watching the tmux
+  pane.
+- **`./logs/bot.log`** — plain-text, no colour codes. Rotates daily at
+  local midnight; `LOG_RETENTION_DAYS` (default 14) days of history are
+  kept as `bot.log.YYYY-MM-DD` next to the live file.
+
+`LOG_LEVEL` (default `INFO`) controls both. `LOG_DIR` (default `./logs`)
+controls the file destination. `uvicorn` and `aiogram` are routed through
+the same handlers so everything lands in one place.
+
+```sh
+# Watch the live colour stream — the tmux pane already shows it; this is
+# for a second pane.
+tail -f logs/bot.log
+
+# Yesterday's full session, no colours
+less logs/bot.log.$(date -d yesterday +%F)
+```
+
+## Alternative: systemd
+
+A `systemd/unifestbestellbot.service` unit is committed in the repo for
+operators who want auto-restart on crash. It is **secondary** — for a
+short event, the tmux setup above is simpler and more legible. If you do
+use systemd, the file handler still rotates inside `LOG_DIR`; the
+terminal handler's colours will be stripped in the journal.
+
+```sh
+sudo cp systemd/unifestbestellbot.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now unifestbestellbot
+journalctl -u unifestbestellbot -f
+```
 
 ## Configuration
 
