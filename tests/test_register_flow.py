@@ -79,19 +79,19 @@ async def test_help_returns_orga_help_for_orga_member(s, config):
 # --- /register -------------------------------------------------------------
 
 
-async def test_register_picker_only_shows_visible_stands(s, config):
+async def test_register_picker_only_shows_visible_groups(s, config):
     msg = fake_message(user_id=1, text="/register")
     await register_flow.cmd_register(msg, db_session=s, config=config)
     kb = msg.answer.call_args.kwargs["reply_markup"]
     labels = [b.text for row in kb.inline_keyboard for b in row]
-    assert "Innenhof Cocktail" in labels
-    assert "Außenbereich Bier" in labels
+    assert "Cocktailbar 1" in labels
+    assert "Biertheke 1" in labels
     # Orga groups are intentionally absent from the picker — they're
     # reachable only via the textual /register <name> argument.
     assert "Finanz" not in labels
     assert "BiMi" not in labels
-    # Hidden stands are also absent.
-    assert "Eingang Tickets" not in labels
+    # Hidden groups are also absent.
+    assert "Tickets" not in labels
     assert "❌ Abbrechen" in labels
 
 
@@ -103,12 +103,12 @@ async def test_register_textual_argument_registers_orga_group(s, config):
     assert saved.group_name == "Finanz"
 
 
-async def test_register_textual_argument_registers_hidden_stand(s, config):
-    msg = fake_message(user_id=1, text="/register Eingang Tickets")
+async def test_register_textual_argument_registers_hidden_group(s, config):
+    msg = fake_message(user_id=1, text="/register Tickets")
     await register_flow.cmd_register(msg, db_session=s, config=config)
     saved = repo.registration_for(s, 1)
     assert saved is not None
-    assert saved.group_name == "Eingang Tickets"
+    assert saved.group_name == "Tickets"
 
 
 async def test_register_textual_argument_is_case_insensitive(s, config):
@@ -128,14 +128,14 @@ async def test_register_textual_argument_unknown_group_rejected(s, config):
 
 
 async def test_register_choice_persists_and_announces(s, config):
-    cb = fake_callback(user_id=1, data="reg:Innenhof Cocktail")
+    cb = fake_callback(user_id=1, data="reg:Cocktailbar 1")
     await register_flow.on_register_choice(cb, db_session=s, config=config)
     saved = repo.registration_for(s, 1)
     assert saved is not None
-    assert saved.group_name == "Innenhof Cocktail"
+    assert saved.group_name == "Cocktailbar 1"
     cb.message.edit_text.assert_awaited_once()
     edit_text = cb.message.edit_text.call_args.args[0]
-    assert "Innenhof Cocktail" in edit_text and "erfolgreich" in edit_text
+    assert "Cocktailbar 1" in edit_text and "erfolgreich" in edit_text
     # Follow-up DM updates the reply keyboard, then the channel log fires.
     cb.bot.send_message.assert_any_await(
         chat_id=1,
@@ -162,8 +162,8 @@ async def test_register_callback_rejects_orga_group(s, config):
     cb.answer.assert_awaited_once_with("Unbekannte Gruppe.", show_alert=True)
 
 
-async def test_register_callback_rejects_hidden_stand(s, config):
-    cb = fake_callback(user_id=1, data="reg:Eingang Tickets")
+async def test_register_callback_rejects_hidden_group(s, config):
+    cb = fake_callback(user_id=1, data="reg:Tickets")
     await register_flow.on_register_choice(cb, db_session=s, config=config)
     assert repo.registration_for(s, 1) is None
     cb.answer.assert_awaited_once_with("Unbekannte Gruppe.", show_alert=True)
@@ -177,10 +177,10 @@ async def test_register_choice_unknown_group_alerts_user(s, config):
 
 
 async def test_register_overwrites_previous_group(s, config):
-    repo.upsert_registration(s, Registration(chat_id=1, group_name="Außenbereich Bier"))
-    cb = fake_callback(user_id=1, data="reg:Innenhof Cocktail")
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Biertheke 1"))
+    cb = fake_callback(user_id=1, data="reg:Cocktailbar 1")
     await register_flow.on_register_choice(cb, db_session=s, config=config)
-    assert repo.registration_for(s, 1).group_name == "Innenhof Cocktail"
+    assert repo.registration_for(s, 1).group_name == "Cocktailbar 1"
 
 
 # --- /unregister ----------------------------------------------------------

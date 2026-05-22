@@ -181,18 +181,19 @@ gets the standard "command not recognised" reply.
 | —                                      | `.env` `LOG_LEVEL`                                         |
 | —                                      | `.env` `ENGELSYSTEM_BASE_URL` (was hard-coded in legacy)   |
 
-### Stand identity
+### Stall identity
 
 Legacy: a stall was a free string in `groups.json` (e.g. `"Cocktailbar"`),
 optionally listed in `hidden.json`, with a separate `mapping.json` saying
 which location it was at. The string name was both the registration
 target and the identifier shown to orga.
 
-New: a stand is `{location, type, hidden?}`. The registration identifier
-is the synthesized `"{location} {type}"` (e.g. `"Forum Süd Cocktail"`).
-The display string in tickets is `"{location} [{type}]"`. There is no
-team-identity field; whichever crew is on shift just `/register`s at the
-stand.
+New: a stall has `{name, location, type, hidden?}` together in one
+`stalls:` entry. The `name` is what volunteers /register as (e.g.
+`"Cocktailbar 1"`). The display string in ticket text is
+`"{location} [{type}]"` — orga handlers orient on stand, not on the
+group name. Multiple groups can share the same `(location, type)` —
+two cocktail crews at Forum Süd are fine.
 
 ### Validation
 
@@ -312,8 +313,9 @@ What stays different:
    mid-`/request` during a bot restart have to start over. Accepted
    trade-off.
 
-4. **Per-stand identity model** (`(location, type)` instead of a single
-   string name). See section 3.
+4. **Stall shape** — explicit `name` plus `location` and `type` fields
+   in a single `stalls:` entry, vs. the legacy `groups.json` +
+   `mapping.json` split. See section 3.
 
 5. **Ticket text format** — bracketed token is the stand TYPE, not the
    team name. See section 1.

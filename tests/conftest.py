@@ -19,9 +19,9 @@ def config() -> AppConfig:
     return AppConfig.model_validate(
         {
             "stalls": [
-                {"location": "Innenhof", "type": "Cocktail"},
-                {"location": "Außenbereich", "type": "Bier"},
-                {"location": "Eingang", "type": "Tickets", "hidden": True},
+                {"name": "Cocktailbar 1", "location": "Innenhof", "type": "Cocktail"},
+                {"name": "Biertheke 1", "location": "Außenbereich", "type": "Bier"},
+                {"name": "Tickets", "location": "Eingang", "type": "Tickets", "hidden": True},
             ],
             "orga_groups": [
                 {"name": "Finanz", "categories": ["Geld"]},

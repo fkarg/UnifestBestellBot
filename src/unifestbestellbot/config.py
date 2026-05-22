@@ -10,25 +10,29 @@ from pydantic import BaseModel, model_validator
 
 
 class Stall(BaseModel):
-    """A stand at the event. Identified by (location, type) — there is no
-    separate team identity in the bot. Whichever crew is currently on shift
-    `/register`s at this stand; multiple crews may cycle through the same
-    stand over the event."""
+    """A group registered to a stand at the event.
 
-    location: str  # physical area, e.g. "Forum Süd", "DJ", "Mitte"
-    type: str  # what the stand sells / does, e.g. "Bier", "Cocktail", "Tickets"
+    - `name` is the group identity volunteers /register as (e.g.
+      "Cocktailbar 1", "Biertheke Süd"). Stable across the event.
+    - `location` is the physical area the group works at (e.g.
+      "Forum Süd", "DJ", "Mitte").
+    - `type` is what the stand does (e.g. "Bier", "Cocktail",
+      "Tickets") — what BiMi needs to know to bring the right supplies.
+
+    Multiple groups can share the same `(location, type)` — e.g.
+    "Cocktailbar 1" and "Cocktailbar 2" both at Forum Süd. Volunteers
+    pick their group by name; ticket text shown to orga is
+    `"{location} [{type}]"`, so handlers orient on the stand, not on
+    whichever crew is currently on shift."""
+
+    name: str
+    location: str
+    type: str
     hidden: bool = False
 
     @property
-    def name(self) -> str:
-        """Stable identifier shown in the /register picker and stored as
-        Registration.group_name. Volunteers see this exact string."""
-        return f"{self.location} {self.type}"
-
-    @property
     def display(self) -> str:
-        """How the stand appears in ticket text to orga: location first
-        (the thing they walk to), type in brackets (what they bring)."""
+        """How the stand appears in ticket text to orga."""
         return f"{self.location} [{self.type}]"
 
 
@@ -55,17 +59,16 @@ class AppConfig(BaseModel):
         if len(orga_names) != len(set(orga_names)):
             raise ValueError("orga_groups have duplicate names")
 
-        stall_keys = [(s.location, s.type) for s in self.stalls]
-        if len(stall_keys) != len(set(stall_keys)):
-            raise ValueError("stalls have duplicate (location, type) pairs")
+        stall_names_list = [s.name for s in self.stalls]
+        if len(stall_names_list) != len(set(stall_names_list)):
+            raise ValueError("stalls have duplicate names")
 
-        # Orga names must not collide with stand identifiers — both live in
-        # the same registration namespace.
-        stall_names = {s.name for s in self.stalls}
+        # Orga and stall names share the registration namespace.
+        stall_names = set(stall_names_list)
         for name in orga_names:
             if name in stall_names:
                 raise ValueError(
-                    f"orga group {name!r} collides with a stand identifier"
+                    f"orga group {name!r} collides with a stall name"
                 )
 
         seen: dict[str, str] = {}

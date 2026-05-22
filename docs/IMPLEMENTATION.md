@@ -59,28 +59,35 @@ settings = Settings()  # raises at import time if anything is missing
 
 ### 1.3 `config.yaml`
 
-The whole stand/orga/routing structure for one event. Edited by the
+The whole stall/orga/routing structure for one event. Edited by the
 maintainer between events and committed.
 
-A `stalls:` entry is a **stand** identified by `(location, type)` — no
-separate team identity. Whichever crew is on shift /registers at the
-stand. Multiple crews can come and go at the same stand over the event;
-the bot never tracks who they are.
+A `stalls:` entry is a **group** with an explicit `name` (what
+volunteers /register as), plus a `location` and `type`. Multiple groups
+can share the same `(location, type)`. The group name is the
+registration identifier; ticket text to orga always renders
+`"{location} [{type}]"`, so handler teams orient on the stand and never
+see crew identity.
 
 ```yaml
 # config.yaml
 stalls:
-  - location: "Forum Süd"
+  - name: "Cocktailbar 1"
+    location: "Forum Süd"
     type: "Cocktail"
-  - location: "Forum Süd"
-    type: "Bier"
-  - location: "DJ"
-    type: "Bier"
-  - location: "Mitte"
+  - name: "Cocktailbar 2"
+    location: "Forum Süd"
     type: "Cocktail"
-  - location: "Eingang"
+  - name: "Biertheke Süd"
+    location: "Forum Süd"
+    type: "Bier"
+  - name: "Biertheke DJ"
+    location: "DJ"
+    type: "Bier"
+  - name: "Tickets"
+    location: "Eingang"
     type: "Tickets"
-    hidden: true             # not offered in /register list
+    hidden: true             # not offered in /register picker
 
 orga_groups:
   - name: "Finanz"
@@ -97,13 +104,14 @@ orga_groups:
 locations:
   "Forum Süd": 12
   "DJ": 15
-  "Mitte": 9
   "Eingang": 3
 ```
 
-Tickets render the requesting stand as `"{location} [{type}]"`, e.g.
-`"Forum Süd [Cocktail] hat noch ~20 Normale Becher"`. Orga handlers
-(BiMi etc.) orient on that string and never see crew identity.
+Tickets render the requesting group as `"{location} [{type}]"`, e.g.
+`"Forum Süd [Cocktail] hat noch ~20 Normale Becher"`. The group's
+*name* is stored on the `Ticket.group_requesting` column (used to fan
+out CLOSED notifications back to the requesting crew and to filter
+`/status`), but it does not appear in the ticket text orga sees.
 
 ### 1.4 `config.py`
 

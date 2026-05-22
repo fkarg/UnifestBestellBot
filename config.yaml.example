@@ -1,55 +1,57 @@
 # UnifestBestellBot configuration for one event.
 #
-# Edit between events, then `systemctl restart unifestbestellbot`. The schema
-# is validated at startup: a typo here will refuse to boot the bot.
+# Edit between events, then restart the bot. The schema is validated at
+# startup: a typo here will refuse to boot.
 #
 # Mental model:
-#   - Each `stalls:` entry is a STAND, identified by (location, type). There
-#     is NO team identity in the bot. Whichever crew is on shift /registers
-#     at the stand; multiple crews can cycle through the same stand over the
-#     event without any config change.
-#   - `stalls[].location` is the physical area (e.g. "Forum Süd", "DJ").
-#     `stalls[].type` is what the stand does (e.g. "Bier", "Cocktail",
-#     "Tickets"). Both appear in every ticket as "Forum Süd [Cocktail]" so
-#     orga handlers can find the stand without knowing who's on shift.
+#   - Each `stalls:` entry is a GROUP that volunteers /register as
+#     (e.g. "Cocktailbar 1", "Biertheke Süd"). Multiple crews can pass
+#     through the same group over the event without any config change —
+#     they all /register at the same group name.
+#   - `stalls[].location` is the physical area the group works at
+#     ("Forum Süd", "DJ", "Mitte").
+#   - `stalls[].type` is what the stand does ("Bier", "Cocktail",
+#     "Tickets") — what BiMi needs to know to bring the right supplies.
+#   - Ticket text shown to orga is "{location} [{type}]", e.g.
+#     "Forum Süd [Cocktail] hat noch ~20 Becher". The group's *name* does
+#     not appear in ticket text — handlers orient on location + type, not
+#     on which crew is currently on shift.
 #   - `orga_groups:` are the handler teams (Finanz, BiMi, ...). Each
-#     ticket category routes to exactly one orga group; one orga group is
-#     the `default:` for any category not explicitly listed.
+#     ticket category routes to one orga group; one orga group is the
+#     `default:` for any category not explicitly listed.
 #   - `locations:` maps a location name to its Engelsystem location id.
 #     Optional — only needed for /helpers to return shift lists.
-#
-# Year-to-year changes:
-#   - Stands moved / renamed / closed?  Edit `stalls:`.
-#   - Stand changed type (e.g. Bier → Cocktail)?  Edit its `type:`.
-#   - Different crew on shift?  No config change — they just /register
-#     at the same stand identifier.
-#   - New ticket category?  Add it to one orga group's `categories:`,
-#     then add a row to FOLLOWUPS in src/unifestbestellbot/bot/request.py.
 
 stalls:
-  # Visible stands — offered as options in /register. Identifier shown to
-  # users is "{location} {type}", e.g. "Forum Süd Cocktail".
-  - location: "Forum Süd"
+  # Visible groups — offered as options in /register's inline picker.
+  - name: "Cocktailbar 1"
+    location: "Forum Süd"
     type: "Cocktail"
-  - location: "Forum Süd"
-    type: "Bier"
-  - location: "DJ"
-    type: "Bier"
-  - location: "Mitte"
+  - name: "Cocktailbar 2"
+    location: "Forum Süd"
     type: "Cocktail"
-  - location: "Mitte"
+  - name: "Biertheke Süd"
+    location: "Forum Süd"
+    type: "Bier"
+  - name: "Biertheke DJ"
+    location: "DJ"
+    type: "Bier"
+  - name: "Biertheke Mitte"
+    location: "Mitte"
     type: "Bier"
 
-  # Hidden stands — accepted as a registration target but NOT shown in the
-  # /register inline picker. Use for internal / staff-only groups.
-  - location: "Eingang"
+  # Hidden groups — accepted as registration targets via the textual
+  # `/register <name>` argument only; NOT shown in the inline picker.
+  # Use for internal / staff-only groups.
+  - name: "Tickets"
+    location: "Eingang"
     type: "Tickets"
     hidden: true
 
 orga_groups:
   # The orga teams that handle tickets. Names here must not collide with
-  # any stand identifier ("{location} {type}"). Exactly one orga group
-  # must have `default: true` — it catches categories not listed below.
+  # any stall name. Exactly one orga group must have `default: true` —
+  # it catches categories not listed below.
   - name: "Finanz"
     categories: ["Geld"]
   - name: "BiMi"
@@ -61,8 +63,8 @@ orga_groups:
     default: true
 
 # Optional. Maps each `stalls[].location` to its Engelsystem location id.
-# Only required for /helpers (shift lookup) to work; stalls whose location
-# isn't listed here just won't return shifts.
+# Only required for /helpers (shift lookup) to work; groups whose
+# location isn't listed here just won't return shifts.
 locations:
   "Forum Süd": 12
   "DJ": 15

@@ -101,7 +101,7 @@ async def test_pick_category_unknown_re_prompts(state):
 # --- End-to-end per category ----------------------------------------------
 
 
-async def _start(state, group: str = "Innenhof Cocktail"):
+async def _start(state, group: str = "Cocktailbar 1"):
     await state.set_state(request_flow.RequestFSM.category)
     await state.update_data(group=group)
 
@@ -220,7 +220,7 @@ async def test_helfer_liste_schichten_uses_shift_lookup(s, state, config, shift_
         msg, state, db_session=s, config=config, shift_lookup=shift_lookup
     )
     body = msg.answer.call_args.args[0]
-    assert "Schichten für Innenhof Cocktail" in body
+    assert "Schichten für Cocktailbar 1" in body
     assert await state.get_state() is None  # conversation ends
 
 
@@ -314,4 +314,4 @@ def test_display_for_falls_back_to_group_name_for_unknown_stand(config):
     assert config.display_for("OrgaCrew") == "OrgaCrew"
     assert config.display_for("Finanz") == "Finanz"
     # Known stands render as "location [type]"
-    assert config.display_for("Innenhof Cocktail") == "Innenhof [Cocktail]"
+    assert config.display_for("Cocktailbar 1") == "Innenhof [Cocktail]"
