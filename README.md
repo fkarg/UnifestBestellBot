@@ -52,3 +52,5 @@ the event bus.
   layout, schemas, and code sketches
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — deploy, backup, restore,
   common fixes
+- [`docs/MIGRATION.md`](docs/MIGRATION.md) — observable behaviour and
+  config differences vs. the legacy bot
