@@ -342,7 +342,7 @@ async def _finalize(
 
     reg = repo.registration_for(db_session, user.id)
     await msg.answer(
-        i18n.REQUEST_TICKET_CREATED.format(uid=ticket.id),
+        i18n.REQUEST_TICKET_CREATED.format(uid=ticket.id, orga=group_tasked),
         reply_markup=keyboards.for_user(reg, config),
     )
 

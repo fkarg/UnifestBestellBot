@@ -96,7 +96,7 @@ REQUEST_IN_PROGRESS = (
 )
 REQUEST_CANCELLED = "Anfrage abgebrochen."
 REQUEST_CATEGORY_UNKNOWN = "Bitte wähle eine Option oder /cancel."
-REQUEST_TICKET_CREATED = "Ticket #{uid} erstellt."
+REQUEST_TICKET_CREATED = "Ticket #{uid} erstellt. Geht an [{orga}]."
 
 ASK_MONEY = "Braucht ihr Geld abgeholt oder Wechselgeld?"
 ASK_MONEY_CHANGE = "Braucht ihr Scheine oder Münzen?"

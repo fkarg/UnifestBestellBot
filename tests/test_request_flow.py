@@ -278,6 +278,19 @@ async def test_finalize_sets_ticket_status_open(s, state, config, events):
     assert tickets[0].status == TicketStatus.OPEN
 
 
+async def test_finalize_confirmation_names_routed_orga_group(s, state, config, events):
+    """#19: the user should see which orga group their ticket went to."""
+    await _start(state)
+    await request_flow.pick_category(fake_message(user_id=1, text="Geld"), state)
+    msg = fake_message(user_id=1, text="Geld Abholen")
+    await request_flow.money_collect(
+        msg, state, db_session=s, config=config, events=events
+    )
+    body = msg.answer.call_args.args[0]
+    assert "Finanz" in body  # Geld routes to Finanz
+    assert "Ticket #" in body
+
+
 # --- Pure renderers (also exercised end-to-end above) --------------------
 
 
