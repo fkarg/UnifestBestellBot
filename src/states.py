@@ -1,3 +1,16 @@
+import logging
+
+from src.config import (
+    AMOUNT_OPTIONS,
+    CUP_OPTIONS,
+    HELPER_OPTIONS,
+    MAPPING,
+    MONEY_CHANGE_OPTIONS,
+    MONEY_OPTIONS,
+    REQUEST_OPTIONS,
+)
+from src.tickets import create_ticket
+from src.utils import autoselect_keyboard, channel_msg
 from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
@@ -7,21 +20,6 @@ from telegram.ext import (
     CallbackContext,
     ConversationHandler,
 )
-
-
-from src.config import (
-    MAPPING,
-    REQUEST_OPTIONS,
-    MONEY_OPTIONS,
-    MONEY_CHANGE_OPTIONS,
-    CUP_OPTIONS,
-    AMOUNT_OPTIONS,
-    HELPER_OPTIONS,
-)
-from src.utils import channel_msg, autoselect_keyboard
-from src.tickets import create_ticket
-
-import logging
 
 log = logging.getLogger(__name__)
 

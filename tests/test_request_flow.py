@@ -1,4 +1,3 @@
-from unittest.mock import AsyncMock
 
 import pytest
 from aiogram.fsm.context import FSMContext
@@ -6,7 +5,6 @@ from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
-
 from unifestbestellbot import repo
 from unifestbestellbot.bot import request as request_flow
 from unifestbestellbot.events import EventBus

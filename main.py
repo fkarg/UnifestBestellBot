@@ -1,67 +1,70 @@
-import os
 import logging
-from pathlib import Path
+import os
 import socket
 
 from rich.traceback import install
-
-from telegram.ext import (
-    Updater,
-    Filters,
-    CommandHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    PicklePersistence,
-)
-
-from src.dashboard_bridge import dashboard_init, dashboard_publish, dashboard_start, dashboard_stop, mqtt_send_all_tickets, mqtt_set_tickets
-from src.config import CONNECT_BROKER, TOKEN
-from src.utils import set_log_level_format, get_logging_level, channel_msg
 from src.commands import (
-    error_handler,
-    start,
-    help,
-    unknown,
-    register,
-    unregister,
-    status,
-    details,
-    register_button,
-    task_button,
-    feature,
     bug,
-    resetall,
     closeall,
+    details,
+    error_handler,
+    feature,
+    help,
+    register,
+    register_button,
     reset_counter,
+    start,
+    status,
     system_status,
+    task_button,
+    unknown,
+    unregister,
 )
+from src.config import CONNECT_BROKER, TOKEN
+from src.dashboard_bridge import (
+    dashboard_init,
+    dashboard_publish,
+    dashboard_start,
+    dashboard_stop,
+    mqtt_send_all_tickets,
+    mqtt_set_tickets,
+)
+from src.engelsystem import helpers
+from src.parser import create_parser
 from src.states import (
-    reset_user,
-    cancel,
-    request,
-    money,
-    money_change,
-    cups,
-    free_next,
-    ask_amount,
-    helper,
-    helper_free_next,
-    amount,
-    collect,
-    change,
-    free,
-    REQUEST,
-    MONEY,
-    MONEY_CHANGE,
-    CUPS,
     AMOUNT,
+    CUPS,
     FREE,
     HELPER,
+    MONEY,
+    MONEY_CHANGE,
+    REQUEST,
+    amount,
+    ask_amount,
+    cancel,
+    change,
+    collect,
+    cups,
+    free,
+    free_next,
+    helper,
+    helper_free_next,
+    money,
+    money_change,
+    request,
+    reset_user,
 )
-from src.tickets import close, wip, all, tickets, help2, message, move
-from src.parser import create_parser
-from src.engelsystem import helpers
+from src.tickets import all, close, help2, message, move, tickets, wip
+from src.utils import channel_msg, get_logging_level, set_log_level_format
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    Filters,
+    MessageHandler,
+    PicklePersistence,
+    Updater,
+)
 
 # activate tracebacks with `rich` formatting support
 install(show_locals=True)

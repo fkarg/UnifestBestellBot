@@ -2,12 +2,10 @@ import json
 import logging
 import time
 
-from telegram import Update, Bot, ReplyKeyboardRemove, ReplyKeyboardMarkup, ParseMode
 import telegram
-
+from src.config import INITIAL_KEYBOARD, MAIN_KEYBOARD, ORGA_GROUPS, ORGA_KEYBOARD
+from telegram import Bot, ParseMode, ReplyKeyboardMarkup, Update
 from telegram.ext import CallbackContext
-
-from src.config import INITIAL_KEYBOARD, MAIN_KEYBOARD, ORGA_KEYBOARD, ORGA_GROUPS
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +53,7 @@ def dev_msg(message):
 
     For longer and formatted messages consider `dev_html` instead.
     """
-    from src.config import TOKEN, DEVELOPER_CHAT_ID
+    from src.config import DEVELOPER_CHAT_ID, TOKEN
 
     bot = Bot(token=TOKEN)
     log.info(f"to dev: {message}")

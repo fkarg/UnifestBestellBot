@@ -1,6 +1,7 @@
 import json
-import telegram
 import logging
+
+import telegram
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG
@@ -8,7 +9,7 @@ logging.basicConfig(
 
 
 def load_json(filename):
-    with open(filename, "r") as f:
+    with open(filename) as f:
         return json.load(f)
 
 

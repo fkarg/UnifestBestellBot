@@ -1,11 +1,11 @@
 import asyncio
+import contextlib
 import json
 
 import httpx
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
-
 from unifestbestellbot import db as db_mod
 from unifestbestellbot import repo
 from unifestbestellbot.events import EventBus
@@ -145,10 +145,8 @@ async def test_event_bus_drops_full_subscriber():
     await bus.publish_ticket(t)   # triggers QueueFull → drop
     assert bus.subscriber_count() == 0
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 # --- /api/health ---------------------------------------------------------

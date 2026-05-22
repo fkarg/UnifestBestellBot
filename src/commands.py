@@ -1,12 +1,10 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-
-from telegram.ext import CallbackContext
-
-import logging
 import json
+import logging
 
-from src.config import GROUPS_LIST, ORGA_GROUPS, HIDDEN_GROUPS, ALL_GROUPS, DEVELOPER_CHAT_ID
-from src.utils import who, dev_msg, channel_msg, autoselect_keyboard, dev_html
+from src.config import ALL_GROUPS, DEVELOPER_CHAT_ID, GROUPS_LIST, ORGA_GROUPS
+from src.utils import autoselect_keyboard, channel_msg, dev_html, dev_msg, who
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import CallbackContext
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +38,7 @@ def error_handler(update: Update, context: CallbackContext) -> None:
     """
     import html
     import traceback
+
     from telegram.error import NetworkError
 
     """Log the error and send a telegram message to notify the developer."""
@@ -87,7 +86,7 @@ def start(update: Update, context: CallbackContext) -> None:
     if not context.user_data:
         try:
             context.user_data = {}
-        except AttributeError as e:
+        except AttributeError:
             log.warning(f"AttributeError on attempting to create empty user context for {who(update)}")
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -331,7 +330,7 @@ def task_button(update: Update, context: CallbackContext) -> None:
     """
     query = update.callback_query
 
-    from src.tickets import close_uid, wip_uid, TicketStatus
+    from src.tickets import close_uid, wip_uid
 
     try:
         if "wip #" in query.data:
@@ -418,7 +417,7 @@ def system_status(update: Update, context: CallbackContext) -> None:
     """ Developer command to show system status.
     """
     import html
-    from telegram import ParseMode
+
     from src.tickets_data import TicketEncoder
 
     update.message.reply_text(f"{context.user_data}")

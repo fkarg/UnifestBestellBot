@@ -1,9 +1,8 @@
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
-
 from unifestbestellbot import repo
-from unifestbestellbot.models import AuditEvent, Registration, Ticket, TicketStatus
+from unifestbestellbot.models import AuditEvent, Registration, TicketStatus
 
 
 @pytest.fixture

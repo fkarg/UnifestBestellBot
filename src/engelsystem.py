@@ -1,15 +1,13 @@
 import json
-import requests
 import logging
+from datetime import UTC, datetime, timedelta
 
-from datetime import datetime, timezone, timedelta
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import CallbackContext
-
-from src.config import MAPPING, LOCATIONS, ENGELSYSTEM_API_KEY
-from src.utils import dev_msg, autoselect_keyboard
+import requests
+from src.config import ENGELSYSTEM_API_KEY, LOCATIONS, MAPPING
 from src.states import end
+from src.utils import autoselect_keyboard
+from telegram import Update
+from telegram.ext import CallbackContext
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +39,7 @@ def helpers(update: Update, context: CallbackContext):
         shifts = json.loads(response.content)
         shifts = shifts['data']
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         delta = timedelta(minutes=20)
 
         def is_current(shift):

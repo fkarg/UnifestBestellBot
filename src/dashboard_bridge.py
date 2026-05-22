@@ -1,9 +1,8 @@
 import json
-import socket
 import logging
+import socket
 
 import paho.mqtt.client as mqtt
-
 from src.config import MQTT_HOST, MQTT_PASS, MQTT_PORT, MQTT_USER
 from src.tickets_data import Ticket, TicketStatus
 

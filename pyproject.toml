@@ -49,7 +49,21 @@ filterwarnings = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src/unifestbestellbot", "tests"]
+extend-exclude = [
+    # Legacy code, removed in the cutover commit.
+    "main.py",
+    "experiments.py",
+    "src/commands.py",
+    "src/config.py",
+    "src/dashboard_bridge.py",
+    "src/engelsystem.py",
+    "src/parser.py",
+    "src/states.py",
+    "src/tickets.py",
+    "src/tickets_data.py",
+    "src/utils.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

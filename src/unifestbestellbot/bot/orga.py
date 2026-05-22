@@ -15,7 +15,6 @@ from sqlmodel import Session
 
 from .. import i18n, repo
 from ..config import AppConfig
-from ..events import EventBus
 from ..models import Ticket, TicketStatus
 from . import keyboards, notify
 from .common import who

@@ -1,6 +1,5 @@
-from pathlib import Path
 import json
-
+from pathlib import Path
 
 LOGGING_FORMAT = "%(asctime)s [%(funcName)s]: %(message)s"
 
@@ -9,7 +8,7 @@ SECRETS_DIR = ROOT / "unifest-secrets"
 
 
 def load_json(filename):
-    with open(SECRETS_DIR / filename, "r") as f:
+    with open(SECRETS_DIR / filename) as f:
         return json.load(f)
 
 

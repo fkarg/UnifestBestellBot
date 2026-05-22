@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-
 from unifestbestellbot.engelsystem import (
     EngelsystemClient,
     make_shift_lookup,

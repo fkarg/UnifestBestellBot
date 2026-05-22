@@ -1,7 +1,6 @@
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
-
 from unifestbestellbot import repo
 from unifestbestellbot.bot import register as register_flow
 from unifestbestellbot.models import Registration

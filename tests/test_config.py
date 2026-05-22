@@ -1,6 +1,5 @@
 import pytest
 import yaml
-
 from unifestbestellbot.config import AppConfig, load_config
 
 

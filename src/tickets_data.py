@@ -1,5 +1,5 @@
-from enum import Enum
 import json
+from enum import Enum
 
 from telegram.ext import (
     CallbackContext,
@@ -95,9 +95,7 @@ class TicketEncoder(json.JSONEncoder):
     """ JSON-Encoder also providing serialization of Ticket and TicketStatus.
     """
     def default(self, obj):
-        if isinstance(obj, Ticket):
-            return obj.toJSON()
-        elif isinstance(obj, TicketStatus):
+        if isinstance(obj, Ticket) or isinstance(obj, TicketStatus):
             return obj.toJSON()
         # Let the base class default method raise the TypeError
         return json.JSONEncoder.default(self, obj)

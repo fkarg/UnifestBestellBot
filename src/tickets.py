@@ -1,15 +1,13 @@
+import logging
+
+from src.config import ORGA_GROUPS
+from src.dashboard_bridge import dashboard_publish, mqtt_set_tickets
+from src.tickets_data import Ticket, TicketStatus
+from src.utils import autoselect_keyboard, channel_msg, dev_msg, group_msg, who
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackContext,
 )
-
-from src.dashboard_bridge import dashboard_publish, mqtt_set_tickets
-from src.config import ORGA_GROUPS
-from src.utils import who, dev_msg, channel_msg, group_msg, autoselect_keyboard
-from src.tickets_data import Ticket, TicketStatus
-
-import logging
-
 
 log = logging.getLogger(__name__)
 

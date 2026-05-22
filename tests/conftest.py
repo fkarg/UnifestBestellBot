@@ -11,7 +11,6 @@ os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("CONFIG_PATH", "./config.yaml")
 
 import pytest  # noqa: E402
-
 from unifestbestellbot.config import AppConfig  # noqa: E402
 
 
