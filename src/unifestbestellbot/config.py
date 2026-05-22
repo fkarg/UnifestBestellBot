@@ -2,6 +2,7 @@
 which request categories, and where each stall maps onto an Engelsystem
 location id. Loaded once at startup, validated, then read-only."""
 
+from datetime import time
 from pathlib import Path
 from typing import Self
 
@@ -42,10 +43,31 @@ class OrgaGroup(BaseModel):
     default: bool = False
 
 
+class ShiftDigest(BaseModel):
+    """Configuration for the periodic Engelsystem shift-start digest.
+
+    When enabled, a background task wakes every `check_interval_minutes`,
+    queries Engelsystem for upcoming shifts at every configured location,
+    and DMs the orga group that handles the `Helfer` category with the
+    rota of any shift starting within `lookahead_minutes`.
+
+    Active only within the operational window (`window_start` to
+    `window_end`, expressed in the bot's local timezone). The window may
+    cross midnight — `window_start=18:00`, `window_end=02:00` is treated
+    as "from 18:00 today through 02:00 tomorrow"."""
+
+    enabled: bool = False
+    window_start: time = time(0, 0)
+    window_end: time = time(0, 0)  # equal start==end = always-on within
+    check_interval_minutes: int = 5
+    lookahead_minutes: int = 10
+
+
 class AppConfig(BaseModel):
     stalls: list[Stall]
     orga_groups: list[OrgaGroup]
     locations: dict[str, int] = {}
+    shift_digest: ShiftDigest = ShiftDigest()
 
     @model_validator(mode="after")
     def _validate_invariants(self) -> Self:

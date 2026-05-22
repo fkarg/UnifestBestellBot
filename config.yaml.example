@@ -70,3 +70,17 @@ locations:
   "DJ": 15
   "Mitte": 9
   "Eingang": 3
+
+# Optional. Periodic Engelsystem digest pushed to the orga group that
+# handles `Helfer` requests (typically "Helfen"). When enabled, a
+# background task wakes every `check_interval_minutes`, queries
+# Engelsystem for upcoming shifts at every `locations:` entry, and DMs
+# the rota of any shift starting within `lookahead_minutes`. Active only
+# within the operational window — set `window_start: 0:00` and
+# `window_end: 0:00` (equal) for "always on while the bot runs".
+shift_digest:
+  enabled: false
+  window_start: "18:00"
+  window_end: "02:00"          # wraps midnight
+  check_interval_minutes: 5
+  lookahead_minutes: 10

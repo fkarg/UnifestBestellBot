@@ -124,6 +124,18 @@ ticket category routes to one orga group; one orga group is the
 `default:` for any category not explicitly listed. Orga group names
 cannot collide with any stall name.
 
+### Engelsystem shift digest
+
+Optional. When `shift_digest.enabled: true` in `config.yaml`, a
+background task DMs the orga group that handles the `Helfer` category
+with the rota of any shift starting within `lookahead_minutes` (default
+10). Polls every `check_interval_minutes` (default 5) and only fires
+inside `window_start` to `window_end` (local time, may wrap midnight).
+
+Requires `ENGELSYSTEM_API_KEY` to be set and every location's
+Engelsystem id to be in `locations:`. Disabled-with-warning if the key
+is missing.
+
 ### Year-to-year edits
 
 | Change                                       | Where                              |

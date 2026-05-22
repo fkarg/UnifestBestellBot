@@ -3,6 +3,7 @@ serving the FastAPI dashboard. Crashes propagate to asyncio.gather and
 kill the process; systemd restarts it."""
 
 import asyncio
+import contextlib
 import logging
 import socket
 
@@ -10,6 +11,7 @@ import uvicorn
 
 from . import i18n
 from .bot import build_bot, build_dispatcher, notify
+from .bot.digest import shift_digest_loop
 from .config import AppConfig, load_config
 from .db import init_db
 from .engelsystem import EngelsystemClient, ShiftLookup, make_shift_lookup
@@ -74,12 +76,28 @@ async def amain() -> None:
     except Exception:
         log.exception("failed to send startup channel notification")
 
+    digest_task: asyncio.Task[None] | None = None
+    if config.shift_digest.enabled and engelsystem_client is not None:
+        digest_task = asyncio.create_task(
+            shift_digest_loop(bot=bot, config=config, client=engelsystem_client),
+            name="shift-digest",
+        )
+    elif config.shift_digest.enabled:
+        log.warning(
+            "shift_digest.enabled=true but ENGELSYSTEM_API_KEY is not set; "
+            "digest will not run"
+        )
+
     try:
         await asyncio.gather(
             dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types()),
             server.serve(),
         )
     finally:
+        if digest_task is not None:
+            digest_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await digest_task
         # Tell any connected dashboard browsers to disconnect so the SSE
         # generators exit, then close the network resources we own.
         await events.aclose()

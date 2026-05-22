@@ -163,6 +163,11 @@ HISTORY_USAGE = "Benutzung: /history [n]. n zwischen 1 und 50."
 HISTORY_EMPTY = "Keine geschlossenen Tickets für [{group}]."
 HISTORY_HEADER = "Letzte geschlossene Tickets für [{group}]:"
 
+# --- Engelsystem shift digest --------------------------------------------
+
+DIGEST_NEXT_SHIFT = "🧑‍🔧 Schicht beginnt um {time} an {location}:"
+DIGEST_NO_ENTRIES = "  (keine Helfer eingetragen)"
+
 # --- group fanout messages ----------------------------------------------
 
 GROUP_TICKET_OPENED = "🟠 OPEN: {who} in deiner Gruppe hat gerade Ticket '{text}' erstellt."
