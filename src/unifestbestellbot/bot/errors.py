@@ -49,6 +49,10 @@ async def on_error(event: ErrorEvent, bot: Bot) -> None:
     )
 
     try:
-        await bot.send_message(chat_id=get_settings().developer_chat_id, text=body)
+        await bot.send_message(
+            chat_id=get_settings().developer_chat_id,
+            text=body,
+            parse_mode="HTML",
+        )
     except Exception:
         log.exception("failed to forward error to developer chat")

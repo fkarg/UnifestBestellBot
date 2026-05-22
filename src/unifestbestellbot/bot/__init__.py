@@ -2,8 +2,6 @@
 workflow_data dependencies wired up."""
 
 from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from ..config import AppConfig
@@ -15,10 +13,11 @@ from .middleware import SessionMiddleware
 
 
 def build_bot() -> Bot:
-    return Bot(
-        token=get_settings().telegram_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    # No default parse_mode: ticket text and group notifications contain
+    # things like "<@username>" verbatim, which Telegram would otherwise
+    # try to parse as HTML and reject. Sites that genuinely need HTML
+    # (currently only bot/errors.py) pass parse_mode explicitly.
+    return Bot(token=get_settings().telegram_token)
 
 
 def build_dispatcher(

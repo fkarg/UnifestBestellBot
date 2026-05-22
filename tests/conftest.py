@@ -3,7 +3,7 @@ so `Settings()` does not look for a real .env file."""
 
 import os
 
-os.environ.setdefault("TELEGRAM_TOKEN", "test:token")
+os.environ.setdefault("TELEGRAM_TOKEN", "12345:test-token")
 os.environ.setdefault("DEVELOPER_CHAT_ID", "100")
 os.environ.setdefault("UPDATES_CHANNEL_ID", "200")
 os.environ.setdefault("ENGELSYSTEM_API_KEY", "test-key")

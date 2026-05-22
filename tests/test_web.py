@@ -149,6 +149,36 @@ async def test_event_bus_drops_full_subscriber():
         await task
 
 
+async def test_event_bus_aclose_exits_subscriber_generator():
+    bus = EventBus()
+    sub = bus.subscribe()
+    items: list[str] = []
+
+    async def consume():
+        async for item in sub:
+            items.append(item)
+
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0.01)
+    assert bus.subscriber_count() == 1
+
+    await bus.aclose()
+    # The generator should exit on its own; wait for it.
+    await asyncio.wait_for(task, timeout=1.0)
+    assert items == []  # the shutdown sentinel is not yielded to consumers
+    assert bus.subscriber_count() == 0
+
+
+async def test_event_bus_publish_after_aclose_is_a_noop():
+    bus = EventBus()
+    await bus.aclose()
+    t = Ticket(id=1, status=TicketStatus.OPEN, category="Geld", text="x",
+               group_requesting="A", group_tasked="B")
+    # Doesn't raise, doesn't add subscribers, doesn't fan out anything.
+    await bus.publish_ticket(t)
+    assert bus.subscriber_count() == 0
+
+
 # --- /api/health ---------------------------------------------------------
 
 

@@ -76,6 +76,9 @@ async def amain() -> None:
             server.serve(),
         )
     finally:
+        # Tell any connected dashboard browsers to disconnect so the SSE
+        # generators exit, then close the network resources we own.
+        await events.aclose()
         await bot.session.close()
         if engelsystem_client is not None:
             await engelsystem_client.aclose()

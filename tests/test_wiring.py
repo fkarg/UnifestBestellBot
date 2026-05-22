@@ -30,3 +30,22 @@ def test_main_module_imports():
     import importlib
 
     importlib.import_module("unifestbestellbot.__main__")
+
+
+def test_build_bot_has_no_default_parse_mode():
+    """Channel logs and group notifications include verbatim strings like
+    `<@username>` that would crash Telegram's HTML parser. The bot must
+    NOT be constructed with a default parse_mode; sites that need HTML
+    pass it explicitly."""
+    from unifestbestellbot.bot import build_bot
+
+    bot = build_bot()
+    try:
+        # aiogram exposes the configured default on bot.default; either
+        # the property is absent or its parse_mode is None.
+        default = getattr(bot, "default", None)
+        if default is not None:
+            assert getattr(default, "parse_mode", None) is None
+    finally:
+        # Don't try to close a session we never opened.
+        pass
