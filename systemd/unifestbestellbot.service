@@ -1,0 +1,24 @@
+[Unit]
+Description=UnifestBestellBot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=unifest
+WorkingDirectory=/opt/unifestbestellbot
+EnvironmentFile=/opt/unifestbestellbot/.env
+ExecStart=/home/unifest/.local/bin/uv run --frozen unifestbestellbot
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Light hardening — process has no need to write outside its working dir.
+ProtectSystem=full
+ProtectHome=read-only
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

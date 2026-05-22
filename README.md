@@ -1,42 +1,54 @@
-# @UnifestBestellBot
+# UnifestBestellBot
 
-Telegram bot for stalls to order supplies such as drinks, cups or change at the unifest
+Telegram bot for stalls at the Karlsruhe Unifest to order supplies (change
+money, cups, beer, cocktail materials, helpers, ...). Includes a small live
+dashboard for the orga groups handling tickets.
 
-## Usage
+## Stack
 
-Package management is done via `uv`, you can [install uv according to the official documentation](https://docs.astral.sh/uv/getting-started/installation/) through `pipx install uv`, `curl -LsSf https://astral.sh/uv/install.sh | sh` or your package manager of preference.
+- **aiogram v3** (async Telegram bot)
+- **SQLModel** + SQLite (single file, `create_all` at startup, no migrations)
+- **FastAPI** + SSE for the dashboard (no MQTT broker)
+- **uv** for dependency management
 
-After that, you can install dependencies with
+## Quick start
 
 ```sh
-> uv sync
+# 1. Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install dependencies
+uv sync
+
+# 3. Configure secrets
+cp .env.example .env        # then edit
+cp config.yaml.example config.yaml   # then edit for the year's structure
+
+# 4. Run
+uv run unifestbestellbot
 ```
 
-Then, execute the following to run the bot:
+The bot polls Telegram and serves the dashboard at `http://0.0.0.0:8000`.
+Open `http://<host>:8000/?group=Finanz` (or `?group=BiMi`, etc.) on a TV to
+see live tickets for one orga group.
+
+## Tests
 
 ```sh
-> uv run main.py
+uv run pytest
+uv run ruff check
 ```
 
-See `-h` for help on arguments.
+136 tests covering: config validation, repo CRUD + audit, the /register
+flow, the full /request FSM end-to-end per category, all orga commands +
+inline pickers, Engelsystem summary rendering, dashboard endpoints, and
+the event bus.
 
-## Dashboard
+## Documentation
 
-There also is a simple MQTT-driven dashboard available. See [DASHBOARD.md](DASHBOARD.md) for
-more information. If you do not want to run the dashboard, create `mqtt.json`,
-containing only `{}`.
-
-## Config
-
-see configuration options in `lib/config.py`.
-What you absolutely need is a directory for secrets, e.g. the list of groups,
-but also the bot token, and ids for a managed channel or to notify the
-developer.
-
-## Demo
-
-image1 | image2 | image3
-:---:|:---:|:---:
-![](imgs/start.jpg)  |  ![](imgs/registration1.jpg) | ![](imgs/registration2.jpg)
-![](imgs/status1.jpg) | ![](imgs/other-2.jpg) | ![](imgs/work2.jpg)
-![](imgs/close1.jpg) | ![](imgs/close2.jpg) | ![](imgs/all.jpg)
+- [`docs/REWRITE_PLAN.md`](docs/REWRITE_PLAN.md) — the architecture and
+  why each decision was made
+- [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) — detailed module
+  layout, schemas, and code sketches
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — deploy, backup, restore,
+  common fixes
