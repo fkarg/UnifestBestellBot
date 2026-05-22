@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UnifestBestellBot</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>UnifestBestellBot <span id="group-label"></span></h1>
+      <span id="connection" class="off">offline</span>
+    </header>
+    <main id="tickets" aria-live="polite"></main>
+    <p id="empty" hidden>Keine offenen Tickets.</p>
+    <audio id="ding" src="sound_a.mp3" preload="auto"></audio>
+    <script src="main.js" type="module"></script>
+  </body>
+</html>
