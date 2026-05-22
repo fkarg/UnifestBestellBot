@@ -4,11 +4,13 @@
 //! (config.yaml schema, SQLite schema, SSE payload shape, German
 //! user-facing strings, Engelsystem fixture).
 
+pub mod bot;
 pub mod config;
 pub mod db;
 pub mod engelsystem;
 pub mod events;
 pub mod i18n;
+pub mod logging;
 pub mod models;
 pub mod repo;
 pub mod settings;

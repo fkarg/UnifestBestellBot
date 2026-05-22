@@ -11,7 +11,7 @@ license = "GPL-3.0-or-later"
 # Telegram bot framework — async, dialogue FSM, dependency injection.
 # default-features disabled to drop native-tls; we use rustls everywhere
 # so there's no OpenSSL on the build path.
-teloxide = { version = "0.13", default-features = false, features = ["macros", "rustls"] }
+teloxide = { version = "0.13", default-features = false, features = ["macros", "rustls", "ctrlc_handler"] }
 
 # DB: SQLite via sqlx with compile-time-checked queries disabled (we use
 # the `query()` macro rather than `query!()` to avoid needing a live DB
@@ -42,7 +42,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Logging.
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json", "time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json", "time", "chrono"] }
 tracing-appender = "0.2"
 
 # Error handling.
