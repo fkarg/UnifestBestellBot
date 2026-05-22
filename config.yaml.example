@@ -1,18 +1,49 @@
-# Stall and orga structure for one event. Edit between events; restart to reload.
-# Validated at startup — typos here will refuse to boot the bot.
+# UnifestBestellBot configuration for one event.
+#
+# Edit between events, then `systemctl restart unifestbestellbot`. The schema
+# is validated at startup: a typo here will refuse to boot the bot.
+#
+# Mental model:
+#   - Each `stalls:` entry is both the team identity (what volunteers type
+#     when they /register) AND the stall identifier shown in tickets.
+#     There is no separate "team" concept — the stall name IS the team.
+#   - `stalls[].location` is the physical spot the stall is at. It is what
+#     orga sees in ticket text ("Innenhof [Cocktailbar] braucht Bier: ...")
+#     and what /helpers uses to find Engelsystem shifts.
+#   - `orga_groups:` are the teams that handle tickets (not the stalls that
+#     write them). Each category routes to exactly one orga group; one orga
+#     group is the `default:` for any category not explicitly listed.
+#   - `locations:` maps a location name to its Engelsystem location id.
+#     Optional — only needed for /helpers to return shift lists.
+#
+# Year-to-year changes:
+#   - New / renamed / closed stall? Edit `stalls:`.
+#   - Stall has moved? Change its `location:`.
+#   - New crew running an existing stall? No config change needed — the
+#     stall name stays; the humans behind it just /register fresh.
+#   - New ticket category? Add it to one orga group's `categories:`,
+#     then add a row to FOLLOWUPS in src/unifestbestellbot/bot/request.py.
 
 stalls:
+  # Visible stalls — offered as options in /register.
   - name: "Cocktailbar"
     location: "Innenhof"
   - name: "Biertheke 1"
     location: "Außenbereich"
   - name: "Biertheke 2"
     location: "Außenbereich"
+  - name: "Foodtruck"
+    location: "Hinterhof"
+
+  # Hidden stalls — accepted as a registration target but NOT shown in
+  # the /register inline picker. Use for internal / staff-only groups.
   - name: "Tickets"
     location: "Eingang"
-    hidden: true   # not offered in /register's group list
+    hidden: true
 
 orga_groups:
+  # The orga teams. Each category a /request can produce routes to one of
+  # these. Exactly one orga group must have `default: true`.
   - name: "Finanz"
     categories: ["Geld"]
   - name: "BiMi"
@@ -21,10 +52,13 @@ orga_groups:
     categories: ["Helfer"]
   - name: "Zentrale"
     categories: ["Sonstiges"]
-    default: true   # fallback for any category not matched above
+    default: true
 
-# Engelsystem location ids — optional, only required for /helpers to work.
+# Optional. Map every location name above to its Engelsystem location id.
+# Only required for /helpers (shift lookup) to work for that location;
+# stalls whose location isn't listed here just won't return shifts.
 locations:
   "Innenhof": 12
   "Außenbereich": 15
+  "Hinterhof": 9
   "Eingang": 3

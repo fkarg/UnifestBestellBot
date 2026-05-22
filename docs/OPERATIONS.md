@@ -50,9 +50,34 @@ Two files. Restart the bot to pick up changes.
 - **`config.yaml`** — the year's stall and orga structure. Schema is
   validated at startup; typos refuse to boot. See `config.yaml.example`.
 
-To add a request category: add it to one orga group's `categories:` in
-`config.yaml`, then add one row to `FOLLOWUPS` in
-`src/unifestbestellbot/bot/request.py`. Restart.
+### Mental model for `config.yaml`
+
+The bot does not track teams separately from stalls. A `stalls:` entry's
+`name:` is both:
+
+- the identifier volunteers type when they `/register` ("I work at the
+  Cocktailbar"), and
+- the stall identifier shown in every ticket the bot creates.
+
+`stalls[].location` is the physical spot ("Innenhof", "Außenbereich"),
+shown in ticket text and used by `/helpers` to look up shifts.
+
+`orga_groups:` are the *handler* teams (Finanz, BiMi, ...) — distinct
+from the stalls that write tickets. Each category routes to one orga
+group, with exactly one `default: true` as the fallback.
+
+### Year-to-year edits
+
+| Change                                     | Where                              |
+| ------------------------------------------ | ---------------------------------- |
+| New stall                                  | Add to `stalls:`                   |
+| Stall closed                               | Remove from `stalls:`              |
+| Stall moved to a different location        | Edit `stalls[].location`           |
+| Different crew runs an existing stall      | No config change needed            |
+| Stall exists but should not be advertised  | `hidden: true`                     |
+| Orga teams renamed / reorganised           | `orga_groups:`                     |
+| New ticket category                        | One row in `orga_groups[].categories` + one row in `FOLLOWUPS` in `bot/request.py` |
+| Engelsystem location id changed            | `locations:`                       |
 
 ## Database
 
