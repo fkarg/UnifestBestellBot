@@ -1,0 +1,50 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "starts_at": "2026-05-22T14:00:00+00:00",
+      "ends_at": "2026-05-22T16:00:00+00:00",
+      "entries": [
+        {
+          "type": {"name": "Bar"},
+          "users": [
+            {"name": "Alice"},
+            {"name": "Bob"}
+          ]
+        },
+        {
+          "type": {"name": "Kasse"},
+          "users": [
+            {"name": "Carol"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "starts_at": "2026-05-22T16:00:00+00:00",
+      "ends_at": "2026-05-22T18:00:00+00:00",
+      "entries": [
+        {
+          "type": {"name": "Bar"},
+          "users": [
+            {"name": "Dan"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "starts_at": "2026-05-22T20:00:00+00:00",
+      "ends_at": "2026-05-22T22:00:00+00:00",
+      "entries": [
+        {
+          "type": {"name": "Bar"},
+          "users": [
+            {"name": "Erin"}
+          ]
+        }
+      ]
+    }
+  ]
+}
