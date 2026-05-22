@@ -8,7 +8,8 @@ import socket
 
 import uvicorn
 
-from .bot import build_bot, build_dispatcher
+from . import i18n
+from .bot import build_bot, build_dispatcher, notify
 from .config import AppConfig, load_config
 from .db import init_db
 from .engelsystem import EngelsystemClient, ShiftLookup, make_shift_lookup
@@ -62,7 +63,12 @@ async def amain() -> None:
         )
     )
 
-    log.info("UnifestBestellBot starting from %s", socket.gethostname())
+    host = socket.gethostname()
+    log.info("UnifestBestellBot starting from %s", host)
+    try:
+        await notify.channel_msg(bot, i18n.CH_BOT_STARTED.format(host=host))
+    except Exception:
+        log.exception("failed to send startup channel notification")
 
     try:
         await asyncio.gather(

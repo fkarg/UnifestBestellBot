@@ -43,6 +43,8 @@ def fake_message(
     msg = MagicMock(spec=Message)
     msg.from_user = fake_user(user_id, username=username, first_name=first_name)
     msg.text = text
+    msg.caption = None
+    msg.edit_date = None
     msg.chat = MagicMock(id=user_id)
     msg.answer = AsyncMock()
     msg.edit_text = AsyncMock()

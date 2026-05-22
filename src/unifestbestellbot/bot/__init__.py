@@ -10,7 +10,7 @@ from ..config import AppConfig
 from ..engelsystem import ShiftLookup
 from ..events import EventBus
 from ..settings import get_settings
-from . import admin, orga, register, request
+from . import admin, errors, orga, register, request, unknown
 from .middleware import SessionMiddleware
 
 
@@ -34,11 +34,15 @@ def build_dispatcher(
     dp["shift_lookup"] = shift_lookup
 
     dp.update.outer_middleware(SessionMiddleware())
+    dp.errors.register(errors.on_error)
 
     dp.include_routers(
         register.router,
         request.router,
         orga.router,
         admin.router,
+        # `unknown.router` MUST be included last so it doesn't preempt the
+        # flow routers above.
+        unknown.router,
     )
     return dp

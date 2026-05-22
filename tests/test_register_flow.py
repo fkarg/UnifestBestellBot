@@ -79,15 +79,52 @@ async def test_help_returns_orga_help_for_orga_member(s, config):
 # --- /register -------------------------------------------------------------
 
 
-async def test_register_shows_inline_keyboard_with_visible_groups(s, config):
-    msg = fake_message(user_id=1)
-    await register_flow.cmd_register(msg, config=config)
+async def test_register_picker_only_shows_visible_stands(s, config):
+    msg = fake_message(user_id=1, text="/register")
+    await register_flow.cmd_register(msg, db_session=s, config=config)
     kb = msg.answer.call_args.kwargs["reply_markup"]
     labels = [b.text for row in kb.inline_keyboard for b in row]
     assert "Innenhof Cocktail" in labels
-    assert "Finanz" in labels  # orga groups also offered
-    assert "Eingang Tickets" not in labels  # hidden stand excluded
+    assert "Außenbereich Bier" in labels
+    # Orga groups are intentionally absent from the picker — they're
+    # reachable only via the textual /register <name> argument.
+    assert "Finanz" not in labels
+    assert "BiMi" not in labels
+    # Hidden stands are also absent.
+    assert "Eingang Tickets" not in labels
     assert "❌ Abbrechen" in labels
+
+
+async def test_register_textual_argument_registers_orga_group(s, config):
+    msg = fake_message(user_id=1, text="/register Finanz")
+    await register_flow.cmd_register(msg, db_session=s, config=config)
+    saved = repo.registration_for(s, 1)
+    assert saved is not None
+    assert saved.group_name == "Finanz"
+
+
+async def test_register_textual_argument_registers_hidden_stand(s, config):
+    msg = fake_message(user_id=1, text="/register Eingang Tickets")
+    await register_flow.cmd_register(msg, db_session=s, config=config)
+    saved = repo.registration_for(s, 1)
+    assert saved is not None
+    assert saved.group_name == "Eingang Tickets"
+
+
+async def test_register_textual_argument_is_case_insensitive(s, config):
+    msg = fake_message(user_id=1, text="/register finanz")
+    await register_flow.cmd_register(msg, db_session=s, config=config)
+    saved = repo.registration_for(s, 1)
+    assert saved is not None
+    assert saved.group_name == "Finanz"  # canonical casing preserved
+
+
+async def test_register_textual_argument_unknown_group_rejected(s, config):
+    msg = fake_message(user_id=1, text="/register NoSuchGroup")
+    await register_flow.cmd_register(msg, db_session=s, config=config)
+    assert repo.registration_for(s, 1) is None
+    body = msg.answer.call_args.args[0]
+    assert "Unbekannte" in body
 
 
 async def test_register_choice_persists_and_announces(s, config):
@@ -114,6 +151,22 @@ async def test_register_choice_cancel_does_not_persist(s, config):
     assert repo.registration_for(s, 1) is None
     cb.message.edit_text.assert_awaited_once()
     cb.answer.assert_awaited_once()
+
+
+async def test_register_callback_rejects_orga_group(s, config):
+    """Defence in depth: even a hand-crafted callback can't put a user
+    in an orga group via the picker callback path."""
+    cb = fake_callback(user_id=1, data="reg:Finanz")
+    await register_flow.on_register_choice(cb, db_session=s, config=config)
+    assert repo.registration_for(s, 1) is None
+    cb.answer.assert_awaited_once_with("Unbekannte Gruppe.", show_alert=True)
+
+
+async def test_register_callback_rejects_hidden_stand(s, config):
+    cb = fake_callback(user_id=1, data="reg:Eingang Tickets")
+    await register_flow.on_register_choice(cb, db_session=s, config=config)
+    assert repo.registration_for(s, 1) is None
+    cb.answer.assert_awaited_once_with("Unbekannte Gruppe.", show_alert=True)
 
 
 async def test_register_choice_unknown_group_alerts_user(s, config):

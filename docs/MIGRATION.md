@@ -46,11 +46,12 @@ SSE, ...) are described in `REWRITE_PLAN.md` and are not repeated here.
 
 | Aspect | Legacy | New |
 | --- | --- | --- |
-| Accepts a textual argument | `/register Cocktailbar` worked; case-insensitive match against the union of visible + orga + hidden groups | Arguments are ignored. The inline picker is the only path. |
-| Inline picker contents | Visible stalls only (orga members had to type) | Visible stalls **and** orga groups |
+| Accepts a textual argument | `/register Cocktailbar` worked; case-insensitive match against the union of visible + orga + hidden groups | **Restored.** `/register <name>` resolves case-insensitively against visible + hidden stands and orga groups. |
+| Inline picker contents | Visible stalls only (orga members had to type) | Same — visible stands only. Orga and hidden groups are reachable only via the textual argument. |
+| Picker callback safety | Anything in the union of groups | Picker callback path explicitly rejects orga/hidden groups; only `visible_stall_names()` are accepted. Defence in depth. |
 | Magic value | `/register no group` unregistered | Removed; use `/unregister` |
 | Auto-`/help2` on orga register | Legacy ran `/help2` automatically after registering as orga | No automatic help; the orga reply keyboard is shown |
-| Confirmation message | `"Anmelden bei Gruppe [X] erfolgreich."` followed by a separate "keyboard update" message | The picker message is edited to the success text, then a second DM carries the new reply keyboard |
+| Confirmation message | `"Anmelden bei Gruppe [X] erfolgreich."` followed by a separate "keyboard update" message | For textual /register: a single confirmation with the new keyboard. For the picker: the picker message is edited and a second DM updates the keyboard. |
 
 #### `/status`
 
@@ -100,9 +101,11 @@ which crew is currently on shift.
 - **Legacy:** closed each ticket via the normal `close_uid` path, so
   every ticket creator got a `✅ CLOSED: Euer Ticket #N wurde bearbeitet`
   DM and every orga group got their peer notification.
-- **New:** closes the tickets in the DB and writes audit events, but
-  does **not** fan out per-ticket notifications. Only one summary DM goes
-  to the developer.
+- **New:** same fan-out as legacy. Each closed ticket sends the channel
+  log, a DM to the requesting stand's members, and a peer DM to the
+  tasked orga group. The closer is attributed to a virtual group named
+  "Entwickler" in the channel log so dev-driven closes are
+  distinguishable from regular ones.
 
 #### `/helpers`
 
@@ -117,16 +120,19 @@ backends now fail fast.
 
 - **Legacy:** caught unknown commands and stray text with a fallback
   handler that replied with `"Kommando nicht erkannt oder im falschen
-  Zusammenhang. Sende /help ... Editieren von vorigen Nachrichten führt
-  zu fehlern."` plus the user's reply keyboard.
-- **New:** no fallback handler. Unknown commands and stray text are
-  silently dropped.
+  Zusammenhang. Sende /help ..."` plus the user's reply keyboard.
+- **New:** **Restored.** A catch-all router included last in the
+  dispatcher replies with the same hint and the user's appropriate reply
+  keyboard. FSM-state handlers (inside `/request`) still preempt this
+  fallback, so an unrecognised reply inside the request flow still gets
+  the per-state "wähle eine Option" prompt.
 
 ### Edited messages
 
 The legacy unknown-handler explicitly logged a warning when it received
-an edited message ("led to errors"). The new bot does not handle edits
-specifically; edited messages just don't trigger any handler.
+an edited message. The new fallback handler does the same — edited
+messages flow through it and are warned in the journal, plus the user
+gets the standard "command not recognised" reply.
 
 ---
 
@@ -144,15 +150,12 @@ specifically; edited messages just don't trigger any handler.
 
 | Notification | Legacy | New |
 | --- | --- | --- |
-| Bot startup channel post | `"🔘 Started from <hostname>"` sent on every restart | **Not sent.** Startup goes to stdout/journal only. |
+| Bot startup channel post | `"🔘 Started from <hostname>"` sent on every restart | **Restored.** Same message goes to the updates channel on startup; failure to send is logged but doesn't block boot. |
 | Bot crashed status (dashboard) | MQTT `will_set` payload `{"status":"BOT_CRASHED"}` retained at the broker; the dashboard would see it | Dashboard reconnects on its own ("reconnecting…" badge); no explicit crash event |
 | Bot disconnected status | MQTT `BOT_DISCONNECTED` published on graceful stop | Same — no explicit event |
 | Unauthorised-DM cleanup | Legacy: when a user blocked the bot, the channel got a `dev_msg` *and* the user was removed from the group | New: removes the user silently (logged to journal only) |
-| Per-ticket DM on `/closeall` | All requesters and peers got DMs | None — see /closeall above |
-| Uncaught exception → developer | Legacy `error_handler` sent the full traceback + update JSON to the developer chat as HTML | **Not implemented.** Exceptions go to the journal only. |
-
-The traceback-to-developer drop is the most operationally significant
-of these for a live event. See "Regressions" below.
+| Per-ticket DM on `/closeall` | All requesters and peers got DMs | **Restored.** Each ticket sends a channel log, a CLOSED DM to the requesting stand's members, and a peer DM to the tasked orga group. Channel log attributes the closer to "Entwickler". |
+| Uncaught exception → developer | Legacy `error_handler` sent the full traceback + update JSON to the developer chat as HTML | **Restored.** Dispatcher-level error handler forwards the exception summary, truncated traceback, and JSON-serialised update to the developer chat. Network errors are logged but not forwarded (avoids storm during outages). |
 
 ---
 
@@ -279,41 +282,43 @@ Layout is functionally equivalent.
 
 ---
 
-## 6. Regressions worth deciding on
+## 6. Remaining differences from the legacy bot
 
-These are behaviours the legacy bot had that the new bot does not.
-Some are intentional, some are accidental dropouts:
+After the targeted restorations (see commits following the audit), the
+legacy behaviours kept include:
 
-1. **Uncaught-exception → developer DM.** *(Likely worth restoring.)*
-   The legacy bot sent the full traceback to the developer chat as an
-   HTML-formatted block. On a busy festival night this saves minutes.
-   Currently exceptions only reach the systemd journal.
+- Textual `/register <name>` argument, case-insensitive, reachable
+  against visible + hidden stands and orga groups.
+- Orga and hidden groups are absent from the inline picker.
+- Uncaught-exception → developer DM (with traceback + update JSON).
+- Fallback handler for unknown commands / stray text.
+- Startup channel post (`"🔘 Started from <hostname>"`).
+- `/closeall` fans out per-ticket CLOSED notifications.
 
-2. **Startup channel post `"🔘 Started from <hostname>"`.** Cheap and
-   sometimes useful as a "bot is alive" beacon. Currently logged only.
+What stays different:
 
-3. **`/closeall` does not fan out close notifications.** Probably
-   acceptable — `/closeall` is a dev-only nuke button, recipients of
-   stale tickets don't necessarily need a DM avalanche. Flag if you
-   disagree.
+1. **`/closeall` attribution.** Channel log line credits the closer to
+   a virtual "Entwickler" group rather than the developer's own orga
+   group (which they may not have). Cosmetic.
 
-4. **No fallback handler for unknown commands or stray text.** Legacy
-   replied with a hint to use `/help`. Currently the message is dropped
-   silently, which can confuse new volunteers.
+2. **No `/details`, `/reset`, `/system`, `/resetcount`.** All four were
+   debugging tools. The DB-as-source-of-truth model makes them
+   redundant: `sqlite3 bot.db` covers `/system` and `/details`;
+   `/closeall` covers `/resetcount`'s practical use. `/reset` (user
+   wipe of own data) has no replacement, but `/unregister` covers the
+   common case.
 
-5. **`/register <name>` textual argument removed.** Power users who
-   typed group names directly need to use the picker now. If reinstated,
-   it should still go through the same validation.
+3. **Conversation FSM does not persist across restarts.** Volunteers
+   mid-`/request` during a bot restart have to start over. Accepted
+   trade-off.
 
-6. **No `/details`, `/reset`, `/system`, `/resetcount`.** All four were
-   debugging tools. The DB-as-source-of-truth model makes them mostly
-   redundant; `/reset` (user-initiated wipe of own data) is the only one
-   with arguable end-user value.
+4. **Per-stand identity model** (`(location, type)` instead of a single
+   string name). See section 3.
 
-7. **Conversation FSM does not persist across restarts.** Volunteers
-   mid-`/request` during a bot restart have to start over. Considered
-   acceptable given restart frequency.
+5. **Ticket text format** — bracketed token is the stand TYPE, not the
+   team name. See section 1.
 
-If you want any of these reinstated, the cleanest pass is items 1 and 4
-together — both touch the dispatcher's error/unknown handlers and are a
-small, contained PR.
+6. **`/move` correctness fixes** — no false success on WIP tickets, and
+   the target orga group is notified. See section 1.
+
+These are intentional; anything else is a bug.

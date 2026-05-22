@@ -32,8 +32,19 @@ async def cmd_help(msg: Message, db_session: Session, config: AppConfig) -> None
 
 
 @router.message(Command("register"))
-async def cmd_register(msg: Message, config: AppConfig) -> None:
-    choices = config.visible_stall_names() + config.orga_names()
+async def cmd_register(msg: Message, db_session: Session, config: AppConfig) -> None:
+    # /register <name> registers directly. Supports orga groups and hidden
+    # stands, which deliberately do not appear in the inline picker (we
+    # don't want a button on every volunteer's screen for the finance
+    # group). Match is case-insensitive.
+    parts = (msg.text or "").split(maxsplit=1)
+    if len(parts) > 1:
+        await _register_textual(msg, db_session, config, parts[1].strip())
+        return
+
+    # No argument — show only visible stands. Orga and hidden groups are
+    # reachable only via the textual argument above.
+    choices = config.visible_stall_names()
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=name, callback_data=f"reg:{name}")]
@@ -42,6 +53,32 @@ async def cmd_register(msg: Message, config: AppConfig) -> None:
         + [[InlineKeyboardButton(text=i18n.PICKER_CANCEL, callback_data="reg:_cancel")]]
     )
     await msg.answer(i18n.REGISTER_PROMPT, reply_markup=kb)
+
+
+async def _register_textual(
+    msg: Message, s: Session, config: AppConfig, query: str
+) -> None:
+    """Resolve a case-insensitive textual /register argument against all
+    known group identifiers (visible stands, hidden stands, orga groups)
+    and register the user."""
+    all_groups = config.all_stall_names() + config.orga_names()
+    match = next((g for g in all_groups if g.casefold() == query.casefold()), None)
+    if match is None:
+        await msg.answer(
+            i18n.UNKNOWN_GROUP,
+            reply_markup=keyboards.for_user(None, config),
+        )
+        return
+
+    user = actor(msg)
+    reg = repo.upsert_registration(s, registration_from(user, match))
+    await msg.answer(
+        i18n.REGISTER_SUCCESS.format(group=match),
+        reply_markup=keyboards.for_user(reg, config),
+    )
+    await notify.channel_msg(
+        bot_of(msg), i18n.CH_REGISTER.format(who=who(user), group=match)
+    )
 
 
 @router.callback_query(F.data.startswith("reg:"))
@@ -55,7 +92,10 @@ async def on_register_choice(
             await cb.message.edit_text(i18n.REGISTER_CANCELLED)
         await cb.answer()
         return
-    if not config.is_known_group(choice):
+    # Only visible stands are allowed via the picker callback path —
+    # defence in depth so a hand-crafted callback can't register a user
+    # for an orga or hidden group.
+    if choice not in config.visible_stall_names():
         await cb.answer(i18n.UNKNOWN_GROUP, show_alert=True)
         return
 
