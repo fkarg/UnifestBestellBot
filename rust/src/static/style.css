@@ -1,0 +1,85 @@
+:root {
+  --bg: #0e1116;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --open: #f5a623;
+  --wip: #2ea043;
+  --border: #30363d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  height: 100%;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+header h1 span {
+  color: var(--muted);
+  font-weight: normal;
+  margin-left: .5rem;
+  font-size: 1rem;
+}
+
+#connection {
+  font-size: .875rem;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+}
+#connection.on { background: var(--wip); color: #0e1116; }
+#connection.off { background: var(--border); color: var(--muted); }
+
+main {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.ticket {
+  border: 2px solid var(--border);
+  border-radius: .5rem;
+  padding: 1rem;
+  background: #161b22;
+  transition: transform 80ms ease-out, border-color 200ms;
+}
+.ticket.open { border-color: var(--open); }
+.ticket.wip { border-color: var(--wip); opacity: .8; }
+
+.ticket .text {
+  font-size: 1.25rem;
+  margin: 0 0 .5rem 0;
+  word-break: break-word;
+}
+.ticket .meta {
+  font-size: .875rem;
+  color: var(--muted);
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+#empty {
+  text-align: center;
+  color: var(--muted);
+  margin-top: 4rem;
+}
