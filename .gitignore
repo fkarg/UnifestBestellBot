@@ -133,6 +133,12 @@ unifest-secrets
 *.cntx
 mosquitto_pass
 
+# runtime state
+bot.db
+bot.db-wal
+bot.db-shm
+config.yaml
+
 # node
 
 node_modules/

@@ -1,0 +1,30 @@
+# Stall and orga structure for one event. Edit between events; restart to reload.
+# Validated at startup — typos here will refuse to boot the bot.
+
+stalls:
+  - name: "Cocktailbar"
+    location: "Innenhof"
+  - name: "Biertheke 1"
+    location: "Außenbereich"
+  - name: "Biertheke 2"
+    location: "Außenbereich"
+  - name: "Tickets"
+    location: "Eingang"
+    hidden: true   # not offered in /register's group list
+
+orga_groups:
+  - name: "Finanz"
+    categories: ["Geld"]
+  - name: "BiMi"
+    categories: ["Bier", "Cocktail", "Becher"]
+  - name: "Helfen"
+    categories: ["Helfer"]
+  - name: "Zentrale"
+    categories: ["Sonstiges"]
+    default: true   # fallback for any category not matched above
+
+# Engelsystem location ids — optional, only required for /helpers to work.
+locations:
+  "Innenhof": 12
+  "Außenbereich": 15
+  "Eingang": 3
