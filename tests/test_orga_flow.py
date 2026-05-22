@@ -1,0 +1,299 @@
+import pytest
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
+
+from unifestbestellbot import repo
+from unifestbestellbot.bot import orga as orga_flow
+from unifestbestellbot.models import Registration, TicketStatus
+
+from .fakes import fake_callback, fake_message
+
+
+@pytest.fixture
+def s():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        yield session
+
+
+@pytest.fixture(autouse=True)
+def orga_user(s):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Finanz"))
+
+
+def _ticket(s, **overrides):
+    defaults = dict(
+        category="Geld",
+        text="Wechselgeld Münzen",
+        group_requesting="Cocktailbar",
+        group_tasked="Finanz",
+        actor_chat_id=5,
+    )
+    defaults.update(overrides)
+    return repo.create_ticket(s, **defaults)
+
+
+# --- /tickets, /all -------------------------------------------------------
+
+
+async def test_tickets_empty_for_orga_group(s, config):
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_tickets(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "keine offenen Tickets" in body
+
+
+async def test_tickets_lists_own_group_only(s, config):
+    _ticket(s, group_tasked="Finanz", text="finanz one")
+    _ticket(s, group_tasked="BiMi", text="bimi one")
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_tickets(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "finanz one" in body
+    assert "bimi one" not in body
+
+
+async def test_all_groups_orga_groups_in_output(s, config):
+    _ticket(s, group_tasked="Finanz", text="finanz one")
+    _ticket(s, group_tasked="BiMi", text="bimi one")
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_all(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "[Finanz]" in body
+    assert "[BiMi]" in body
+    assert "finanz one" in body
+    assert "bimi one" in body
+
+
+async def test_all_when_empty(s, config):
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_all(msg, db_session=s, config=config)
+    assert "keine offenen Tickets" in msg.answer.call_args.args[0]
+
+
+# --- /wip ----------------------------------------------------------------
+
+
+async def test_wip_with_id_marks_ticket_wip(s, config):
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/wip {t.id}")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).status == TicketStatus.WIP
+
+
+async def test_wip_without_id_shows_picker_with_open_tickets(s, config):
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text="/wip")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    kb = msg.answer.call_args.kwargs["reply_markup"]
+    labels = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert f"wip:{t.id}" in labels
+    assert "wip:_cancel" in labels
+
+
+async def test_wip_picker_empty_when_no_open(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="x", actor_chat_id=1)
+    msg = fake_message(user_id=1, text="/wip")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Keine offenen Tickets" in body
+
+
+async def test_wip_callback_transitions(s, config):
+    t = _ticket(s)
+    cb = fake_callback(user_id=1, data=f"wip:{t.id}")
+    await orga_flow.on_wip_choice(cb, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).status == TicketStatus.WIP
+    cb.message.edit_text.assert_awaited()
+    cb.answer.assert_awaited_once()
+
+
+async def test_wip_callback_cancel_does_nothing(s, config):
+    t = _ticket(s)
+    cb = fake_callback(user_id=1, data="wip:_cancel")
+    await orga_flow.on_wip_choice(cb, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).status == TicketStatus.OPEN
+    cb.answer.assert_awaited_once()
+
+
+async def test_wip_rejects_already_wip(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="someone", actor_chat_id=99)
+    msg = fake_message(user_id=1, text=f"/wip {t.id}")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "arbeitet bereits" in body
+
+
+async def test_wip_missing_ticket(s, config):
+    msg = fake_message(user_id=1, text="/wip 999")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "geschlossen oder existiert noch nicht" in body
+
+
+# --- /close --------------------------------------------------------------
+
+
+async def test_close_with_id_closes(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="x", actor_chat_id=1)
+    msg = fake_message(user_id=1, text=f"/close {t.id}")
+    await orga_flow.cmd_close(msg, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
+
+
+async def test_close_can_skip_wip(s, config):
+    """Closing an OPEN ticket directly is allowed (legacy behaviour)."""
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/close {t.id}")
+    await orga_flow.cmd_close(msg, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
+
+
+async def test_close_picker_only_lists_wip(s, config):
+    open_t = _ticket(s, text="still open")
+    wip_t = _ticket(s, text="being worked on")
+    repo.set_wip(s, wip_t.id, who="x", actor_chat_id=1)
+    msg = fake_message(user_id=1, text="/close")
+    await orga_flow.cmd_close(msg, db_session=s, config=config)
+    kb = msg.answer.call_args.kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert f"close:{wip_t.id}" in callbacks
+    assert f"close:{open_t.id}" not in callbacks
+
+
+async def test_close_callback_closes(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="x", actor_chat_id=1)
+    cb = fake_callback(user_id=1, data=f"close:{t.id}")
+    await orga_flow.on_close_choice(cb, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
+
+
+# --- /move ---------------------------------------------------------------
+
+
+async def test_move_changes_group_tasked(s, config):
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/move {t.id} BiMi")
+    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).group_tasked == "BiMi"
+
+
+async def test_move_rejects_wip_tickets(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="x", actor_chat_id=1)
+    msg = fake_message(user_id=1, text=f"/move {t.id} BiMi")
+    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "bereits bearbeitet" in body
+    assert repo.get_ticket(s, t.id).group_tasked == "Finanz"
+
+
+async def test_move_rejects_unknown_group(s, config):
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/move {t.id} NoSuchGroup")
+    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    assert repo.get_ticket(s, t.id).group_tasked == "Finanz"  # unchanged
+
+
+async def test_move_missing_args(s, config):
+    msg = fake_message(user_id=1, text="/move")
+    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Benutzung" in body
+
+
+# --- /message ------------------------------------------------------------
+
+
+async def test_message_forwards_to_requesting_group(s, config):
+    repo.upsert_registration(s, Registration(chat_id=2, group_name="Cocktailbar"))
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/message {t.id} Hallo welt")
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+    msg.bot.send_message.assert_any_await(
+        chat_id=2,
+        text="🟣 Nachricht von Finanz: Hallo welt",
+        reply_markup=None,
+    )
+
+
+async def test_message_records_audit_event(s, config):
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/message {t.id} Heads up")
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+    # The audit event is checked end-to-end in test_repo.py; here just confirm reply.
+    assert "Nachricht verschickt" in msg.answer.call_args.args[0]
+
+
+async def test_message_missing_args(s, config):
+    msg = fake_message(user_id=1, text="/message")
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Benutzung" in body
+
+
+# --- /bug, /feature, /help2 ----------------------------------------------
+
+
+async def test_bug_forwards_to_developer(s, config):
+    msg = fake_message(user_id=1, text="/bug things are broken")
+    await orga_flow.cmd_bug(msg, db_session=s, config=config)
+    # bot.send_message is called for the developer
+    msg.bot.send_message.assert_awaited()
+    assert "weitergeleitet" in msg.answer.call_args.args[0]
+
+
+async def test_bug_without_args_shows_usage(s, config):
+    msg = fake_message(user_id=1, text="/bug")
+    await orga_flow.cmd_bug(msg, db_session=s, config=config)
+    assert "Benutzung" in msg.answer.call_args.args[0]
+
+
+async def test_feature_forwards_to_developer(s, config):
+    msg = fake_message(user_id=1, text="/feature a better dashboard")
+    await orga_flow.cmd_feature(msg, db_session=s, config=config)
+    msg.bot.send_message.assert_awaited()
+
+
+async def test_help2_returns_orga_help(s, config):
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_help2(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "/move" in body and "/wip" in body
+
+
+# --- /helpers ------------------------------------------------------------
+
+
+async def test_helpers_calls_shift_lookup_with_user_group(s, config):
+    calls = []
+
+    async def lookup(group, cfg):
+        calls.append(group)
+        return "Schichtinfo"
+
+    msg = fake_message(user_id=1, text="/helpers")
+    await orga_flow.cmd_helpers(msg, db_session=s, config=config, shift_lookup=lookup)
+    assert calls == ["Finanz"]
+    assert "Schichtinfo" in msg.answer.call_args.args[0]
+
+
+async def test_helpers_with_arg_overrides_group(s, config):
+    calls = []
+
+    async def lookup(group, cfg):
+        calls.append(group)
+        return ""
+
+    msg = fake_message(user_id=1, text="/helpers Cocktailbar")
+    await orga_flow.cmd_helpers(msg, db_session=s, config=config, shift_lookup=lookup)
+    assert calls == ["Cocktailbar"]
