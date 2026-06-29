@@ -1,6 +1,7 @@
 """Fan-out helpers for the updates channel, the developer chat, and
 group-membership broadcasts."""
 
+import asyncio
 import logging
 
 from aiogram import Bot
@@ -11,6 +12,10 @@ from .. import repo
 from ..settings import get_settings
 
 log = logging.getLogger(__name__)
+
+# Cap how long a single flood-control retry will wait, so a pathological
+# `retry_after` can't stall the whole fan-out loop for minutes.
+_MAX_RETRY_AFTER = 30
 
 
 async def channel_msg(bot: Bot, text: str) -> None:
@@ -32,6 +37,19 @@ async def dev_msg(bot: Bot, text: str) -> None:
         log.exception("dev_msg failed")
 
 
+async def _send_one(bot: Bot, chat_id: int, text: str, reply_markup) -> None:
+    """Send a single message, retrying once if Telegram asks us to back off
+    for flood control. A second RetryAfter (or any other error) propagates
+    to the caller's per-recipient handling."""
+    try:
+        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+    except TelegramRetryAfter as e:
+        wait = min(e.retry_after, _MAX_RETRY_AFTER)
+        log.warning("flood control sending to %d; retrying after %ss", chat_id, wait)
+        await asyncio.sleep(wait)
+        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+
+
 async def group_msg(
     bot: Bot,
     s: Session,
@@ -39,25 +57,26 @@ async def group_msg(
     text: str,
     *,
     exclude_chat_id: int | None = None,
+    exclude_muted: bool = False,
     reply_markup=None,
 ) -> None:
     """Send `text` to all members of `group_name`.
 
-    When `exclude_chat_id` is set, the message is treated as a
-    *peer-activity* notification (something one of the user's
-    colleagues just did): the actor themselves is skipped, and
-    members who set a /quiet mute that is still in effect are also
-    skipped. When `exclude_chat_id` is None the message is broadcast
-    to every member of the group regardless of mute state (used for
-    actionable lifecycle notifications like the initial OPEN to an
-    orga group or a /message forward to the requesting stand)."""
-    peer_mode = exclude_chat_id is not None
-    members = repo.group_members(s, group_name, exclude_muted=peer_mode)
+    Two independent knobs, neither implied by the other:
+    - `exclude_chat_id` skips one member (typically the actor whose own
+      action triggered the message).
+    - `exclude_muted` drops members with an active /quiet mute.
+
+    Peer-activity notifications (a colleague did something) pass both:
+    skip the actor and respect mutes. Actionable lifecycle DMs (your
+    ticket was opened/closed, a /message forward) pass neither, so they
+    always reach every member regardless of mute state."""
+    members = repo.group_members(s, group_name, exclude_muted=exclude_muted)
     for chat_id in members:
         if chat_id == exclude_chat_id:
             continue
         try:
-            await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+            await _send_one(bot, chat_id, text, reply_markup)
         except TelegramForbiddenError:
             log.warning(
                 "%d blocked the bot; unregistering from [%s]", chat_id, group_name

@@ -7,6 +7,7 @@ from sqlmodel import Session
 
 from .. import i18n, repo
 from ..config import AppConfig
+from ..events import EventBus
 from ..models import TicketStatus
 from . import notify
 from .common import actor, bot_of, who
@@ -22,7 +23,9 @@ _DEV_ACTOR_GROUP = "Entwickler"
 
 
 @router.message(Command("closeall"), IsDeveloper())
-async def cmd_closeall(msg: Message, db_session: Session, config: AppConfig) -> None:
+async def cmd_closeall(
+    msg: Message, db_session: Session, config: AppConfig, events: EventBus
+) -> None:
     """Close every open and WIP ticket. Used a few times per event: once
     when wrapping up test traffic before opening, and at the end of each
     operational day to clear residual tickets after venue close.
@@ -40,7 +43,8 @@ async def cmd_closeall(msg: Message, db_session: Session, config: AppConfig) -> 
     for t in open_tickets:
         if t.id is None or t.status == TicketStatus.CLOSED:
             continue
-        repo.close_ticket(db_session, t.id, actor_chat_id=user.id)
+        updated = repo.close_ticket(db_session, t.id, actor_chat_id=user.id)
+        await events.publish_ticket(updated)
         await notify.channel_msg(
             bot,
             i18n.CH_CLOSED.format(who=who_str, group=_DEV_ACTOR_GROUP, uid=t.id),
@@ -52,6 +56,7 @@ async def cmd_closeall(msg: Message, db_session: Session, config: AppConfig) -> 
         await notify.group_msg(
             bot, db_session, t.group_tasked,
             i18n.GROUP_TICKET_CLOSED_PEER.format(who=who_str, uid=t.id),
+            exclude_muted=True,
         )
         closed_count += 1
 

@@ -15,7 +15,8 @@ from .. import i18n
 from ..config import AppConfig
 from ..db import session_scope
 from ..engelsystem import EngelsystemClient
-from ..models import now_utc
+from ..models import now_utc, to_local
+from ..settings import get_settings
 from . import notify
 
 log = logging.getLogger(__name__)
@@ -43,7 +44,11 @@ def _parse_iso_to_naive_utc(s: str) -> datetime:
 def format_shift_announcement(shift: dict, location_name: str) -> str:
     """Build the DM body for a single upcoming shift. Local time, plus
     the rota with each entry's user and role."""
-    start_local = datetime.fromisoformat(shift["starts_at"]).astimezone().strftime("%H:%M")
+    start_local = (
+        datetime.fromisoformat(shift["starts_at"])
+        .astimezone(get_settings().local_tz())
+        .strftime("%H:%M")
+    )
     lines = [
         i18n.DIGEST_NEXT_SHIFT.format(location=location_name, time=start_local),
     ]
@@ -127,15 +132,18 @@ async def shift_digest_loop(
         sd.check_interval_minutes,
         sd.lookahead_minutes,
     )
+    # Dedup of already-announced shift ids is in-memory only: a process
+    # restart re-announces any shift still inside the lookahead window. The
+    # supervisor (see __main__) makes restarts rare, the window is minutes
+    # wide, and a duplicate "shift starting" DM is harmless, so this is left
+    # unpersisted deliberately rather than adding a table.
     announced: set[int] = set()
     interval_sec = sd.check_interval_minutes * 60
 
     try:
         while True:
             now_naive = now_utc()
-            now_local = (
-                now_naive.replace(tzinfo=UTC).astimezone().time()
-            )
+            now_local = to_local(now_naive).time()
             if is_within_window(now_local, sd.window_start, sd.window_end):
                 try:
                     await digest_once(

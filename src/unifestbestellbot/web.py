@@ -15,15 +15,6 @@ from .repo import active_tickets
 STATIC_DIR = Path(__file__).parent / "static"
 
 
-def _matches_group(payload_json: str, group: str | None) -> bool:
-    if group is None:
-        return True
-    try:
-        return json.loads(payload_json).get("group_tasked", "").lower() == group.lower()
-    except json.JSONDecodeError:
-        return False
-
-
 def build_web_app(events: EventBus) -> FastAPI:
     app = FastAPI(title="UnifestBestellBot Dashboard", docs_url=None, redoc_url=None)
 
@@ -36,11 +27,14 @@ def build_web_app(events: EventBus) -> FastAPI:
         return [json.loads(t.model_dump_json()) for t in ts]
 
     @app.get("/api/stream")
-    async def stream(group: str | None = Query(None)):
+    async def stream():
+        # Every subscriber receives every ticket event; the browser filters
+        # by ?group= client-side. This is what lets a group-filtered board
+        # *remove* a ticket that was moved away from its group — server-side
+        # filtering would never deliver that event to the old group's board.
         async def generator():
             async for payload in events.subscribe():
-                if _matches_group(payload, group):
-                    yield f"event: ticket\ndata: {payload}\n\n"
+                yield f"event: ticket\ndata: {payload}\n\n"
 
         return StreamingResponse(
             generator(),

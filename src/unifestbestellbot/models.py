@@ -26,6 +26,19 @@ def now_utc() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def to_local(dt: datetime) -> datetime:
+    """Convert a stored naive-UTC datetime to an aware datetime in the
+    configured display timezone (settings.timezone, default Europe/Berlin).
+
+    For human-facing output only — never feed the result back into a query
+    or comparison against a stored value, which must stay naive UTC. Reading
+    the timezone from settings keeps display deterministic regardless of the
+    VM's ambient timezone."""
+    from .settings import get_settings
+
+    return dt.replace(tzinfo=UTC).astimezone(get_settings().local_tz())
+
+
 def _now() -> datetime:
     return now_utc()
 
@@ -49,6 +62,11 @@ class Registration(SQLModel, table=True):
 
 
 class Ticket(SQLModel, table=True):
+    # Status, closed_at and who_wip are coupled (closed ⇒ closed_at set;
+    # wip ⇒ who_wip set; open ⇒ neither). That invariant is NOT enforced
+    # on the type — SQLModel table models skip validation — but in the
+    # single repo transition functions (set_wip/close_ticket), which are
+    # the only writers. Keep all status mutations going through repo.py.
     id: int | None = Field(default=None, primary_key=True)
     status: TicketStatus = Field(default=TicketStatus.OPEN, index=True)
     category: str

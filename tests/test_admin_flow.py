@@ -1,8 +1,13 @@
+import asyncio
+import contextlib
+import json
+
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 from unifestbestellbot import repo
 from unifestbestellbot.bot import admin as admin_flow
+from unifestbestellbot.events import EventBus
 from unifestbestellbot.models import Registration, TicketStatus
 
 from .fakes import fake_message
@@ -40,7 +45,7 @@ async def test_closeall_closes_all_open_and_wip_tickets(s, config):
     wip_t = _ticket(s, text="in progress")
     repo.set_wip(s, wip_t.id, who="alice", actor_chat_id=5)
     msg = fake_message(user_id=100, text="/closeall")
-    await admin_flow.cmd_closeall(msg, db_session=s, config=config)
+    await admin_flow.cmd_closeall(msg, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, open_t.id).status == TicketStatus.CLOSED
     assert repo.get_ticket(s, wip_t.id).status == TicketStatus.CLOSED
 
@@ -49,14 +54,14 @@ async def test_closeall_reports_count_to_caller(s, config):
     _ticket(s)
     _ticket(s)
     msg = fake_message(user_id=100, text="/closeall")
-    await admin_flow.cmd_closeall(msg, db_session=s, config=config)
+    await admin_flow.cmd_closeall(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "2" in body
 
 
 async def test_closeall_empty_state_reports_zero(s, config):
     msg = fake_message(user_id=100, text="/closeall")
-    await admin_flow.cmd_closeall(msg, db_session=s, config=config)
+    await admin_flow.cmd_closeall(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "0" in body
 
@@ -71,7 +76,7 @@ async def test_closeall_fans_out_to_requesting_and_tasked_groups(s, config):
     t = _ticket(s)
 
     msg = fake_message(user_id=100, text="/closeall")
-    await admin_flow.cmd_closeall(msg, db_session=s, config=config)
+    await admin_flow.cmd_closeall(msg, db_session=s, config=config, events=EventBus())
 
     # Both the requesting stand member and the tasked orga peer got a DM.
     recipients = [
@@ -86,11 +91,37 @@ async def test_closeall_fans_out_to_requesting_and_tasked_groups(s, config):
     assert any(f"#{t.id}" in t_ and "CLOSED" in t_ for t_ in texts)
 
 
+async def test_closeall_publishes_each_close_to_dashboard(s, config):
+    """The dashboard must see every /closeall close, not just go stale."""
+    t1 = _ticket(s, text="one")
+    t2 = _ticket(s, text="two")
+    bus = EventBus()
+    received: list[dict] = []
+    sub = bus.subscribe()
+
+    async def consume():
+        async for item in sub:
+            received.append(json.loads(item))
+
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0.01)
+
+    msg = fake_message(user_id=100, text="/closeall")
+    await admin_flow.cmd_closeall(msg, db_session=s, config=config, events=bus)
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    closed_ids = {p["id"] for p in received if p["status"] == "closed"}
+    assert {t1.id, t2.id} <= closed_ids
+
+
 async def test_closeall_attributes_closes_to_developer_group(s, config):
     repo.upsert_registration(s, Registration(chat_id=7, group_name="Finanz"))
     _ticket(s)
     msg = fake_message(user_id=100, text="/closeall")
-    await admin_flow.cmd_closeall(msg, db_session=s, config=config)
+    await admin_flow.cmd_closeall(msg, db_session=s, config=config, events=EventBus())
     # The channel log line carries the developer group attribution.
     texts = [call.kwargs.get("text", "") for call in msg.bot.send_message.await_args_list]
     assert any("Entwickler" in t for t in texts)

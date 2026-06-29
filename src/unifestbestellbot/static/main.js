@@ -22,9 +22,16 @@ function updateEmpty() {
   empty.hidden = container.querySelector(".ticket") !== null;
 }
 
+function inScope(t) {
+  // Unfiltered board shows everything; a ?group= board shows only tickets
+  // currently tasked to that group (so a moved-away ticket drops off).
+  if (!group) return true;
+  return (t.group_tasked ?? "").toLowerCase() === group.toLowerCase();
+}
+
 function render(t) {
   let el = document.getElementById(`t-${t.id}`);
-  if (t.status === "closed") {
+  if (t.status === "closed" || !inScope(t)) {
     el?.remove();
     updateEmpty();
     return;
@@ -48,11 +55,30 @@ function render(t) {
   updateEmpty();
 }
 
+// Live events that arrive before the initial snapshot has been applied are
+// buffered, then replayed once the snapshot is in. render() is idempotent
+// per ticket id, so replaying over the snapshot can only correct it, never
+// duplicate. This closes the gap where a ticket created between the snapshot
+// fetch and the stream subscription would otherwise be lost until reload.
+let snapshotted = false;
+let buffer = [];
+
+function onTicket(t) {
+  if (!snapshotted) {
+    buffer.push(t);
+    return;
+  }
+  render(t);
+}
+
 async function snapshot() {
   const r = await fetch(`/api/tickets${qs}`);
   const tickets = await r.json();
   container.replaceChildren();
   for (const t of tickets) render(t);
+  snapshotted = true;
+  for (const t of buffer) render(t);
+  buffer = [];
   updateEmpty();
 }
 
@@ -62,7 +88,7 @@ function subscribe() {
     conn.textContent = "live";
     conn.className = "on";
   });
-  es.addEventListener("ticket", (e) => render(JSON.parse(e.data)));
+  es.addEventListener("ticket", (e) => onTicket(JSON.parse(e.data)));
   es.addEventListener("error", () => {
     conn.textContent = "reconnecting…";
     conn.className = "off";
@@ -71,9 +97,12 @@ function subscribe() {
   });
 }
 
-async function start() {
-  await snapshot();
+function start() {
+  // Subscribe first (registers the stream synchronously), then snapshot.
+  snapshotted = false;
+  buffer = [];
   subscribe();
+  snapshot();
 }
 
 start();

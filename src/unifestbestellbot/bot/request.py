@@ -2,7 +2,6 @@
 identical UX to the legacy bot, but the state machine is data-driven so
 adding a category is a one-line change."""
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from aiogram import F, Router
@@ -19,6 +18,7 @@ from sqlmodel import Session
 
 from .. import i18n, repo
 from ..config import AppConfig
+from ..engelsystem import ShiftLookup
 from ..events import EventBus
 from . import keyboards, notify
 from .common import actor, bot_of, who
@@ -281,8 +281,6 @@ async def free_text(
 
 # --- Helper ---------------------------------------------------------------
 
-ShiftLookup = Callable[[str, AppConfig], Awaitable[str]]
-
 
 @router.message(RequestFSM.helper, F.text == "Liste Schichten")
 async def helper_list_shifts(
@@ -354,6 +352,7 @@ async def _finalize(
         data["group"],
         i18n.GROUP_TICKET_OPENED.format(who=who(user), text=text),
         exclude_chat_id=user.id,
+        exclude_muted=True,
     )
     await notify.group_msg(
         bot,

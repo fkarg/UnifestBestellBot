@@ -136,12 +136,16 @@ async def test_register_choice_persists_and_announces(s, config):
     cb.message.edit_text.assert_awaited_once()
     edit_text = cb.message.edit_text.call_args.args[0]
     assert "Cocktailbar 1" in edit_text and "erfolgreich" in edit_text
-    # Follow-up DM updates the reply keyboard, then the channel log fires.
-    cb.bot.send_message.assert_any_await(
-        chat_id=1,
-        text="Tastatur aktualisiert.",
-        reply_markup=cb.bot.send_message.call_args_list[0].kwargs["reply_markup"],
+    # Follow-up DM updates the reply keyboard to the registered user's menu.
+    dm = next(
+        c for c in cb.bot.send_message.await_args_list
+        if c.kwargs.get("text") == "Tastatur aktualisiert."
     )
+    assert dm.kwargs["chat_id"] == 1
+    buttons = [
+        b.text for row in dm.kwargs["reply_markup"].keyboard for b in row
+    ]
+    assert "/request" in buttons  # the stall-user MAIN keyboard
     cb.answer.assert_awaited_once()
 
 

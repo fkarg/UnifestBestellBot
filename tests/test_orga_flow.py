@@ -1,8 +1,13 @@
+import asyncio
+import contextlib
+import json
+
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 from unifestbestellbot import repo
 from unifestbestellbot.bot import orga as orga_flow
+from unifestbestellbot.events import EventBus
 from unifestbestellbot.models import Registration, TicketStatus
 
 from .fakes import fake_callback, fake_message
@@ -18,6 +23,11 @@ def s():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
+
+
+@pytest.fixture
+def events():
+    return EventBus()
 
 
 @pytest.fixture(autouse=True)
@@ -81,14 +91,14 @@ async def test_all_when_empty(s, config):
 async def test_wip_with_id_marks_ticket_wip(s, config):
     t = _ticket(s)
     msg = fake_message(user_id=1, text=f"/wip {t.id}")
-    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).status == TicketStatus.WIP
 
 
 async def test_wip_without_id_shows_picker_with_open_tickets(s, config):
     t = _ticket(s)
     msg = fake_message(user_id=1, text="/wip")
-    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
     kb = msg.answer.call_args.kwargs["reply_markup"]
     labels = [b.callback_data for row in kb.inline_keyboard for b in row]
     assert f"wip:{t.id}" in labels
@@ -99,7 +109,7 @@ async def test_wip_picker_empty_when_no_open(s, config):
     t = _ticket(s)
     repo.set_wip(s, t.id, who="x", actor_chat_id=1)
     msg = fake_message(user_id=1, text="/wip")
-    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "Keine offenen Tickets" in body
 
@@ -107,7 +117,7 @@ async def test_wip_picker_empty_when_no_open(s, config):
 async def test_wip_callback_transitions(s, config):
     t = _ticket(s)
     cb = fake_callback(user_id=1, data=f"wip:{t.id}")
-    await orga_flow.on_wip_choice(cb, db_session=s, config=config)
+    await orga_flow.on_wip_choice(cb, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).status == TicketStatus.WIP
     cb.message.edit_text.assert_awaited()
     cb.answer.assert_awaited_once()
@@ -116,7 +126,7 @@ async def test_wip_callback_transitions(s, config):
 async def test_wip_callback_cancel_does_nothing(s, config):
     t = _ticket(s)
     cb = fake_callback(user_id=1, data="wip:_cancel")
-    await orga_flow.on_wip_choice(cb, db_session=s, config=config)
+    await orga_flow.on_wip_choice(cb, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).status == TicketStatus.OPEN
     cb.answer.assert_awaited_once()
 
@@ -125,14 +135,14 @@ async def test_wip_rejects_already_wip(s, config):
     t = _ticket(s)
     repo.set_wip(s, t.id, who="someone", actor_chat_id=99)
     msg = fake_message(user_id=1, text=f"/wip {t.id}")
-    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "arbeitet bereits" in body
 
 
 async def test_wip_missing_ticket(s, config):
     msg = fake_message(user_id=1, text="/wip 999")
-    await orga_flow.cmd_wip(msg, db_session=s, config=config)
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "geschlossen oder existiert noch nicht" in body
 
@@ -144,7 +154,7 @@ async def test_close_with_id_closes(s, config):
     t = _ticket(s)
     repo.set_wip(s, t.id, who="x", actor_chat_id=1)
     msg = fake_message(user_id=1, text=f"/close {t.id}")
-    await orga_flow.cmd_close(msg, db_session=s, config=config)
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
 
 
@@ -152,7 +162,7 @@ async def test_close_can_skip_wip(s, config):
     """Closing an OPEN ticket directly is allowed (legacy behaviour)."""
     t = _ticket(s)
     msg = fake_message(user_id=1, text=f"/close {t.id}")
-    await orga_flow.cmd_close(msg, db_session=s, config=config)
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
 
 
@@ -161,7 +171,7 @@ async def test_close_picker_only_lists_wip(s, config):
     wip_t = _ticket(s, text="being worked on")
     repo.set_wip(s, wip_t.id, who="x", actor_chat_id=1)
     msg = fake_message(user_id=1, text="/close")
-    await orga_flow.cmd_close(msg, db_session=s, config=config)
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
     kb = msg.answer.call_args.kwargs["reply_markup"]
     callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
     assert f"close:{wip_t.id}" in callbacks
@@ -172,7 +182,7 @@ async def test_close_callback_closes(s, config):
     t = _ticket(s)
     repo.set_wip(s, t.id, who="x", actor_chat_id=1)
     cb = fake_callback(user_id=1, data=f"close:{t.id}")
-    await orga_flow.on_close_choice(cb, db_session=s, config=config)
+    await orga_flow.on_close_choice(cb, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
 
 
@@ -182,7 +192,7 @@ async def test_close_callback_closes(s, config):
 async def test_move_changes_group_tasked(s, config):
     t = _ticket(s)
     msg = fake_message(user_id=1, text=f"/move {t.id} BiMi")
-    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    await orga_flow.cmd_move(msg, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).group_tasked == "BiMi"
 
 
@@ -190,7 +200,7 @@ async def test_move_rejects_wip_tickets(s, config):
     t = _ticket(s)
     repo.set_wip(s, t.id, who="x", actor_chat_id=1)
     msg = fake_message(user_id=1, text=f"/move {t.id} BiMi")
-    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    await orga_flow.cmd_move(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "bereits bearbeitet" in body
     assert repo.get_ticket(s, t.id).group_tasked == "Finanz"
@@ -199,13 +209,13 @@ async def test_move_rejects_wip_tickets(s, config):
 async def test_move_rejects_unknown_group(s, config):
     t = _ticket(s)
     msg = fake_message(user_id=1, text=f"/move {t.id} NoSuchGroup")
-    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    await orga_flow.cmd_move(msg, db_session=s, config=config, events=EventBus())
     assert repo.get_ticket(s, t.id).group_tasked == "Finanz"  # unchanged
 
 
 async def test_move_missing_args(s, config):
     msg = fake_message(user_id=1, text="/move")
-    await orga_flow.cmd_move(msg, db_session=s, config=config)
+    await orga_flow.cmd_move(msg, db_session=s, config=config, events=EventBus())
     body = msg.answer.call_args.args[0]
     assert "Benutzung" in body
 
@@ -268,6 +278,88 @@ async def test_help2_returns_orga_help(s, config):
     await orga_flow.cmd_help2(msg, db_session=s, config=config)
     body = msg.answer.call_args.args[0]
     assert "/move" in body and "/wip" in body
+
+
+# --- dashboard publishing (SSE liveness) ---------------------------------
+#
+# The orga lifecycle commands must publish the updated ticket to the
+# EventBus so the live TV dashboard reflects wip/close/move without a
+# manual reload. Previously they didn't, and the board went stale.
+
+
+class _Collector:
+    """Subscribes to an EventBus and records every payload it receives."""
+
+    def __init__(self):
+        self.received: list[dict] = []
+        self._task: asyncio.Task | None = None
+
+    @classmethod
+    async def start(cls, bus: EventBus) -> _Collector:
+        c = cls()
+        sub = bus.subscribe()
+
+        async def consume():
+            async for item in sub:
+                c.received.append(json.loads(item))
+
+        c._task = asyncio.create_task(consume())
+        await asyncio.sleep(0.01)  # let the subscriber register
+        return c
+
+    async def stop(self):
+        await asyncio.sleep(0.01)  # let queued items drain
+        assert self._task is not None
+        self._task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await self._task
+
+
+async def test_wip_publishes_updated_ticket(s, config):
+    bus = EventBus()
+    collector = await _Collector.start(bus)
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/wip {t.id}")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=bus)
+    await collector.stop()
+    assert any(p["id"] == t.id and p["status"] == "wip" for p in collector.received)
+
+
+async def test_close_publishes_updated_ticket(s, config):
+    bus = EventBus()
+    collector = await _Collector.start(bus)
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/close {t.id}")
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=bus)
+    await collector.stop()
+    assert any(p["id"] == t.id and p["status"] == "closed" for p in collector.received)
+
+
+async def test_move_publishes_updated_ticket(s, config):
+    bus = EventBus()
+    collector = await _Collector.start(bus)
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/move {t.id} BiMi")
+    await orga_flow.cmd_move(msg, db_session=s, config=config, events=bus)
+    await collector.stop()
+    assert any(
+        p["id"] == t.id and p["group_tasked"] == "BiMi" for p in collector.received
+    )
+
+
+async def test_wip_lost_race_tells_user_already_taken(s, config, monkeypatch):
+    """If the ticket is claimed by another orga between the handler's read
+    and the atomic set_wip (which then raises ValueError), the user is told
+    it's already taken rather than the error surfacing unhandled."""
+    t = _ticket(s)
+
+    def _raise(*a, **k):
+        raise ValueError("lost the race")
+
+    monkeypatch.setattr(orga_flow.repo, "set_wip", _raise)
+    msg = fake_message(user_id=1, text=f"/wip {t.id}")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
+    assert "arbeitet bereits" in msg.answer.call_args.args[0]
 
 
 # --- /helpers ------------------------------------------------------------

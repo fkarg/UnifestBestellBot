@@ -39,6 +39,16 @@ uv run unifestbestellbot              # foreground; logs print live
 `Ctrl-C` exits cleanly: SSE subscribers are disconnected, the bot session
 is closed, and the Engelsystem HTTP client is shut down.
 
+**Self-healing.** The two long-running parts (Telegram polling and the web
+server) are each supervised: if one throws, it is restarted with backoff
+and the traceback is DMed to `DEVELOPER_CHAT_ID`, so a transient crash does
+not take the whole process down — important on the foreground tmux path,
+which otherwise has no supervisor. Handler-level exceptions are likewise
+caught and forwarded to the developer. What this does **not** cover is the
+process being killed outright (OOM, `kill`, VM reboot): for auto-restart on
+that, use the systemd unit (`Restart=on-failure`) or wrap the tmux command
+in `while true; do uv run unifestbestellbot; sleep 2; done`.
+
 ## Update
 
 ```sh
@@ -99,6 +109,13 @@ Two files. Restart the bot to pick up changes.
 - **`.env`** — secrets and runtime knobs. See `.env.example`.
 - **`config.yaml`** — the year's stall and orga structure. Schema is
   validated at startup; typos refuse to boot. See `config.yaml.example`.
+
+`TIMEZONE` (in `.env`, default `Europe/Berlin`) is the display/window
+timezone. All stored timestamps are naive UTC; this only controls how they
+are shown (`/history`, the shift digest) and how the digest's operational
+window is interpreted. It is read explicitly, so behaviour does **not**
+depend on the VM's ambient timezone — but set it if the event isn't in
+Berlin time.
 
 ### Mental model for `config.yaml`
 
@@ -223,6 +240,64 @@ network blipped — it will reconnect on its own.
    group still has `default: true`.
 2. `sudo systemctl restart unifestbestellbot`.
 3. Tell the new orga member(s) to `/register` and choose the new group.
+
+## Design decisions & accepted limitations
+
+These are deliberate, not oversights. Documented so a future reviewer (or
+the next year's maintainer) doesn't re-litigate them — revisit only if the
+threat model or scale changes.
+
+- **Orga membership is self-service.** Anyone can `/register <orga-group>`
+  (e.g. `/register Finanz`) and gain that group's commands. There is no
+  per-user allowlist. This fits the trust model: a local event run by ~200
+  vetted volunteers where everyone aware of the bot is trusted. The
+  **audit trail is the safety net** — every register, request, wip, close,
+  move and message is logged both to the updates channel and to the
+  `auditevent` table with the actor's chat id and a timestamp. Add real
+  permission checks only if someone actually abuses it.
+- **Any orga member can act on any group's ticket by id.** `/wip 47`,
+  `/close 47`, `/message 47` operate on the raw id with no "is this my
+  group's ticket" check (the no-arg pickers are still scoped to your own
+  group). Intentional: Zentrale watches `/all` and helps across groups.
+  The audit log records who did what.
+- **WIP is atomically claimed; close/move are not.** Taking a ticket
+  `/wip` is a single conditional UPDATE, so exactly one person can own it
+  (task distribution). `/close` and `/move` are not strictly serialised —
+  two simultaneous closes could both succeed and emit two notifications —
+  but the outcome is idempotent (the ticket ends closed), so it's accepted.
+- **The dashboard is unauthenticated** and binds `0.0.0.0:8000`. It is
+  read-only and the ticket text is location+type only (no team identity),
+  so the exposure is low. Fine on a trusted ops LAN; firewall the port or
+  bind to loopback if the VM is reachable from an untrusted network.
+- **The shift-digest dedup is in-memory.** A process restart can re-send a
+  "shift starting" DM for a shift still inside the lookahead window. The
+  supervisor makes restarts rare and a duplicate DM is harmless, so it is
+  not persisted.
+- **In-flight `/request` conversations are lost on restart** (FSM state is
+  in `MemoryStorage`). Tickets and registrations survive (committed per
+  action). Acceptable for a short event.
+
+## Post-event statistics
+
+The `auditevent` table is a complete, durable history — no extra pipeline
+needed. Every ticket carries `created_at`, `who_wip` and `closed_at`, and
+the audit log records each `open`/`wip`/`close`/`move`/`message` with the
+actor and timestamp. Example queries:
+
+```sql
+-- Tickets per category
+SELECT category, COUNT(*) FROM ticket GROUP BY category;
+
+-- Median time-to-close (creation -> close), per handling group
+SELECT group_tasked,
+       COUNT(*) AS closed,
+       AVG((julianday(closed_at) - julianday(created_at)) * 24 * 60) AS avg_minutes
+FROM ticket WHERE status = 'closed' GROUP BY group_tasked;
+
+-- Who took (wip'd) the most tickets
+SELECT actor_chat_id, COUNT(*) FROM auditevent WHERE kind = 'wip'
+GROUP BY actor_chat_id ORDER BY 2 DESC;
+```
 
 ## Telegram setup checklist
 

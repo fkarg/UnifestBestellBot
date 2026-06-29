@@ -10,7 +10,7 @@ from unifestbestellbot import db as db_mod
 from unifestbestellbot import repo
 from unifestbestellbot.events import EventBus
 from unifestbestellbot.models import Ticket, TicketStatus
-from unifestbestellbot.web import _matches_group, build_web_app
+from unifestbestellbot.web import build_web_app
 
 
 @pytest.fixture
@@ -149,6 +149,31 @@ async def test_event_bus_drops_full_subscriber():
         await task
 
 
+async def test_dropped_subscriber_generator_is_woken_and_exits():
+    """An overflowed subscriber is dropped AND its generator woken with the
+    shutdown sentinel, so the SSE response closes and the browser reconnects
+    instead of hanging on a queue that will never receive another item."""
+    bus = EventBus(queue_size=1)
+    sub = bus.subscribe()
+    items: list[str] = []
+
+    async def consume():
+        async for item in sub:
+            items.append(item)
+
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0.01)
+    assert bus.subscriber_count() == 1
+    t = Ticket(id=1, status=TicketStatus.OPEN, category="Geld", text="x",
+               group_requesting="A", group_tasked="B")
+    await bus.publish_ticket(t)  # fills the queue
+    await bus.publish_ticket(t)  # QueueFull → drop + wake with sentinel
+    # The generator exits on its own; no cancellation needed.
+    await asyncio.wait_for(task, timeout=1.0)
+    assert bus.subscriber_count() == 0
+    assert items == []  # the sentinel is not yielded to the consumer
+
+
 async def test_event_bus_aclose_exits_subscriber_generator():
     bus = EventBus()
     sub = bus.subscribe()
@@ -203,20 +228,33 @@ async def test_main_js_served(client):
     assert "EventSource" in r.text
 
 
-# --- _matches_group helper -----------------------------------------------
+# --- stream delivers all events; the browser filters by group -----------
+#
+# The SSE stream is intentionally unfiltered (group filtering moved to the
+# client) so a group-filtered board can drop a ticket moved out of its
+# group. The snapshot endpoint still filters server-side for the initial
+# load (test_snapshot_filters_by_group above); these confirm the stream
+# itself fans out every published ticket regardless of group.
 
 
-def test_matches_group_none_passes_through():
-    assert _matches_group('{"group_tasked": "Finanz"}', None) is True
+async def test_stream_publishes_all_groups_to_a_subscriber():
+    bus = EventBus()
+    sub = bus.subscribe()
+    received: list[str] = []
 
+    async def consume():
+        async for item in sub:
+            received.append(item)
+            if len(received) == 2:
+                return
 
-def test_matches_group_case_insensitive():
-    assert _matches_group('{"group_tasked": "Finanz"}', "finanz") is True
-
-
-def test_matches_group_mismatch():
-    assert _matches_group('{"group_tasked": "Finanz"}', "BiMi") is False
-
-
-def test_matches_group_handles_bad_json():
-    assert _matches_group("not json", "Finanz") is False
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0.01)
+    for grp in ("Finanz", "BiMi"):
+        await bus.publish_ticket(
+            Ticket(id=1, status=TicketStatus.OPEN, category="Geld", text="x",
+                   group_requesting="A", group_tasked=grp)
+        )
+    await asyncio.wait_for(task, timeout=1.0)
+    groups = {json.loads(p)["group_tasked"] for p in received}
+    assert groups == {"Finanz", "BiMi"}

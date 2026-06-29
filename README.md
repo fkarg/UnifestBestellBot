@@ -37,12 +37,16 @@ see live tickets for one orga group.
 ```sh
 uv run pytest
 uv run ruff check
+uv run ty check
 ```
 
-136 tests covering: config validation, repo CRUD + audit, the /register
+The suite covers: config validation, repo CRUD + audit (including
+rejected-transition immutability and the atomic WIP claim), the /register
 flow, the full /request FSM end-to-end per category, all orga commands +
-inline pickers, Engelsystem summary rendering, dashboard endpoints, and
-the event bus.
+inline pickers and their permission gating, the notify fan-out (mute,
+flood-control retry, block-then-unregister), the dashboard event bus
+(including orga lifecycle publishing), Engelsystem summary rendering, and
+the dashboard endpoints. Run `uv run pytest` for the live count.
 
 ## Documentation
 

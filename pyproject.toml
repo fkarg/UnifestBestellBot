@@ -19,6 +19,9 @@ dependencies = [
     "httpx>=0.28,<0.29",
     "pyyaml>=6.0,<7.0",
     "colorlog>=6.10.1",
+    # Guarantees ZoneInfo("Europe/Berlin") resolves even on a host without
+    # the system tz database. See settings.timezone / models.to_local.
+    "tzdata>=2024.1",
 ]
 
 [project.scripts]
@@ -34,7 +37,7 @@ packages = ["src/unifestbestellbot"]
 [dependency-groups]
 dev = [
     "pytest>=8.3,<9.0",
-    "pytest-asyncio>=0.24,<0.30",
+    "pytest-asyncio>=1.4,<2.0",
     "pytest-cov>=6.0,<7.0",
     "ruff>=0.8,<0.20",
     "ty>=0.0.38",

@@ -1,9 +1,6 @@
 """Orga-only commands: /wip /close /move /message /all /tickets /help2
 /history and the related inline ticket pickers."""
 
-from collections.abc import Awaitable, Callable
-from datetime import UTC
-
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import (
@@ -16,7 +13,9 @@ from sqlmodel import Session
 
 from .. import i18n, repo
 from ..config import AppConfig
-from ..models import Ticket, TicketStatus
+from ..engelsystem import ShiftLookup
+from ..events import EventBus
+from ..models import Registration, Ticket, TicketStatus, to_local
 from . import keyboards, notify
 from .common import actor, bot_of, who
 from .filters import IsOrga
@@ -51,7 +50,7 @@ def _arg_id(msg: Message) -> int | None:
 # --- /tickets, /all ------------------------------------------------------
 
 
-def _require_reg(s: Session, event: Message | CallbackQuery):
+def _require_reg(s: Session, event: Message | CallbackQuery) -> Registration:
     """IsOrga filter guarantees the user is registered. Helper that asserts
     that invariant so callers can read .group_name without an Optional check."""
     reg = repo.registration_for(s, actor(event).id)
@@ -111,9 +110,11 @@ async def cmd_help2(msg: Message, db_session: Session, config: AppConfig) -> Non
 
 
 @router.message(Command("wip"), IsOrga())
-async def cmd_wip(msg: Message, db_session: Session, config: AppConfig) -> None:
+async def cmd_wip(
+    msg: Message, db_session: Session, config: AppConfig, events: EventBus
+) -> None:
     if (tid := _arg_id(msg)) is not None:
-        await _do_wip(msg, db_session, config, tid)
+        await _do_wip(msg, db_session, config, events, tid)
         return
     reg = _require_reg(db_session, msg)
     candidates = repo.active_tickets(
@@ -130,7 +131,7 @@ async def cmd_wip(msg: Message, db_session: Session, config: AppConfig) -> None:
 
 @router.callback_query(F.data.startswith("wip:"), IsOrga())
 async def on_wip_choice(
-    cb: CallbackQuery, db_session: Session, config: AppConfig
+    cb: CallbackQuery, db_session: Session, config: AppConfig, events: EventBus
 ) -> None:
     assert cb.data is not None
     suffix = cb.data.removeprefix("wip:")
@@ -144,7 +145,7 @@ async def on_wip_choice(
     except ValueError:
         await cb.answer()
         return
-    await _do_wip(cb, db_session, config, tid)
+    await _do_wip(cb, db_session, config, events, tid)
     await cb.answer()
 
 
@@ -152,6 +153,7 @@ async def _do_wip(
     event: Message | CallbackQuery,
     s: Session,
     config: AppConfig,
+    events: EventBus,
     tid: int,
 ) -> None:
     ticket = repo.get_ticket(s, tid)
@@ -166,7 +168,15 @@ async def _do_wip(
         return
     user = actor(event)
     bot = bot_of(event)
-    updated = repo.set_wip(s, tid, who=who(user), actor_chat_id=user.id)
+    try:
+        updated = repo.set_wip(s, tid, who=who(user), actor_chat_id=user.id)
+    except ValueError:
+        # Lost the race: another orga claimed this ticket between our read
+        # above and the atomic UPDATE. Tell the user it's already taken
+        # rather than letting it surface as an unhandled exception.
+        if reply_to is not None:
+            await reply_to.answer(i18n.TICKET_ALREADY_WIP)
+        return
     reg = _require_reg(s, event)
 
     if isinstance(event, CallbackQuery) and isinstance(event.message, Message):
@@ -177,6 +187,7 @@ async def _do_wip(
             reply_markup=keyboards.for_user(reg, config),
         )
 
+    await events.publish_ticket(updated)
     await notify.channel_msg(
         bot, i18n.CH_WIP.format(who=who(user), group=reg.group_name, uid=tid)
     )
@@ -184,6 +195,7 @@ async def _do_wip(
         bot, s, reg.group_name,
         i18n.GROUP_TICKET_WIP_PEER.format(who=who(user), uid=tid),
         exclude_chat_id=user.id,
+        exclude_muted=True,
     )
     await notify.group_msg(
         bot, s, ticket.group_requesting,
@@ -195,9 +207,11 @@ async def _do_wip(
 
 
 @router.message(Command("close"), IsOrga())
-async def cmd_close(msg: Message, db_session: Session, config: AppConfig) -> None:
+async def cmd_close(
+    msg: Message, db_session: Session, config: AppConfig, events: EventBus
+) -> None:
     if (tid := _arg_id(msg)) is not None:
-        await _do_close(msg, db_session, config, tid)
+        await _do_close(msg, db_session, config, events, tid)
         return
     reg = _require_reg(db_session, msg)
     candidates = repo.active_tickets(
@@ -214,7 +228,7 @@ async def cmd_close(msg: Message, db_session: Session, config: AppConfig) -> Non
 
 @router.callback_query(F.data.startswith("close:"), IsOrga())
 async def on_close_choice(
-    cb: CallbackQuery, db_session: Session, config: AppConfig
+    cb: CallbackQuery, db_session: Session, config: AppConfig, events: EventBus
 ) -> None:
     assert cb.data is not None
     suffix = cb.data.removeprefix("close:")
@@ -228,7 +242,7 @@ async def on_close_choice(
     except ValueError:
         await cb.answer()
         return
-    await _do_close(cb, db_session, config, tid)
+    await _do_close(cb, db_session, config, events, tid)
     await cb.answer()
 
 
@@ -236,6 +250,7 @@ async def _do_close(
     event: Message | CallbackQuery,
     s: Session,
     config: AppConfig,
+    events: EventBus,
     tid: int,
 ) -> None:
     ticket = repo.get_ticket(s, tid)
@@ -257,6 +272,7 @@ async def _do_close(
             reply_markup=keyboards.for_user(reg, config),
         )
 
+    await events.publish_ticket(updated)
     await notify.channel_msg(
         bot, i18n.CH_CLOSED.format(who=who(user), group=reg.group_name, uid=tid)
     )
@@ -264,6 +280,7 @@ async def _do_close(
         bot, s, reg.group_name,
         i18n.GROUP_TICKET_CLOSED_PEER.format(who=who(user), uid=tid),
         exclude_chat_id=user.id,
+        exclude_muted=True,
     )
     await notify.group_msg(
         bot, s, ticket.group_requesting,
@@ -275,7 +292,9 @@ async def _do_close(
 
 
 @router.message(Command("move"), IsOrga())
-async def cmd_move(msg: Message, db_session: Session, config: AppConfig) -> None:
+async def cmd_move(
+    msg: Message, db_session: Session, config: AppConfig, events: EventBus
+) -> None:
     parts = (msg.text or "").split(maxsplit=2)
     if len(parts) < 3:
         await msg.answer(i18n.MOVE_USAGE.format(groups=config.orga_names()))
@@ -298,12 +317,16 @@ async def cmd_move(msg: Message, db_session: Session, config: AppConfig) -> None
         return
     user = actor(msg)
     bot = bot_of(msg)
-    repo.move_ticket(db_session, tid, new_group=target, actor_chat_id=user.id)
+    updated = repo.move_ticket(db_session, tid, new_group=target, actor_chat_id=user.id)
     reg = _require_reg(db_session, msg)
     await msg.answer(
         i18n.TICKET_MOVED_NOTICE.format(uid=tid, group=target),
         reply_markup=keyboards.for_user(reg, config),
     )
+    # Publish the moved ticket. The stream is unfiltered and the dashboard
+    # filters by group client-side, so the new group's board adds it and the
+    # old group's board removes it (its group_tasked no longer matches).
+    await events.publish_ticket(updated)
     await notify.channel_msg(
         bot, i18n.CH_MOVED.format(uid=tid, group=target)
     )
@@ -335,6 +358,15 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
     user = actor(msg)
     bot = bot_of(msg)
     reg = _require_reg(db_session, msg)
+    # Record the audit trail first: a message that was sent but not recorded
+    # (crash/DB error after the network send) is worse than the reverse, and
+    # the audit row is the only durable proof the message went out.
+    repo.record_message(
+        db_session,
+        ticket_id=tid,
+        actor_chat_id=user.id,
+        message=body,
+    )
     await notify.group_msg(
         bot, db_session, ticket.group_requesting,
         i18n.GROUP_INCOMING_MESSAGE.format(sender=reg.group_name, message=body),
@@ -345,18 +377,10 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
             sender=reg.group_name, recipient=ticket.group_requesting, message=body
         ),
     )
-    repo.record_message(
-        db_session,
-        ticket_id=tid,
-        actor_chat_id=user.id,
-        message=body,
-    )
     await msg.answer(i18n.MESSAGE_DELIVERED, reply_markup=keyboards.for_user(reg, config))
 
 
 # --- /helpers (shift lookup) ---------------------------------------------
-
-ShiftLookup = Callable[[str, AppConfig], Awaitable[str]]
 
 
 @router.message(Command("helpers"), IsOrga())
@@ -431,10 +455,9 @@ async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> N
 
     lines = []
     for cs in summaries:
-        # Stored timestamps are naive UTC; display in the operator's local
-        # timezone so "21:00" means what they expect.
-        local_ts = cs.closed_at.replace(tzinfo=UTC).astimezone(tz=None)
-        when = local_ts.strftime("%d.%m. %H:%M")
+        # Stored timestamps are naive UTC; display in the configured local
+        # timezone so "21:00" means what they expect regardless of VM tz.
+        when = to_local(cs.closed_at).strftime("%d.%m. %H:%M")
         lines.append(
             f"#{cs.ticket.id} ({when}) – {cs.closer_display}\n  {cs.ticket.text}"
         )

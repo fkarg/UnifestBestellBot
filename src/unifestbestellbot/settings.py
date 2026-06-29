@@ -2,8 +2,9 @@
 instance so tests can populate the environment before the first access."""
 
 from functools import lru_cache
+from zoneinfo import ZoneInfo
 
-from pydantic import Field, HttpUrl
+from pydantic import Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +31,28 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_dir: str = "./logs"
     log_retention_days: int = 14
+
+    # Display/window timezone. Stored datetimes are naive UTC (see
+    # models.now_utc); this is only used to convert them for human-facing
+    # output (/history, the shift digest) and to interpret the digest's
+    # operational window. Set explicitly so behaviour does not depend on
+    # the VM's ambient timezone.
+    timezone: str = "Europe/Berlin"
+
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, v: str) -> str:
+        # Fail fast at startup on a typo'd zone rather than later as a
+        # ZoneInfoNotFoundError inside /history or the digest loop. Raise
+        # ValueError so pydantic surfaces it as a ValidationError.
+        try:
+            ZoneInfo(v)
+        except Exception as e:
+            raise ValueError(f"unknown timezone {v!r}") from e
+        return v
+
+    def local_tz(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
 
 
 @lru_cache(maxsize=1)

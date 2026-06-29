@@ -26,6 +26,17 @@ def _truncate(s: str, limit: int) -> str:
     return s[:limit] + "\n... [truncated]"
 
 
+def format_crash_report(component: str, exc: BaseException) -> str:
+    """Plain-text crash report for a long-running task that fell over and is
+    being restarted by the supervisor. Sent to the developer chat verbatim
+    (no parse_mode), so no HTML escaping is needed."""
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    return (
+        f"🔴 {component} crashed and is being restarted.\n\n"
+        f"{_truncate(tb, _TRACEBACK_BUDGET)}"
+    )
+
+
 async def on_error(event: ErrorEvent, bot: Bot) -> None:
     exc = event.exception
     if isinstance(exc, TelegramNetworkError):

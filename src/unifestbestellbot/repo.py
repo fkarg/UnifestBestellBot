@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import or_
+from sqlalchemy import update as sa_update
 from sqlmodel import Session, select
 
 from .models import AuditEvent, Registration, Ticket, TicketStatus, now_utc
@@ -120,24 +121,41 @@ def create_ticket(
 
 
 def set_wip(s: Session, ticket_id: int, *, who: str, actor_chat_id: int) -> Ticket:
+    """Atomically claim an OPEN ticket as WIP for `who`.
+
+    The OPEN→WIP transition is a single conditional UPDATE rather than a
+    read-check-write, so two near-simultaneous /wip on the same ticket can
+    never both succeed: SQLite's write lock serialises them and only the
+    statement that still matches `status == OPEN` flips the row. The loser
+    sees rowcount 0 and gets the same ValueError as a stale claim. This is
+    what makes WIP usable for task distribution (exactly one owner)."""
     t = s.get(Ticket, ticket_id)
     if t is None:
         raise LookupError(f"ticket {ticket_id} does not exist")
-    if t.status != TicketStatus.OPEN:
-        raise ValueError(f"ticket {ticket_id} is not open (status={t.status})")
-    t.status = TicketStatus.WIP
-    t.who_wip = who
-    s.add(t)
+    stmt = (
+        sa_update(Ticket)
+        .where(Ticket.id == ticket_id)  # ty: ignore[invalid-argument-type]
+        .where(Ticket.status == TicketStatus.OPEN)  # ty: ignore[invalid-argument-type]
+        .values(status=TicketStatus.WIP, who_wip=who)
+        .execution_options(synchronize_session=False)
+    )
+    # The conditional UPDATE runs on the session's connection (same
+    # transaction). Going through the Connection rather than Session.execute
+    # gives a CursorResult with rowcount and avoids SQLModel's select-oriented
+    # exec() typing. rowcount 0 means we lost the race (someone already moved
+    # it off OPEN); `t` is still OPEN here, that's fine for the message.
+    if s.connection().execute(stmt).rowcount == 0:
+        raise ValueError(f"ticket {ticket_id} is not open")
     s.add(
         AuditEvent(
             kind="wip",
-            ticket_id=t.id,
+            ticket_id=ticket_id,
             actor_chat_id=actor_chat_id,
             payload_json=json.dumps({"who": who}),
         )
     )
     s.commit()
-    s.refresh(t)
+    s.refresh(t)  # the UPDATE bypassed the ORM; reload t to reflect WIP/who
     return t
 
 

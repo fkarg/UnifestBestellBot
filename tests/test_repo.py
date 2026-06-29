@@ -208,6 +208,40 @@ def test_record_message_writes_audit(s):
     assert "hello" in msgs[0].payload_json
 
 
+def test_rejected_transitions_write_no_audit_row(s):
+    """A guard that rejects an action must leave the audit log untouched —
+    no orphaned 'wip'/'close'/'move' row for an action that did not happen."""
+    t = _make_ticket(s)
+    repo.set_wip(s, t.id, who="Alice", actor_chat_id=1)  # open -> wip (audited)
+    before = len(_audit(s))
+
+    with pytest.raises(ValueError):
+        repo.set_wip(s, t.id, who="Bob", actor_chat_id=2)  # already wip
+    with pytest.raises(ValueError):
+        repo.move_ticket(s, t.id, new_group="BiMi", actor_chat_id=2)  # not open
+    with pytest.raises(LookupError):
+        repo.set_wip(s, 999, who="x", actor_chat_id=2)  # missing
+
+    repo.close_ticket(s, t.id, actor_chat_id=1)
+    with pytest.raises(ValueError):
+        repo.close_ticket(s, t.id, actor_chat_id=2)  # already closed
+
+    kinds_after = [e.kind for e in _audit(s)]
+    # Exactly the two successful actions were recorded; no rejected ones.
+    assert kinds_after == ["open", "wip", "close"]
+    assert len(_audit(s)) == before + 1  # only the close added
+
+
+def test_set_wip_atomic_claim_keeps_first_owner(s):
+    """The OPEN->WIP transition is an atomic conditional claim: a second
+    claim loses (raises) and must not overwrite the first owner."""
+    t = _make_ticket(s)
+    repo.set_wip(s, t.id, who="Alice", actor_chat_id=1)
+    with pytest.raises(ValueError):
+        repo.set_wip(s, t.id, who="Bob", actor_chat_id=2)
+    assert repo.get_ticket(s, t.id).who_wip == "Alice"
+
+
 # --- Models ---------------------------------------------------------------
 
 
