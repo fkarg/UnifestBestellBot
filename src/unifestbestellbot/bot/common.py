@@ -15,6 +15,14 @@ def who(user: User | None) -> str:
     return f"{name} <@{user.username}>" if user.username else name
 
 
+def display_for(reg: Registration | None, user: User | None) -> str:
+    """The name to show for `user`'s actions: their self-chosen /name override
+    if set, otherwise the Telegram-derived name."""
+    if reg is not None and reg.display_override:
+        return reg.display_override
+    return who(user)
+
+
 def actor(event: Message | CallbackQuery) -> User:
     """Telegram always populates from_user on user-initiated updates.
     The assert narrows the type for callers and documents the invariant."""

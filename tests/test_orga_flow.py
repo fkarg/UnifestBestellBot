@@ -140,6 +140,14 @@ async def test_wip_rejects_already_wip(s, config):
     assert "arbeitet bereits" in body
 
 
+async def test_wip_uses_display_override_for_who_wip(s, config):
+    repo.set_display_override(s, 1, "Chef")
+    t = _ticket(s)
+    msg = fake_message(user_id=1, text=f"/wip {t.id}")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())
+    assert repo.get_ticket(s, t.id).who_wip == "Chef"
+
+
 async def test_wip_missing_ticket(s, config):
     msg = fake_message(user_id=1, text="/wip 999")
     await orga_flow.cmd_wip(msg, db_session=s, config=config, events=EventBus())

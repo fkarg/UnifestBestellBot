@@ -43,25 +43,37 @@ def init_db() -> None:
 
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
-    _ensure_ticket_columns(engine)
+    _ensure_columns(engine)
 
 
-def _ensure_ticket_columns(engine: Engine) -> None:
-    """Add columns introduced after the initial schema to a pre-existing DB.
+# Columns added after the initial schema, per table. create_all() only creates
+# missing *tables*, never alters an existing one. The DB is normally wiped
+# between events (so create_all builds the current schema fresh), but a
+# mid-event deploy reuses the live file, where a new column would be missing
+# and queries would fail. These additive ADD COLUMNs cover that case.
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "ticket": {"who_wip_chat_id": "INTEGER"},
+    "registration": {"display_override": "TEXT"},
+}
 
-    create_all() only creates missing *tables*; it never alters an existing
-    one. The DB is normally wiped between events (so create_all builds the
-    current schema fresh), but a mid-event deploy reuses the live file, where
-    the new column would be missing and every ticket query would fail. This
-    additive, idempotent ADD COLUMN covers that case. SQLite only."""
+
+def _ensure_columns(engine: Engine) -> None:
+    """Idempotently add any post-initial-schema columns missing from an
+    existing DB. SQLite only; a freshly create_all()'d DB already has them."""
     if engine.dialect.name != "sqlite":
         return
     with engine.begin() as conn:
-        cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(ticket)")}
-        if "who_wip_chat_id" not in cols:
-            conn.exec_driver_sql(
-                "ALTER TABLE ticket ADD COLUMN who_wip_chat_id INTEGER"
-            )
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {
+                row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")
+            }
+            if not existing:
+                continue  # table doesn't exist (e.g. partial test DB); skip
+            for column, ddl_type in columns.items():
+                if column not in existing:
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"
+                    )
 
 
 @contextmanager

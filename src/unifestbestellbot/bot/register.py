@@ -16,10 +16,11 @@ from .. import i18n, repo
 from ..config import AppConfig
 from ..models import now_utc
 from . import keyboards, notify
-from .common import actor, bot_of, registration_from, who
+from .common import actor, bot_of, display_for, registration_from, who
 
 DEFAULT_QUIET_MINUTES = 30
 MAX_QUIET_MINUTES = 24 * 60
+MAX_DISPLAY_NAME = 64
 
 router = Router(name="register")
 
@@ -83,7 +84,7 @@ async def _register_textual(
         reply_markup=keyboards.for_user(reg, config),
     )
     await notify.channel_msg(
-        bot_of(msg), i18n.CH_REGISTER.format(who=who(user), group=match)
+        bot_of(msg), i18n.CH_REGISTER.format(who=display_for(reg, user), group=match)
     )
 
 
@@ -117,7 +118,7 @@ async def on_register_choice(
         reply_markup=keyboards.for_user(reg, config),
     )
     await notify.channel_msg(
-        bot, i18n.CH_REGISTER.format(who=who(user), group=choice)
+        bot, i18n.CH_REGISTER.format(who=display_for(reg, user), group=choice)
     )
     await cb.answer()
 
@@ -158,6 +159,33 @@ async def cmd_status(msg: Message, db_session: Session, config: AppConfig) -> No
     else:
         text = i18n.STATUS_NO_TICKETS.format(group=reg.group_name)
     await msg.answer(text, reply_markup=keyboards.for_user(reg, config))
+
+
+@router.message(Command("name"))
+async def cmd_name(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = repo.registration_for(db_session, actor(msg).id)
+    if reg is None:
+        await msg.answer(i18n.NOT_REGISTERED, reply_markup=keyboards.for_user(None, config))
+        return
+
+    parts = (msg.text or "").split(maxsplit=1)
+    arg = parts[1].strip() if len(parts) > 1 else ""
+    if not arg:
+        current = reg.display_override or who(actor(msg))
+        await msg.answer(
+            i18n.NAME_CURRENT.format(name=current),
+            reply_markup=keyboards.for_user(reg, config),
+        )
+        return
+    if arg == "-":
+        repo.set_display_override(db_session, reg.chat_id, None)
+        await msg.answer(i18n.NAME_CLEARED, reply_markup=keyboards.for_user(reg, config))
+        return
+    name = arg[:MAX_DISPLAY_NAME]
+    repo.set_display_override(db_session, reg.chat_id, name)
+    await msg.answer(
+        i18n.NAME_SET.format(name=name), reply_markup=keyboards.for_user(reg, config)
+    )
 
 
 @router.message(Command("quiet"))

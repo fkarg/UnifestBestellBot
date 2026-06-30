@@ -54,8 +54,13 @@ class Registration(SQLModel, table=True):
     # an `exclude_chat_id`). Actionable DMs about the user's own tickets
     # (CLOSED on their ticket, /message forwards, ...) are NOT suppressed.
     mute_peer_until: datetime | None = None
+    # Self-chosen display name (via /name). When set, it replaces the
+    # Telegram-derived name everywhere this person is shown for their actions.
+    display_override: str | None = None
 
     def display_name(self) -> str:
+        if self.display_override:
+            return self.display_override
         parts = [p for p in (self.first_name, self.last_name) if p]
         name = " ".join(parts) or "Unbekannt"
         return f"{name} <@{self.username}>" if self.username else name

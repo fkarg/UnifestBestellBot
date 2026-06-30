@@ -21,7 +21,7 @@ from ..config import AppConfig
 from ..engelsystem import ShiftLookup
 from ..events import EventBus
 from . import keyboards, notify
-from .common import actor, bot_of, who
+from .common import actor, bot_of, display_for
 
 router = Router(name="request")
 
@@ -350,7 +350,7 @@ async def _finalize(
         bot,
         db_session,
         data["group"],
-        i18n.GROUP_TICKET_OPENED.format(who=who(user), text=text),
+        i18n.GROUP_TICKET_OPENED.format(who=display_for(reg, user), text=text),
         exclude_chat_id=user.id,
         exclude_muted=True,
     )

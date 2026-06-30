@@ -92,6 +92,18 @@ def set_mute(s: Session, chat_id: int, *, until: datetime | None) -> bool:
     return True
 
 
+def set_display_override(s: Session, chat_id: int, value: str | None) -> bool:
+    """Set or clear a registration's self-chosen display name. Returns True
+    if the row existed and was updated."""
+    reg = s.get(Registration, chat_id)
+    if reg is None:
+        return False
+    reg.display_override = value
+    s.add(reg)
+    s.commit()
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Tickets
 # ---------------------------------------------------------------------------

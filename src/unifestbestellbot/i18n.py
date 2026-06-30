@@ -20,6 +20,11 @@ HELP = """Verfügbare Befehle:
     stellen kannst.
 /unregister
     Entferne deine Gruppenmitgliedschaft.
+/name [anzeigename]
+    Setze einen eigenen Anzeigenamen
+    (statt deines Telegram-Namens).
+    Ohne Argument: aktuellen anzeigen,
+    /name - setzt zurück.
 /status
     Zeige deine Gruppenmitgliedschaft und
     offene Tickets deiner Gruppe an.
@@ -82,6 +87,11 @@ UNKNOWN_GROUP = "Unbekannte Gruppe."
 
 UNREGISTER_SUCCESS = "Mitgliedschaft bei Gruppe [{group}] entfernt."
 UNREGISTER_NONE = "Keine Gruppenmitgliedschaft registriert. Nichts zu entfernen."
+
+NAME_USAGE = "Benutzung: /name <Anzeigename>. Mit /name - zurücksetzen."
+NAME_CURRENT = "Dein Anzeigename: {name}\n\n" + NAME_USAGE
+NAME_SET = "Anzeigename gesetzt: {name}"
+NAME_CLEARED = "Anzeigename zurückgesetzt. Es gilt wieder dein Telegram-Name."
 
 QUIET_USAGE = "Benutzung: /quiet [minutes]. Standard 30, Maximum 1440."
 QUIET_SET = (

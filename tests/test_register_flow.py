@@ -240,3 +240,46 @@ async def test_status_lists_open_tickets_for_group(s, config):
     body = msg.answer.call_args.args[0]
     assert "Wechselgeld Münzen" in body
     assert "1 Ticket" in body
+
+
+# --- /name -----------------------------------------------------------------
+
+
+async def test_name_requires_registration(s, config):
+    msg = fake_message(user_id=1, text="/name Felix")
+    await register_flow.cmd_name(msg, db_session=s, config=config)
+    assert "registriere" in msg.answer.call_args.args[0].lower()
+    assert repo.registration_for(s, 1) is None
+
+
+async def test_name_sets_display_override(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    msg = fake_message(user_id=1, text="/name Felix von der Bar")
+    await register_flow.cmd_name(msg, db_session=s, config=config)
+    assert repo.registration_for(s, 1).display_override == "Felix von der Bar"
+    assert "Felix von der Bar" in msg.answer.call_args.args[0]
+
+
+async def test_name_without_arg_shows_current(s, config):
+    repo.upsert_registration(
+        s, Registration(chat_id=1, group_name="Cocktailbar", display_override="Bar-Chef")
+    )
+    msg = fake_message(user_id=1, text="/name")
+    await register_flow.cmd_name(msg, db_session=s, config=config)
+    assert "Bar-Chef" in msg.answer.call_args.args[0]
+
+
+async def test_name_dash_clears_override(s, config):
+    repo.upsert_registration(
+        s, Registration(chat_id=1, group_name="Cocktailbar", display_override="Bar-Chef")
+    )
+    msg = fake_message(user_id=1, text="/name -")
+    await register_flow.cmd_name(msg, db_session=s, config=config)
+    assert repo.registration_for(s, 1).display_override is None
+
+
+async def test_name_is_length_capped(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    msg = fake_message(user_id=1, text="/name " + "x" * 200)
+    await register_flow.cmd_name(msg, db_session=s, config=config)
+    assert len(repo.registration_for(s, 1).display_override) == register_flow.MAX_DISPLAY_NAME

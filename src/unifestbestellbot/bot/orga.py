@@ -19,7 +19,7 @@ from ..engelsystem import ShiftLookup
 from ..events import EventBus
 from ..models import Registration, Ticket, TicketStatus, now_utc, to_local
 from . import keyboards, notify
-from .common import actor, bot_of, who
+from .common import actor, bot_of, display_for
 from .filters import IsOrga
 
 router = Router(name="orga")
@@ -176,8 +176,10 @@ async def _do_wip(
         return
     user = actor(event)
     bot = bot_of(event)
+    reg = _require_reg(s, event)
+    name = display_for(reg, user)
     try:
-        updated = repo.set_wip(s, tid, who=who(user), actor_chat_id=user.id)
+        updated = repo.set_wip(s, tid, who=name, actor_chat_id=user.id)
     except ValueError:
         # Lost the race: another orga claimed this ticket between our read
         # above and the atomic UPDATE. Tell the user it's already taken
@@ -185,7 +187,6 @@ async def _do_wip(
         if reply_to is not None:
             await reply_to.answer(i18n.TICKET_ALREADY_WIP)
         return
-    reg = _require_reg(s, event)
 
     if isinstance(event, CallbackQuery) and isinstance(event.message, Message):
         await event.message.edit_text(updated.display())
@@ -197,11 +198,11 @@ async def _do_wip(
 
     await events.publish_ticket(updated)
     await notify.channel_msg(
-        bot, i18n.CH_WIP.format(who=who(user), group=reg.group_name, uid=tid)
+        bot, i18n.CH_WIP.format(who=name, group=reg.group_name, uid=tid)
     )
     await notify.group_msg(
         bot, s, reg.group_name,
-        i18n.GROUP_TICKET_WIP_PEER.format(who=who(user), uid=tid),
+        i18n.GROUP_TICKET_WIP_PEER.format(who=name, uid=tid),
         exclude_chat_id=user.id,
         exclude_muted=True,
     )
@@ -309,6 +310,7 @@ async def _do_close(
     bot = bot_of(event)
     updated = repo.close_ticket(s, tid, actor_chat_id=user.id)
     reg = _require_reg(s, event)
+    name = display_for(reg, user)
 
     if isinstance(event, CallbackQuery) and isinstance(event.message, Message):
         await event.message.edit_text(updated.display())
@@ -320,11 +322,11 @@ async def _do_close(
 
     await events.publish_ticket(updated)
     await notify.channel_msg(
-        bot, i18n.CH_CLOSED.format(who=who(user), group=reg.group_name, uid=tid)
+        bot, i18n.CH_CLOSED.format(who=name, group=reg.group_name, uid=tid)
     )
     await notify.group_msg(
         bot, s, reg.group_name,
-        i18n.GROUP_TICKET_CLOSED_PEER.format(who=who(user), uid=tid),
+        i18n.GROUP_TICKET_CLOSED_PEER.format(who=name, uid=tid),
         exclude_chat_id=user.id,
         exclude_muted=True,
     )
@@ -504,10 +506,10 @@ async def cmd_bug(msg: Message, db_session: Session, config: AppConfig) -> None:
         await msg.answer(i18n.BUG_USAGE)
         return
     user = actor(msg)
-    await notify.dev_msg(
-        bot_of(msg), i18n.DEV_BUG.format(who=who(user), message=parts[1])
-    )
     reg = repo.registration_for(db_session, user.id)
+    await notify.dev_msg(
+        bot_of(msg), i18n.DEV_BUG.format(who=display_for(reg, user), message=parts[1])
+    )
     await msg.answer(i18n.BUG_FORWARDED, reply_markup=keyboards.for_user(reg, config))
 
 
@@ -518,10 +520,10 @@ async def cmd_feature(msg: Message, db_session: Session, config: AppConfig) -> N
         await msg.answer(i18n.FEATURE_USAGE)
         return
     user = actor(msg)
-    await notify.dev_msg(
-        bot_of(msg), i18n.DEV_FEATURE.format(who=who(user), message=parts[1])
-    )
     reg = repo.registration_for(db_session, user.id)
+    await notify.dev_msg(
+        bot_of(msg), i18n.DEV_FEATURE.format(who=display_for(reg, user), message=parts[1])
+    )
     await msg.answer(i18n.FEATURE_FORWARDED, reply_markup=keyboards.for_user(reg, config))
 
 

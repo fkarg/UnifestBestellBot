@@ -10,7 +10,7 @@ from ..config import AppConfig
 from ..events import EventBus
 from ..models import TicketStatus
 from . import notify
-from .common import actor, bot_of, who
+from .common import actor, bot_of, display_for
 from .filters import IsDeveloper
 
 router = Router(name="admin")
@@ -37,7 +37,7 @@ async def cmd_closeall(
     open_tickets = repo.active_tickets(db_session)
     user = actor(msg)
     bot = bot_of(msg)
-    who_str = who(user)
+    who_str = display_for(repo.registration_for(db_session, user.id), user)
     closed_count = 0
 
     for t in open_tickets:
