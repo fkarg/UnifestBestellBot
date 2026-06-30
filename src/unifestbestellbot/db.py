@@ -41,7 +41,27 @@ def init_db() -> None:
     # Import models so SQLModel.metadata knows about them.
     from . import models  # noqa: F401
 
-    SQLModel.metadata.create_all(get_engine())
+    engine = get_engine()
+    SQLModel.metadata.create_all(engine)
+    _ensure_ticket_columns(engine)
+
+
+def _ensure_ticket_columns(engine: Engine) -> None:
+    """Add columns introduced after the initial schema to a pre-existing DB.
+
+    create_all() only creates missing *tables*; it never alters an existing
+    one. The DB is normally wiped between events (so create_all builds the
+    current schema fresh), but a mid-event deploy reuses the live file, where
+    the new column would be missing and every ticket query would fail. This
+    additive, idempotent ADD COLUMN covers that case. SQLite only."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.begin() as conn:
+        cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(ticket)")}
+        if "who_wip_chat_id" not in cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE ticket ADD COLUMN who_wip_chat_id INTEGER"
+            )
 
 
 @contextmanager

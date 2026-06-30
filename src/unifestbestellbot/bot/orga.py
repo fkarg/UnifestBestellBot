@@ -26,11 +26,17 @@ router = Router(name="orga")
 # --- Helpers -------------------------------------------------------------
 
 
-def _picker(tickets: list[Ticket], action: str, header: str) -> InlineKeyboardMarkup:
+def _picker(
+    tickets: list[Ticket], action: str, header: str, *, show_all: bool = False
+) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=t.display(), callback_data=f"{action}:{t.id}")]
         for t in tickets
     ]
+    if show_all:
+        rows.append(
+            [InlineKeyboardButton(text=i18n.PICKER_SHOW_ALL, callback_data=f"{action}:_all")]
+        )
     rows.append(
         [InlineKeyboardButton(text=i18n.PICKER_CANCEL, callback_data=f"{action}:_cancel")]
     )
@@ -214,16 +220,36 @@ async def cmd_close(
         await _do_close(msg, db_session, config, events, tid)
         return
     reg = _require_reg(db_session, msg)
-    candidates = repo.active_tickets(
+    # Default the picker to the caller's own WIP tickets: during the event the
+    # group-wide WIP list overflows, and you almost always want to close one of
+    # yours. The "Alle der Gruppe anzeigen" button expands to the full list.
+    own = repo.active_tickets(
+        db_session,
+        group_tasked=reg.group_name,
+        status=TicketStatus.WIP,
+        who_wip_chat_id=actor(msg).id,
+    )
+    if own:
+        await msg.answer(
+            i18n.MY_WIP_TICKETS_LIST,
+            reply_markup=_picker(own, "close", i18n.MY_WIP_TICKETS_LIST, show_all=True),
+        )
+        return
+    # No own WIP: fall back directly to the group list so the command is never
+    # a dead end.
+    group_wip = repo.active_tickets(
         db_session, group_tasked=reg.group_name, status=TicketStatus.WIP
     )
-    if not candidates:
+    if not group_wip:
         await msg.answer(
             i18n.NO_WIP_TICKETS_FOR_GROUP.format(group=reg.group_name),
             reply_markup=keyboards.for_user(reg, config),
         )
         return
-    await msg.answer(i18n.WIP_TICKETS_LIST, reply_markup=_picker(candidates, "close", i18n.WIP_TICKETS_LIST))
+    await msg.answer(
+        i18n.NO_OWN_WIP_SHOWING_GROUP.format(group=reg.group_name),
+        reply_markup=_picker(group_wip, "close", i18n.WIP_TICKETS_LIST),
+    )
 
 
 @router.callback_query(F.data.startswith("close:"), IsOrga())
@@ -235,6 +261,24 @@ async def on_close_choice(
     if suffix == "_cancel":
         if isinstance(cb.message, Message):
             await cb.message.edit_text(i18n.PICKER_CANCELLED)
+        await cb.answer()
+        return
+    if suffix == "_all":
+        # Toggle from the own-tickets view to the full group WIP list.
+        reg = _require_reg(db_session, cb)
+        group_wip = repo.active_tickets(
+            db_session, group_tasked=reg.group_name, status=TicketStatus.WIP
+        )
+        if isinstance(cb.message, Message):
+            if group_wip:
+                await cb.message.edit_text(
+                    i18n.WIP_TICKETS_LIST,
+                    reply_markup=_picker(group_wip, "close", i18n.WIP_TICKETS_LIST),
+                )
+            else:
+                await cb.message.edit_text(
+                    i18n.NO_WIP_TICKETS_FOR_GROUP.format(group=reg.group_name)
+                )
         await cb.answer()
         return
     try:

@@ -186,6 +186,60 @@ async def test_close_callback_closes(s, config):
     assert repo.get_ticket(s, t.id).status == TicketStatus.CLOSED
 
 
+async def test_close_picker_defaults_to_own_wip_with_show_all(s, config):
+    mine = _ticket(s, text="mine")
+    theirs = _ticket(s, text="theirs")
+    repo.set_wip(s, mine.id, who="me", actor_chat_id=1)
+    repo.set_wip(s, theirs.id, who="bob", actor_chat_id=2)
+    msg = fake_message(user_id=1, text="/close")
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
+    kb = msg.answer.call_args.kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert f"close:{mine.id}" in callbacks
+    assert f"close:{theirs.id}" not in callbacks  # owned by another orga
+    assert "close:_all" in callbacks  # toggle to the full group list
+
+
+async def test_close_all_callback_shows_full_group_wip(s, config):
+    mine = _ticket(s, text="mine")
+    theirs = _ticket(s, text="theirs")
+    repo.set_wip(s, mine.id, who="me", actor_chat_id=1)
+    repo.set_wip(s, theirs.id, who="bob", actor_chat_id=2)
+    cb = fake_callback(user_id=1, data="close:_all")
+    await orga_flow.on_close_choice(cb, db_session=s, config=config, events=EventBus())
+    kb = cb.message.edit_text.call_args.kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert f"close:{mine.id}" in callbacks
+    assert f"close:{theirs.id}" in callbacks  # now the whole group is shown
+    assert "close:_all" not in callbacks  # no further toggle on the full view
+
+
+async def test_close_picker_falls_back_to_group_when_no_own(s, config):
+    theirs = _ticket(s, text="theirs")
+    repo.set_wip(s, theirs.id, who="bob", actor_chat_id=2)
+    msg = fake_message(user_id=1, text="/close")
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
+    body = msg.answer.call_args.args[0]
+    assert "Keine eigenen" in body
+    kb = msg.answer.call_args.kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert f"close:{theirs.id}" in callbacks
+    assert "close:_all" not in callbacks  # already the full list
+
+
+async def test_close_picker_empty_when_no_wip_at_all(s, config):
+    _ticket(s, text="still open")  # OPEN, not WIP
+    msg = fake_message(user_id=1, text="/close")
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
+    assert "Keine WIP Tickets" in msg.answer.call_args.args[0]
+
+
+async def test_set_wip_records_chat_id(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="me", actor_chat_id=42)
+    assert repo.get_ticket(s, t.id).who_wip_chat_id == 42
+
+
 # --- /move ---------------------------------------------------------------
 
 

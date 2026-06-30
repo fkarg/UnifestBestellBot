@@ -136,7 +136,7 @@ def set_wip(s: Session, ticket_id: int, *, who: str, actor_chat_id: int) -> Tick
         sa_update(Ticket)
         .where(Ticket.id == ticket_id)  # ty: ignore[invalid-argument-type]
         .where(Ticket.status == TicketStatus.OPEN)  # ty: ignore[invalid-argument-type]
-        .values(status=TicketStatus.WIP, who_wip=who)
+        .values(status=TicketStatus.WIP, who_wip=who, who_wip_chat_id=actor_chat_id)
         .execution_options(synchronize_session=False)
     )
     # The conditional UPDATE runs on the session's connection (same
@@ -203,13 +203,19 @@ def get_ticket(s: Session, ticket_id: int) -> Ticket | None:
 
 
 def active_tickets(
-    s: Session, *, group_tasked: str | None = None, status: TicketStatus | None = None
+    s: Session,
+    *,
+    group_tasked: str | None = None,
+    status: TicketStatus | None = None,
+    who_wip_chat_id: int | None = None,
 ) -> list[Ticket]:
     stmt = select(Ticket).where(Ticket.status != TicketStatus.CLOSED)
     if group_tasked is not None:
         stmt = stmt.where(Ticket.group_tasked == group_tasked)
     if status is not None:
         stmt = stmt.where(Ticket.status == status)
+    if who_wip_chat_id is not None:
+        stmt = stmt.where(Ticket.who_wip_chat_id == who_wip_chat_id)
     # Ticket.id is an InstrumentedAttribute at the class level, but its
     # declared type is `int | None`; ty/mypy can't see the descriptor magic.
     stmt = stmt.order_by(Ticket.id)  # ty: ignore[invalid-argument-type]

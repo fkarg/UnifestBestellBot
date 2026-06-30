@@ -40,76 +40,77 @@ von `registration`). Wir hängen deshalb **additiv** eine neue Spalte
 - Neues Matching/Filtern läuft über `who_wip_chat_id`.
 - `/self` (nächste Runde) baut direkt auf diesem Feld auf → keine Doppelarbeit.
 
+> **Stack-Hinweis:** Implementiert in der **Python**-Version unter
+> `src/unifestbestellbot/` (aiogram v3 + SQLModel). Die `rust/`-Variante wird
+> ignoriert.
+
 ## Architektur / Änderungen
 
-### Schema (`db.rs`)
-- `ticket` bekommt Spalte `who_wip_chat_id INTEGER` (nullable).
-- **Migration für die bestehende Live-DB:** additive `ALTER TABLE ticket ADD
-  COLUMN who_wip_chat_id INTEGER`, idempotent (gegen „duplicate column"-Fehler
-  geguardet bzw. via `pragma table_info`-Check). `CREATE TABLE IF NOT EXISTS`
-  allein reicht nicht, da die Tabelle bereits existiert.
-- Optionaler Index `ix_ticket_who_wip_chat_id` (klein, hilft dem Eigen-Filter).
+### Schema (`models.py` + `db.py`)
+- `Ticket` bekommt Feld
+  `who_wip_chat_id: int | None = Field(default=None, index=True)`.
+- **Migration:** Die DB wird normal zwischen Events gelöscht, also baut
+  `SQLModel.metadata.create_all()` das Schema beim Eventstart frisch inkl. der
+  neuen Spalte. **Für Mid-Event-Deploys** (DB-File bleibt erhalten) reicht
+  `create_all()` nicht — es legt keine Spalten in bestehenden Tabellen an.
+  Deshalb additiv und idempotent in `init_db()`: `_ensure_ticket_columns()`
+  prüft via `PRAGMA table_info(ticket)` und führt bei Bedarf
+  `ALTER TABLE ticket ADD COLUMN who_wip_chat_id INTEGER` aus (SQLite only).
 
-### Model (`models.rs`)
-- `Ticket` bekommt Feld `who_wip_chat_id: Option<i64>`.
-- Alle SELECT/INSERT/UPDATE-Mappings in `repo.rs`/`db.rs` entsprechend erweitern.
+### `/wip` (`repo.py`)
+- `set_wip()` setzt `who_wip_chat_id = actor_chat_id` im selben conditional
+  UPDATE. **Keine Signaturänderung nötig:** der `actor_chat_id` ist per
+  Definition genau die Person, die das Ticket übernimmt — `who_wip_chat_id` ==
+  `actor_chat_id`. Bestehende Aufrufer/Tests bleiben unverändert.
 
-### `/wip` (`bot/orga.rs`)
-- `set_wip` schreibt zusätzlich `who_wip_chat_id = caller.chat_id`. Der Aufrufer
-  hat `caller.chat_id` bereits (wird heute schon an `set_wip` übergeben).
+### Repo (`repo.py`)
+- `active_tickets()` bekommt optionalen Parameter `who_wip_chat_id: int | None`,
+  der `WHERE ticket.who_wip_chat_id == ?` anhängt (gleiches Muster wie die
+  bestehenden `group_tasked`/`status`-Filter). Keine neue Funktion nötig.
 
-### Repo (`repo.rs`)
-- Neue Query analog zum bestehenden `active_tickets`-Muster, gefiltert nach
-  bearbeitendem User:
-  ```rust
-  pub async fn wip_tickets_for_chat_id(
-      pool: &SqlitePool, who_wip_chat_id: i64,
-  ) -> Result<Vec<Ticket>, RepoError>
-  // WHERE status = 'wip' AND who_wip_chat_id = ? ORDER BY id
-  ```
-
-### `/close` (`bot/orga.rs`)
+### `/close` (`bot/orga.py`)
 `cmd_close()` umgebaut (Direktform `/close <id>` bleibt unverändert):
 
 - **Picker ohne Argument:**
-  - `own = wip_tickets_for_chat_id(caller.chat_id)`
+  - `own = active_tickets(group_tasked=group, status=WIP, who_wip_chat_id=user.id)`
   - **own nicht leer:** Inline-Buttons `close:{id}` je eigenem Ticket
     + `close:_all` („Alle der Gruppe anzeigen") + cancel.
   - **own leer:** direkt die volle Gruppenliste
-    (`active_tickets(group, Wip)`), Buttons `close:{id}` + cancel, mit Hinweis
-    „keine eigenen WIP — zeige alle der Gruppe". Ist auch die Gruppenliste leer →
-    bestehende „keine offenen Tickets"-Meldung. (Kein Dead-End.)
+    (`active_tickets(group, status=WIP)`), Buttons `close:{id}` + cancel, mit
+    Hinweis „keine eigenen WIP — zeige alle der Gruppe". Ist auch die
+    Gruppenliste leer → bestehende „keine WIP Tickets"-Meldung. (Kein Dead-End.)
 
 - **Callback `on_close_choice()`:**
   - `close:_cancel` → abbrechen (unverändert)
   - `close:_all` → volle Gruppenliste rendern (`close:{id}` + cancel, **ohne**
     erneuten `_all`-Button)
-  - `close:{id}` → `do_close()` (unverändert)
+  - `close:{id}` → `_do_close()` (unverändert)
 
-### i18n (`i18n.rs`)
-- Button-Label „Alle der Gruppe anzeigen".
-- Header/Hinweis für „eigene WIP-Tickets" bzw. „keine eigenen, zeige Gruppe".
+### i18n (`i18n.py`)
+- `PICKER_SHOW_ALL` (Button „📋 Alle der Gruppe anzeigen").
+- `MY_WIP_TICKETS_LIST` („Deine WIP Tickets:") und
+  `NO_OWN_WIP_SHOWING_GROUP` (Fallback-Hinweis).
 
-## Tests (behavioural, wie im Repo etabliert)
+## Tests (behavioural, wie im Repo etabliert; `tests/`)
 
-- **repo:** `wip_tickets_for_chat_id` liefert nur WIP-Tickets des gegebenen
-  `chat_id`; ignoriert fremde und nicht-WIP-Tickets.
-- **`/wip`:** setzt `who_wip_chat_id` auf `caller.chat_id` (und `who_wip` weiter
-  auf den String).
+- **repo:** `set_wip` schreibt `who_wip_chat_id == actor_chat_id`.
 - **`/close` ohne Argument, eigene vorhanden:** Picker zeigt nur eigene + den
-  `_all`-Button.
-- **`close:_all`-Callback:** rendert die volle Gruppenliste.
+  `_all`-Button; fremde WIP-Tickets fehlen.
+- **`close:_all`-Callback:** rendert die volle Gruppenliste (inkl. fremder),
+  ohne erneuten `_all`-Button.
 - **`/close` ohne Argument, keine eigenen:** Fallback direkt auf Gruppenliste mit
-  Hinweis.
-- **`/close <id>` direkt:** unverändert funktionsfähig.
+  Hinweis „Keine eigenen".
+- **`/close` ohne WIP überhaupt:** „Keine WIP Tickets"-Meldung.
+- **`/close <id>` direkt:** unverändert (bestehende Tests bleiben grün).
+- **Migration (`test_db_migration.py`):** `_ensure_ticket_columns` ergänzt die
+  fehlende Spalte auf einer Legacy-DB und ist idempotent.
 
 ## Migrationsrisiko / Betrieb
 
-Additive Spalte auf bestehender SQLite-DB ist risikoarm. Einzige Sorgfalt: die
-`ALTER TABLE` muss idempotent sein (Bot startet ggf. gegen eine DB, in der die
-Spalte schon existiert). Keine Datenmigration nötig — Alttickets haben
-`who_wip_chat_id = NULL` und tauchen damit korrekt nicht in „meine" auf (sie sind
-ohnehin meist schon geschlossen).
+Additive Spalte ist risikoarm. `_ensure_ticket_columns()` ist idempotent (prüft
+`PRAGMA table_info` vor dem `ALTER`). Keine Datenmigration nötig — Alttickets
+haben `who_wip_chat_id = NULL` und tauchen damit korrekt nicht in „meine" auf
+(sie sind ohnehin meist schon geschlossen).
 
 ## Folge-Runden (Kontext, nicht Teil dieses Commits)
 

@@ -74,6 +74,10 @@ class Ticket(SQLModel, table=True):
     group_requesting: str
     group_tasked: str = Field(index=True)
     who_wip: str | None = None
+    # Stable Telegram chat_id of the orga who claimed the ticket (set together
+    # with who_wip in set_wip). who_wip is a display string for humans; this is
+    # the robust key for "my tickets" filtering, immune to name changes.
+    who_wip_chat_id: int | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_now)
     closed_at: datetime | None = None
 

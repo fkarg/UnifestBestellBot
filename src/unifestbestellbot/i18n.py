@@ -143,10 +143,13 @@ NO_OPEN_TICKETS_ANYWHERE = "Momentan gibt es keine offenen Tickets."
 NO_OPEN_TICKETS_FOR_USER_GROUP = "Momentan gibt es keine offenen Tickets für [{group}]."
 OPEN_TICKETS_LIST = "Offene Tickets:"
 WIP_TICKETS_LIST = "WIP Tickets:"
+MY_WIP_TICKETS_LIST = "Deine WIP Tickets:"
+NO_OWN_WIP_SHOWING_GROUP = "Keine eigenen WIP Tickets. Alle WIP Tickets von [{group}]:"
 TICKETS_FOR_GROUP_HEADER = "Liste der offenen Tickets für [{group}]:\n\n{tickets}"
 
 PICKER_CANCEL = "❌ Abbrechen"
 PICKER_CANCELLED = "❌ Abgebrochen."
+PICKER_SHOW_ALL = "📋 Alle der Gruppe anzeigen"
 
 TICKET_NOT_FOUND_OR_CLOSED = "Ticket #{uid} wurde bereits geschlossen oder existiert noch nicht."
 TICKET_ALREADY_WIP = "Jemand arbeitet bereits daran."
