@@ -42,6 +42,9 @@ HELP = """Verfügbare Befehle:
     Eigene Ticket-Updates kommen weiter.
 /loud
     Aktivitätsmeldungen wieder einschalten.
+/notify
+    Einzelne Benachrichtigungs-Typen
+    dauerhaft an-/abschalten.
 /help
     Zeige diese Hilfenachricht an.
 """
@@ -92,6 +95,15 @@ NAME_USAGE = "Benutzung: /name <Anzeigename>. Mit /name - zurücksetzen."
 NAME_CURRENT = "Dein Anzeigename: {name}\n\n" + NAME_USAGE
 NAME_SET = "Anzeigename gesetzt: {name}"
 NAME_CLEARED = "Anzeigename zurückgesetzt. Es gilt wieder dein Telegram-Name."
+
+NOTIFY_HEADER = "🔔 Benachrichtigungen — tippe zum Umschalten:"
+NOTIFY_DONE = "Benachrichtigungs-Einstellungen gespeichert."
+NOTIFY_DONE_BTN = "✅ Fertig"
+NOTIFY_ON = "🔔"
+NOTIFY_OFF = "🔕"
+NOTIFY_LABEL_OPENED = "Neue Tickets der Gruppe"
+NOTIFY_LABEL_WIP = "WIP-Übernahmen von anderen"
+NOTIFY_LABEL_CLOSED = "Schließungen von anderen"
 
 QUIET_USAGE = "Benutzung: /quiet [minutes]. Standard 30, Maximum 1440."
 QUIET_SET = (

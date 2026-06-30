@@ -20,6 +20,7 @@ from .. import i18n, repo
 from ..config import AppConfig
 from ..engelsystem import ShiftLookup
 from ..events import EventBus
+from ..models import PEER_OPENED
 from . import keyboards, notify
 from .common import actor, bot_of, display_for
 
@@ -353,6 +354,7 @@ async def _finalize(
         i18n.GROUP_TICKET_OPENED.format(who=display_for(reg, user), text=text),
         exclude_chat_id=user.id,
         exclude_muted=True,
+        kind=PEER_OPENED,
     )
     await notify.group_msg(
         bot,

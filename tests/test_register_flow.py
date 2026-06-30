@@ -283,3 +283,43 @@ async def test_name_is_length_capped(s, config):
     msg = fake_message(user_id=1, text="/name " + "x" * 200)
     await register_flow.cmd_name(msg, db_session=s, config=config)
     assert len(repo.registration_for(s, 1).display_override) == register_flow.MAX_DISPLAY_NAME
+
+
+# --- /notify ---------------------------------------------------------------
+
+
+async def test_notify_requires_registration(s, config):
+    msg = fake_message(user_id=1, text="/notify")
+    await register_flow.cmd_notify(msg, db_session=s, config=config)
+    assert "registriere" in msg.answer.call_args.args[0].lower()
+
+
+async def test_notify_shows_panel_with_all_kinds(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    msg = fake_message(user_id=1, text="/notify")
+    await register_flow.cmd_notify(msg, db_session=s, config=config)
+    kb = msg.answer.call_args.kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert "notif:opened" in callbacks
+    assert "notif:wip" in callbacks
+    assert "notif:closed" in callbacks
+    assert "notif:_done" in callbacks
+
+
+async def test_notify_toggle_flips_flag(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    cb = fake_callback(user_id=1, data="notif:wip")
+    await register_flow.on_notify_toggle(cb, db_session=s)
+    assert repo.registration_for(s, 1).mute_wip is True
+    # toggling again turns it back off
+    cb2 = fake_callback(user_id=1, data="notif:wip")
+    await register_flow.on_notify_toggle(cb2, db_session=s)
+    assert repo.registration_for(s, 1).mute_wip is False
+
+
+async def test_notify_done_closes_panel(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    cb = fake_callback(user_id=1, data="notif:_done")
+    await register_flow.on_notify_toggle(cb, db_session=s)
+    cb.message.edit_text.assert_awaited()
+    cb.answer.assert_awaited_once()

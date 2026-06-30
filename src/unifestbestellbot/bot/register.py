@@ -14,7 +14,14 @@ from sqlmodel import Session
 
 from .. import i18n, repo
 from ..config import AppConfig
-from ..models import now_utc
+from ..models import (
+    PEER_CLOSED,
+    PEER_NOTIFY_KINDS,
+    PEER_OPENED,
+    PEER_WIP,
+    Registration,
+    now_utc,
+)
 from . import keyboards, notify
 from .common import actor, bot_of, display_for, registration_from, who
 
@@ -186,6 +193,60 @@ async def cmd_name(msg: Message, db_session: Session, config: AppConfig) -> None
     await msg.answer(
         i18n.NAME_SET.format(name=name), reply_markup=keyboards.for_user(reg, config)
     )
+
+
+_NOTIFY_LABELS = {
+    PEER_OPENED: i18n.NOTIFY_LABEL_OPENED,
+    PEER_WIP: i18n.NOTIFY_LABEL_WIP,
+    PEER_CLOSED: i18n.NOTIFY_LABEL_CLOSED,
+}
+
+
+def _notify_panel(reg: Registration) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"{i18n.NOTIFY_OFF if reg.is_peer_kind_muted(kind) else i18n.NOTIFY_ON}"
+                f" {_NOTIFY_LABELS[kind]}",
+                callback_data=f"notif:{kind}",
+            )
+        ]
+        for kind in PEER_NOTIFY_KINDS
+    ]
+    rows.append(
+        [InlineKeyboardButton(text=i18n.NOTIFY_DONE_BTN, callback_data="notif:_done")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.message(Command("notify"))
+async def cmd_notify(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = repo.registration_for(db_session, actor(msg).id)
+    if reg is None:
+        await msg.answer(i18n.NOT_REGISTERED, reply_markup=keyboards.for_user(None, config))
+        return
+    await msg.answer(i18n.NOTIFY_HEADER, reply_markup=_notify_panel(reg))
+
+
+@router.callback_query(F.data.startswith("notif:"))
+async def on_notify_toggle(cb: CallbackQuery, db_session: Session) -> None:
+    assert cb.data is not None
+    suffix = cb.data.removeprefix("notif:")
+    reg = repo.registration_for(db_session, actor(cb).id)
+    if reg is None:
+        await cb.answer()
+        return
+    if suffix == "_done":
+        if isinstance(cb.message, Message):
+            await cb.message.edit_text(i18n.NOTIFY_DONE)
+        await cb.answer()
+        return
+    if suffix in PEER_NOTIFY_KINDS:
+        repo.toggle_notify_mute(db_session, reg.chat_id, suffix)
+        reg = repo.registration_for(db_session, reg.chat_id)
+        if reg is not None and isinstance(cb.message, Message):
+            await cb.message.edit_text(i18n.NOTIFY_HEADER, reply_markup=_notify_panel(reg))
+    await cb.answer()
 
 
 @router.message(Command("quiet"))

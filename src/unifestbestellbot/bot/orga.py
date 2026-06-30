@@ -17,7 +17,15 @@ from .. import i18n, repo
 from ..config import AppConfig
 from ..engelsystem import ShiftLookup
 from ..events import EventBus
-from ..models import Registration, Ticket, TicketStatus, now_utc, to_local
+from ..models import (
+    PEER_CLOSED,
+    PEER_WIP,
+    Registration,
+    Ticket,
+    TicketStatus,
+    now_utc,
+    to_local,
+)
 from . import keyboards, notify
 from .common import actor, bot_of, display_for
 from .filters import IsOrga
@@ -205,6 +213,7 @@ async def _do_wip(
         i18n.GROUP_TICKET_WIP_PEER.format(who=name, uid=tid),
         exclude_chat_id=user.id,
         exclude_muted=True,
+        kind=PEER_WIP,
     )
     await notify.group_msg(
         bot, s, ticket.group_requesting,
@@ -329,6 +338,7 @@ async def _do_close(
         i18n.GROUP_TICKET_CLOSED_PEER.format(who=name, uid=tid),
         exclude_chat_id=user.id,
         exclude_muted=True,
+        kind=PEER_CLOSED,
     )
     await notify.group_msg(
         bot, s, ticket.group_requesting,

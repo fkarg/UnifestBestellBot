@@ -53,7 +53,12 @@ def init_db() -> None:
 # and queries would fail. These additive ADD COLUMNs cover that case.
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "ticket": {"who_wip_chat_id": "INTEGER"},
-    "registration": {"display_override": "TEXT"},
+    "registration": {
+        "display_override": "TEXT",
+        "mute_opened": "BOOLEAN NOT NULL DEFAULT 0",
+        "mute_wip": "BOOLEAN NOT NULL DEFAULT 0",
+        "mute_closed": "BOOLEAN NOT NULL DEFAULT 0",
+    },
 }
 
 

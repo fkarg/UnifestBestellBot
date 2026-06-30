@@ -42,11 +42,13 @@ def test_ensure_columns_adds_missing_ticket_column():
     assert "who_wip_chat_id" in _columns(engine, "ticket")
 
 
-def test_ensure_columns_adds_missing_registration_column():
+def test_ensure_columns_adds_missing_registration_columns():
     engine = _legacy_engine(_LEGACY_REGISTRATION)
-    assert "display_override" not in _columns(engine, "registration")
+    cols = _columns(engine, "registration")
+    assert {"display_override", "mute_opened", "mute_wip", "mute_closed"}.isdisjoint(cols)
     _ensure_columns(engine)
-    assert "display_override" in _columns(engine, "registration")
+    cols = _columns(engine, "registration")
+    assert {"display_override", "mute_opened", "mute_wip", "mute_closed"} <= cols
 
 
 def test_ensure_columns_is_idempotent():

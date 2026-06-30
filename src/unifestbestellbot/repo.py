@@ -9,7 +9,14 @@ from sqlalchemy import or_
 from sqlalchemy import update as sa_update
 from sqlmodel import Session, select
 
-from .models import AuditEvent, Registration, Ticket, TicketStatus, now_utc
+from .models import (
+    PEER_NOTIFY_COLUMN,
+    AuditEvent,
+    Registration,
+    Ticket,
+    TicketStatus,
+    now_utc,
+)
 
 # ---------------------------------------------------------------------------
 # Registration
@@ -66,7 +73,11 @@ def registration_for(s: Session, chat_id: int) -> Registration | None:
 
 
 def group_members(
-    s: Session, group_name: str, *, exclude_muted: bool = False
+    s: Session,
+    group_name: str,
+    *,
+    exclude_muted: bool = False,
+    exclude_kind: str | None = None,
 ) -> list[int]:
     stmt = select(Registration.chat_id).where(Registration.group_name == group_name)
     if exclude_muted:
@@ -77,6 +88,10 @@ def group_members(
         stmt = stmt.where(
             or_(mute_col.is_(None), mute_col <= now)  # ty: ignore[unresolved-attribute, unsupported-operator]
         )
+    if exclude_kind is not None:
+        # Drop members who opted out of this peer-notification kind via /notify.
+        kind_col = getattr(Registration, PEER_NOTIFY_COLUMN[exclude_kind])
+        stmt = stmt.where(~kind_col)
     return list(s.exec(stmt))
 
 
@@ -102,6 +117,20 @@ def set_display_override(s: Session, chat_id: int, value: str | None) -> bool:
     s.add(reg)
     s.commit()
     return True
+
+
+def toggle_notify_mute(s: Session, chat_id: int, kind: str) -> bool | None:
+    """Flip the per-kind peer-notification opt-out. Returns the new muted
+    state (True = suppressed), or None if the registration doesn't exist."""
+    reg = s.get(Registration, chat_id)
+    if reg is None:
+        return None
+    col = PEER_NOTIFY_COLUMN[kind]
+    new_state = not bool(getattr(reg, col))
+    setattr(reg, col, new_state)
+    s.add(reg)
+    s.commit()
+    return new_state
 
 
 # ---------------------------------------------------------------------------

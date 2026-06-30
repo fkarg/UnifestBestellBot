@@ -43,6 +43,20 @@ def _now() -> datetime:
     return now_utc()
 
 
+# Peer-activity notification kinds a user can individually opt out of (via
+# /notify). The value is the stable callback/id; the map points at the
+# Registration column holding that opt-out flag.
+PEER_OPENED = "opened"
+PEER_WIP = "wip"
+PEER_CLOSED = "closed"
+PEER_NOTIFY_KINDS = (PEER_OPENED, PEER_WIP, PEER_CLOSED)
+PEER_NOTIFY_COLUMN = {
+    PEER_OPENED: "mute_opened",
+    PEER_WIP: "mute_wip",
+    PEER_CLOSED: "mute_closed",
+}
+
+
 class Registration(SQLModel, table=True):
     chat_id: int = Field(primary_key=True)
     group_name: str = Field(index=True)
@@ -57,6 +71,14 @@ class Registration(SQLModel, table=True):
     # Self-chosen display name (via /name). When set, it replaces the
     # Telegram-derived name everywhere this person is shown for their actions.
     display_override: str | None = None
+    # Per-kind opt-outs for peer-activity DMs (via /notify). True = suppressed.
+    # Independent of mute_peer_until, which is a temporary blanket /quiet.
+    mute_opened: bool = Field(default=False)
+    mute_wip: bool = Field(default=False)
+    mute_closed: bool = Field(default=False)
+
+    def is_peer_kind_muted(self, kind: str) -> bool:
+        return bool(getattr(self, PEER_NOTIFY_COLUMN[kind]))
 
     def display_name(self) -> str:
         if self.display_override:

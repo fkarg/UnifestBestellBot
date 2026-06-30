@@ -68,6 +68,27 @@ async def test_peer_message_skips_actor_and_muted(s):
     assert _recipients(bot) == {3}
 
 
+async def test_peer_message_respects_per_kind_optout(s):
+    """A member who opted out of one peer-notification kind via /notify is
+    dropped for that kind only, independently of /quiet."""
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Finanz"))
+    repo.upsert_registration(s, Registration(chat_id=2, group_name="Finanz"))
+    repo.toggle_notify_mute(s, 2, "wip")  # member 2 mutes WIP notifications
+
+    bot = _bot()
+    await notify.group_msg(
+        bot, s, "Finanz", "colleague took a ticket", exclude_muted=True, kind="wip"
+    )
+    assert _recipients(bot) == {1}
+
+    # A different kind still reaches member 2.
+    bot2 = _bot()
+    await notify.group_msg(
+        bot2, s, "Finanz", "colleague closed a ticket", exclude_muted=True, kind="closed"
+    )
+    assert _recipients(bot2) == {1, 2}
+
+
 # --- flood control -------------------------------------------------------
 
 
