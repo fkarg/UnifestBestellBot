@@ -1,6 +1,8 @@
 """Orga-only commands: /wip /close /move /message /all /tickets /help2
 /history and the related inline ticket pickers."""
 
+from datetime import datetime
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import (
@@ -15,7 +17,7 @@ from .. import i18n, repo
 from ..config import AppConfig
 from ..engelsystem import ShiftLookup
 from ..events import EventBus
-from ..models import Registration, Ticket, TicketStatus, to_local
+from ..models import Registration, Ticket, TicketStatus, now_utc, to_local
 from . import keyboards, notify
 from .common import actor, bot_of, who
 from .filters import IsOrga
@@ -329,6 +331,60 @@ async def _do_close(
     await notify.group_msg(
         bot, s, ticket.group_requesting,
         i18n.GROUP_TICKET_CLOSED_OWNER.format(uid=tid),
+    )
+
+
+# --- /self ----------------------------------------------------------------
+
+
+def _fmt_duration(seconds: float) -> str:
+    total_min = int(round(seconds / 60))
+    if total_min < 60:
+        return f"{total_min} min"
+    h, m = divmod(total_min, 60)
+    return f"{h} h {m} min"
+
+
+def _self_overview(
+    wip: list[Ticket], closed: list[Ticket], *, now: datetime
+) -> str:
+    """Render the caller's personal overview: their live WIP tickets plus
+    how many they've handled. `now` is naive UTC; "today" is the local
+    calendar day (matches /history's display timezone)."""
+    lines = [i18n.SELF_HEADER, "", i18n.SELF_WIP_LINE.format(count=len(wip))]
+    lines += [t.display() for t in wip] if wip else [i18n.SELF_NO_WIP]
+
+    today = to_local(now).date()
+    closed_today = sum(
+        1 for t in closed if t.closed_at is not None and to_local(t.closed_at).date() == today
+    )
+    lines += ["", i18n.SELF_CLOSED_LINE.format(today=closed_today, total=len(closed))]
+
+    durations = [
+        (t.closed_at - t.created_at).total_seconds()
+        for t in closed
+        if t.closed_at is not None
+    ]
+    avg = (
+        i18n.SELF_AVG_NONE
+        if not durations
+        else _fmt_duration(sum(durations) / len(durations))
+    )
+    lines.append(i18n.SELF_AVG_LINE.format(avg=avg))
+    return "\n".join(lines)
+
+
+@router.message(Command("self"), IsOrga())
+async def cmd_self(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = _require_reg(db_session, msg)
+    uid = actor(msg).id
+    wip = repo.active_tickets(
+        db_session, status=TicketStatus.WIP, who_wip_chat_id=uid
+    )
+    closed = repo.closed_tickets_for_chat_id(db_session, uid)
+    await msg.answer(
+        _self_overview(wip, closed, now=now_utc()),
+        reply_markup=keyboards.for_user(reg, config),
     )
 
 

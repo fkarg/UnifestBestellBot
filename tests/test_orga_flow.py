@@ -240,6 +240,64 @@ async def test_set_wip_records_chat_id(s, config):
     assert repo.get_ticket(s, t.id).who_wip_chat_id == 42
 
 
+# --- /self ---------------------------------------------------------------
+
+
+async def test_self_no_activity(s, config):
+    msg = fake_message(user_id=1, text="/self")
+    await orga_flow.cmd_self(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Laufende WIP-Tickets: 0" in body
+    assert "keine laufenden WIP-Tickets" in body
+    assert "Erledigt: 0 heute / 0 gesamt" in body
+
+
+async def test_self_lists_own_wip_only(s, config):
+    mine = _ticket(s, text="mine wip")
+    theirs = _ticket(s, text="their wip")
+    repo.set_wip(s, mine.id, who="me", actor_chat_id=1)
+    repo.set_wip(s, theirs.id, who="bob", actor_chat_id=2)
+    msg = fake_message(user_id=1, text="/self")
+    await orga_flow.cmd_self(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Laufende WIP-Tickets: 1" in body
+    assert "mine wip" in body
+    assert "their wip" not in body
+
+
+async def test_self_counts_closed_today_and_total(s, config):
+    for i in range(3):
+        t = _ticket(s, text=f"done {i}")
+        repo.set_wip(s, t.id, who="me", actor_chat_id=1)
+        repo.close_ticket(s, t.id, actor_chat_id=1)
+    # a ticket worked & closed by someone else must not count
+    other = _ticket(s, text="not mine")
+    repo.set_wip(s, other.id, who="bob", actor_chat_id=2)
+    repo.close_ticket(s, other.id, actor_chat_id=2)
+    msg = fake_message(user_id=1, text="/self")
+    await orga_flow.cmd_self(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Erledigt: 3 heute / 3 gesamt" in body
+    assert "Ø Bearbeitungszeit:" in body
+    assert "—" not in body  # an average exists
+
+
+async def test_self_avg_dash_when_nothing_closed(s, config):
+    t = _ticket(s)
+    repo.set_wip(s, t.id, who="me", actor_chat_id=1)  # WIP, not closed
+    msg = fake_message(user_id=1, text="/self")
+    await orga_flow.cmd_self(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Ø Bearbeitungszeit: —" in body
+
+
+def test_fmt_duration_minutes_and_hours():
+    assert orga_flow._fmt_duration(90) == "2 min"
+    assert orga_flow._fmt_duration(45 * 60) == "45 min"
+    assert orga_flow._fmt_duration(3600) == "1 h 0 min"
+    assert orga_flow._fmt_duration(90 * 60) == "1 h 30 min"
+
+
 # --- /move ---------------------------------------------------------------
 
 

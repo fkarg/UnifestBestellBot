@@ -222,6 +222,19 @@ def active_tickets(
     return list(s.exec(stmt))
 
 
+def closed_tickets_for_chat_id(s: Session, chat_id: int) -> list[Ticket]:
+    """All CLOSED tickets the given orga worked on (claimed via /wip).
+    who_wip_chat_id survives the close transition, so this is the durable
+    record of a person's handled tickets — used by /self for stats."""
+    stmt = (
+        select(Ticket)
+        .where(Ticket.status == TicketStatus.CLOSED)
+        .where(Ticket.who_wip_chat_id == chat_id)
+        .order_by(Ticket.id)  # ty: ignore[invalid-argument-type]
+    )
+    return list(s.exec(stmt))
+
+
 def tickets_requested_by(s: Session, group: str) -> list[Ticket]:
     stmt = (
         select(Ticket)

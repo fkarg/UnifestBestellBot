@@ -23,7 +23,7 @@ ORGA = _kb(
     [
         ["/help", "/help2"],
         ["/all", "/tickets", "/move"],
-        ["/wip", "/close"],
+        ["/wip", "/close", "/self"],
     ]
 )
 

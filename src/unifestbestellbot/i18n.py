@@ -50,7 +50,12 @@ HELP_ORGA = """Zusätzlich verfügbare Kommandos für [ORGA]:
 /wip [ticket-id]
     Beginne Arbeit an einem Ticket.
 /close [ticket-id]
-    Schließe ein Ticket.
+    Schließe ein Ticket. Ohne ID werden
+    zuerst deine eigenen WIP-Tickets
+    angezeigt.
+/self
+    Deine Übersicht: laufende WIP-Tickets
+    und wie viele du erledigt hast.
 /move <ticket-id> <orga-gruppe>
     Weise ein offenes Ticket einer
     anderen Orga-Gruppe zu.
@@ -165,6 +170,15 @@ MESSAGE_DELIVERED = "Nachricht verschickt."
 HISTORY_USAGE = "Benutzung: /history [n]. n zwischen 1 und 50."
 HISTORY_EMPTY = "Keine geschlossenen Tickets für [{group}]."
 HISTORY_HEADER = "Letzte geschlossene Tickets für [{group}]:"
+
+# --- /self (eigene Perspektive) ------------------------------------------
+
+SELF_HEADER = "👤 Deine Übersicht:"
+SELF_WIP_LINE = "🟢 Laufende WIP-Tickets: {count}"
+SELF_NO_WIP = "(keine laufenden WIP-Tickets)"
+SELF_CLOSED_LINE = "✅ Erledigt: {today} heute / {total} gesamt"
+SELF_AVG_LINE = "⏱ Ø Bearbeitungszeit: {avg}"
+SELF_AVG_NONE = "—"
 
 # --- Engelsystem shift digest --------------------------------------------
 
