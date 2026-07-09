@@ -237,7 +237,6 @@ async def cmd_close(
     # yours. The "Alle der Gruppe anzeigen" button expands to the full list.
     own = repo.active_tickets(
         db_session,
-        group_tasked=reg.group_name,
         status=TicketStatus.WIP,
         who_wip_chat_id=actor(msg).id,
     )

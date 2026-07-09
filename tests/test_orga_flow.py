@@ -208,6 +208,28 @@ async def test_close_picker_defaults_to_own_wip_with_show_all(s, config):
     assert "close:_all" in callbacks  # toggle to the full group list
 
 
+async def test_close_picker_includes_own_wip_from_other_orga_group_by_chat_id(s, config):
+    mine = _ticket(s, text="mine from zentrale", group_tasked="Zentrale")
+    same_display_name = _ticket(s, text="same old name")
+    repo.set_wip(s, mine.id, who="old display name", actor_chat_id=1)
+    repo.set_wip(s, same_display_name.id, who="old display name", actor_chat_id=2)
+    repo.upsert_registration(
+        s,
+        Registration(
+            chat_id=1,
+            group_name="Finanz",
+            username="felix",
+            display_override="new display name",
+        ),
+    )
+    msg = fake_message(user_id=1, text="/close")
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=EventBus())
+    kb = msg.answer.call_args.kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert f"close:{mine.id}" in callbacks
+    assert f"close:{same_display_name.id}" not in callbacks
+
+
 async def test_close_all_callback_shows_full_group_wip(s, config):
     mine = _ticket(s, text="mine")
     theirs = _ticket(s, text="theirs")
