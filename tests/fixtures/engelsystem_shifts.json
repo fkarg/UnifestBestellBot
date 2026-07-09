@@ -4,18 +4,20 @@
       "id": 1,
       "starts_at": "2026-05-22T14:00:00+00:00",
       "ends_at": "2026-05-22T16:00:00+00:00",
-      "entries": [
+      "needed_angel_types": [
         {
-          "type": {"name": "Bar"},
-          "users": [
-            {"name": "Alice"},
-            {"name": "Bob"}
+          "angel_type": {"id": 1, "name": "Bar"},
+          "needs": 2,
+          "entries": [
+            {"user": {"id": 11, "name": "Alice"}, "freeloaded": false},
+            {"user": {"id": 12, "name": "Bob"}, "freeloaded": false}
           ]
         },
         {
-          "type": {"name": "Kasse"},
-          "users": [
-            {"name": "Carol"}
+          "angel_type": {"id": 2, "name": "Kasse"},
+          "needs": 1,
+          "entries": [
+            {"user": {"id": 13, "name": "Carol"}, "freeloaded": false}
           ]
         }
       ]
@@ -24,11 +26,12 @@
       "id": 2,
       "starts_at": "2026-05-22T16:00:00+00:00",
       "ends_at": "2026-05-22T18:00:00+00:00",
-      "entries": [
+      "needed_angel_types": [
         {
-          "type": {"name": "Bar"},
-          "users": [
-            {"name": "Dan"}
+          "angel_type": {"id": 1, "name": "Bar"},
+          "needs": 1,
+          "entries": [
+            {"user": {"id": 14, "name": "Dan"}, "freeloaded": false}
           ]
         }
       ]
@@ -37,11 +40,12 @@
       "id": 3,
       "starts_at": "2026-05-22T20:00:00+00:00",
       "ends_at": "2026-05-22T22:00:00+00:00",
-      "entries": [
+      "needed_angel_types": [
         {
-          "type": {"name": "Bar"},
-          "users": [
-            {"name": "Erin"}
+          "angel_type": {"id": 1, "name": "Bar"},
+          "needs": 1,
+          "entries": [
+            {"user": {"id": 15, "name": "Erin"}, "freeloaded": false}
           ]
         }
       ]

@@ -45,9 +45,20 @@ def test_window_equal_start_end_is_always_on():
 def test_format_includes_users_and_roles():
     shift = {
         "starts_at": "2026-05-22T18:00:00+02:00",
-        "entries": [
-            {"type": {"name": "Bar"}, "users": [{"name": "Alice"}, {"name": "Bob"}]},
-            {"type": {"name": "Kasse"}, "users": [{"name": "Carol"}]},
+        "needed_angel_types": [
+            {
+                "angel_type": {"name": "Bar"},
+                "needs": 2,
+                "entries": [
+                    {"user": {"name": "Alice"}, "freeloaded": False},
+                    {"user": {"name": "Bob"}, "freeloaded": False},
+                ],
+            },
+            {
+                "angel_type": {"name": "Kasse"},
+                "needs": 1,
+                "entries": [{"user": {"name": "Carol"}, "freeloaded": False}],
+            },
         ],
     }
     out = format_shift_announcement(shift, "Forum Süd")
@@ -58,7 +69,7 @@ def test_format_includes_users_and_roles():
 
 
 def test_format_empty_entries_marks_as_unfilled():
-    shift = {"starts_at": "2026-05-22T18:00:00+02:00", "entries": []}
+    shift = {"starts_at": "2026-05-22T18:00:00+02:00", "needed_angel_types": []}
     out = format_shift_announcement(shift, "DJ")
     assert "keine Helfer" in out
 
@@ -110,8 +121,14 @@ def _shift_at(start_iso: str, *, id: int = 1, users: tuple[str, ...] = ("Alice",
     return {
         "id": id,
         "starts_at": start_iso,
-        "entries": [
-            {"type": {"name": "Bar"}, "users": [{"name": u} for u in users]},
+        "needed_angel_types": [
+            {
+                "angel_type": {"name": "Bar"},
+                "needs": len(users),
+                "entries": [
+                    {"user": {"name": u}, "freeloaded": False} for u in users
+                ],
+            },
         ],
     }
 

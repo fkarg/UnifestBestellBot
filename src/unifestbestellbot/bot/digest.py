@@ -14,7 +14,7 @@ from aiogram import Bot
 from .. import i18n
 from ..config import AppConfig
 from ..db import session_scope
-from ..engelsystem import EngelsystemClient
+from ..engelsystem import EngelsystemClient, iter_rota
 from ..models import now_utc, to_local
 from ..settings import get_settings
 from . import notify
@@ -53,11 +53,9 @@ def format_shift_announcement(shift: dict, location_name: str) -> str:
         i18n.DIGEST_NEXT_SHIFT.format(location=location_name, time=start_local),
     ]
     has_entries = False
-    for entry in shift.get("entries", []):
-        kind = entry.get("type", {}).get("name", "?")
-        for user in entry.get("users", []):
-            lines.append(f"- {user.get('name', '?')} [{kind}]")
-            has_entries = True
+    for name, role in iter_rota(shift):
+        lines.append(f"- {name} [{role}]")
+        has_entries = True
     if not has_entries:
         lines.append(i18n.DIGEST_NO_ENTRIES)
     return "\n".join(lines)

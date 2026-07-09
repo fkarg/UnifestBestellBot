@@ -69,7 +69,7 @@ def test_summarize_remaining_time_renders_hours():
         {
             "starts_at": "2026-05-22T14:00:00+00:00",
             "ends_at": "2026-05-22T18:00:00+00:00",
-            "entries": [],
+            "needed_angel_types": [],
         }
     ]
     out = summarize_shifts(shifts, now=datetime(2026, 5, 22, 14, 30, tzinfo=UTC))

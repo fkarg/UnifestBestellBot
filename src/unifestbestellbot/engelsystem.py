@@ -2,7 +2,7 @@
 so the formatting can be unit-tested without the network."""
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -35,6 +35,20 @@ class EngelsystemClient:
 
 
 # --- Pure rendering ------------------------------------------------------
+
+
+def iter_rota(shift: dict) -> Iterator[tuple[str, str]]:
+    """Yield ``(user_name, role_name)`` for each helper assigned to a shift.
+
+    Engelsystem nests the rota under
+    ``needed_angel_types[].entries[].user``, with the role name on the
+    enclosing ``angel_type``. Keeping this traversal in one place means
+    both the /helpers summary and the shift digest share a single point
+    of truth for the API shape."""
+    for need in shift.get("needed_angel_types", []):
+        role = need.get("angel_type", {}).get("name", "?")
+        for entry in need.get("entries", []):
+            yield entry.get("user", {}).get("name", "?"), role
 
 
 def _fmt_delta(td: timedelta) -> str:
@@ -70,19 +84,15 @@ def summarize_shifts(
     for shift in current:
         remaining = _end(shift) - now
         lines.append(f"Momentane Schicht noch {_fmt_delta(remaining)}:")
-        for entry in shift.get("entries", []):
-            kind = entry.get("type", {}).get("name", "?")
-            for user in entry.get("users", []):
-                lines.append(f"- {user.get('name', '?')} [{kind}]")
+        for name, role in iter_rota(shift):
+            lines.append(f"- {name} [{role}]")
         lines.append("")
 
     for shift in upcoming:
         until = _start(shift) - now
         lines.append(f"Nächste Schicht in {_fmt_delta(until)}:")
-        for entry in shift.get("entries", []):
-            kind = entry.get("type", {}).get("name", "?")
-            for user in entry.get("users", []):
-                lines.append(f"- {user.get('name', '?')} [{kind}]")
+        for name, role in iter_rota(shift):
+            lines.append(f"- {name} [{role}]")
         lines.append("")
 
     if not lines:
