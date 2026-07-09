@@ -229,6 +229,7 @@ CH_CLOSED = "✅ CLOSED: {who} von [{group}] hat Ticket #{uid} geschlossen."
 CH_MOVED = "🟠 MOVED #{uid} to be handled by {group}"
 CH_REGISTER = "🔵 {who} registered as member of group {group}."
 CH_UNREGISTER = "🔵 {who} unregistered from group {group}."
+CH_RENAME = "🔵 {old} von [{group}] heißt jetzt {new}."
 CH_MESSAGE = "🟣 Nachricht von {sender} an {recipient}: {message}"
 CH_BOT_STARTED = "🔘 Started from {host}"
 

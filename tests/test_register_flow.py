@@ -277,6 +277,17 @@ async def test_name_sets_display_override(s, config):
     assert "Felix von der Bar" in msg.answer.call_args.args[0]
 
 
+async def test_name_set_sends_channel_update(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    msg = fake_message(user_id=1, text="/name Felix von der Bar", first_name="Alice")
+    await register_flow.cmd_name(msg, db_session=s, config=config)
+    msg.bot.send_message.assert_awaited_once()
+    body = msg.bot.send_message.await_args.kwargs["text"]
+    assert "Alice" in body
+    assert "Felix von der Bar" in body
+    assert "Cocktailbar" in body
+
+
 async def test_name_without_arg_shows_current(s, config):
     repo.upsert_registration(
         s, Registration(chat_id=1, group_name="Cocktailbar", display_override="Bar-Chef")
@@ -284,6 +295,7 @@ async def test_name_without_arg_shows_current(s, config):
     msg = fake_message(user_id=1, text="/name")
     await register_flow.cmd_name(msg, db_session=s, config=config)
     assert "Bar-Chef" in msg.answer.call_args.args[0]
+    msg.bot.send_message.assert_not_awaited()
 
 
 async def test_name_dash_clears_override(s, config):
@@ -293,6 +305,11 @@ async def test_name_dash_clears_override(s, config):
     msg = fake_message(user_id=1, text="/name -")
     await register_flow.cmd_name(msg, db_session=s, config=config)
     assert repo.registration_for(s, 1).display_override is None
+    msg.bot.send_message.assert_awaited_once()
+    body = msg.bot.send_message.await_args.kwargs["text"]
+    assert "Bar-Chef" in body
+    assert "Alice" in body
+    assert "Cocktailbar" in body
 
 
 async def test_name_is_length_capped(s, config):

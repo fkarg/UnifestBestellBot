@@ -189,11 +189,23 @@ async def cmd_name(msg: Message, db_session: Session, config: AppConfig) -> None
         )
         return
     if arg == "-":
+        old = reg.display_override or who(actor(msg))
         repo.set_display_override(db_session, reg.chat_id, None)
+        await notify.channel_msg(
+            bot_of(msg),
+            i18n.CH_RENAME.format(
+                old=old, group=reg.group_name, new=who(actor(msg))
+            ),
+        )
         await msg.answer(i18n.NAME_CLEARED, reply_markup=keyboards.for_user(reg, config))
         return
     name = arg[:MAX_DISPLAY_NAME]
+    old = reg.display_override or who(actor(msg))
     repo.set_display_override(db_session, reg.chat_id, name)
+    await notify.channel_msg(
+        bot_of(msg),
+        i18n.CH_RENAME.format(old=old, group=reg.group_name, new=name),
+    )
     await msg.answer(
         i18n.NAME_SET.format(name=name), reply_markup=keyboards.for_user(reg, config)
     )
