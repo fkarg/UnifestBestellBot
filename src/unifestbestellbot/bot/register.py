@@ -1,5 +1,6 @@
 """/start, /help, /register, /unregister, /status, /quiet, /loud."""
 
+import contextlib
 from datetime import timedelta
 
 from aiogram import F, Router
@@ -21,6 +22,7 @@ from ..models import (
     PEER_WIP,
     Registration,
     now_utc,
+    to_local,
 )
 from . import keyboards, notify
 from .common import actor, bot_of, display_for, registration_from, who
@@ -28,6 +30,10 @@ from .common import actor, bot_of, display_for, registration_from, who
 DEFAULT_QUIET_MINUTES = 30
 MAX_QUIET_MINUTES = 24 * 60
 MAX_DISPLAY_NAME = 64
+# How many recently-closed tickets /status appends by default, and the cap
+# when a numeric argument overrides it.
+DEFAULT_STATUS_RECENT = 5
+MAX_STATUS_RECENT = 50
 
 router = Router(name="register")
 
@@ -79,8 +85,7 @@ async def _register_textual(
     """Resolve a case-insensitive textual /register argument against all
     known group identifiers (visible stands, hidden stands, orga groups)
     and register the user."""
-    all_groups = config.all_stall_names() + config.orga_names()
-    match = next((g for g in all_groups if g.casefold() == query.casefold()), None)
+    match = config.resolve_group(query)
     if match is None:
         await msg.answer(
             i18n.UNKNOWN_GROUP,
@@ -161,6 +166,16 @@ async def cmd_status(msg: Message, db_session: Session, config: AppConfig) -> No
             reply_markup=keyboards.for_user(None, config),
         )
         return
+
+    # Optional numeric argument overrides how many recently-closed tickets to
+    # append. This is a casual self-view, so bad input falls back to the
+    # default rather than erroring.
+    parts = (msg.text or "").split(maxsplit=1)
+    recent_n = DEFAULT_STATUS_RECENT
+    if len(parts) > 1:
+        with contextlib.suppress(ValueError):
+            recent_n = max(1, min(int(parts[1].strip()), MAX_STATUS_RECENT))
+
     open_tickets = repo.tickets_requested_by(db_session, reg.group_name)
     if open_tickets:
         body = "\n\n---\n".join(t.display() for t in open_tickets)
@@ -169,6 +184,18 @@ async def cmd_status(msg: Message, db_session: Session, config: AppConfig) -> No
         )
     else:
         text = i18n.STATUS_NO_TICKETS.format(group=reg.group_name)
+
+    closed = repo.recent_closed_for_group(db_session, reg.group_name, limit=recent_n)
+    if closed:
+        recent = "\n\n".join(
+            # closed_at is always set on a CLOSED ticket; guard only to satisfy
+            # the type checker.
+            f"{t.display()}\n  erledigt {to_local(t.closed_at).strftime('%d.%m. %H:%M')}"
+            for t in closed
+            if t.closed_at is not None
+        )
+        text += f"\n\n---\n\n{i18n.STATUS_RECENT_HEADER}\n\n{recent}"
+
     await msg.answer(text, reply_markup=keyboards.for_user(reg, config))
 
 

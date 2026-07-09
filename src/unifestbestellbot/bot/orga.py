@@ -541,24 +541,70 @@ async def cmd_feature(msg: Message, db_session: Session, config: AppConfig) -> N
 # --- /history -------------------------------------------------------------
 
 _HISTORY_MAX = 50
+_HISTORY_DEFAULT = 10
+# A group inspection defaults to a shorter window than the caller's own
+# close log; it's a quick "what has this stand been asking for" glance.
+_HISTORY_GROUP_DEFAULT = 5
 
 
 @router.message(Command("history"), IsOrga())
 async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> None:
     reg = _require_reg(db_session, msg)
-    parts = (msg.text or "").split(maxsplit=1)
-    limit = 10
-    if len(parts) > 1:
-        try:
-            limit = int(parts[1].strip())
-        except ValueError:
-            await msg.answer(i18n.HISTORY_USAGE, reply_markup=keyboards.for_user(reg, config))
-            return
-        if limit < 1 or limit > _HISTORY_MAX:
-            await msg.answer(i18n.HISTORY_USAGE, reply_markup=keyboards.for_user(reg, config))
-            return
+    arg = (msg.text or "").split(maxsplit=1)
+    rest = arg[1].strip() if len(arg) > 1 else ""
 
-    summaries = repo.recent_closes(db_session, group_tasked=reg.group_name, limit=limit)
+    def _bad_limit(n: int | None) -> bool:
+        return n is not None and (n < 1 or n > _HISTORY_MAX)
+
+    async def _usage() -> None:
+        await msg.answer(i18n.HISTORY_USAGE, reply_markup=keyboards.for_user(reg, config))
+
+    # Resolve the argument. Group names can contain spaces and end in a digit
+    # ("Cocktailbar 1"), so try the whole string as a group first, then peel a
+    # trailing integer as the limit, then a bare integer (no group).
+    group: str | None = None
+    explicit: int | None = None
+    if rest:
+        group = config.resolve_group(rest)
+        if group is None:
+            head, _, tail = rest.rpartition(" ")
+            if head and tail.isdigit() and (g := config.resolve_group(head)):
+                group, explicit = g, int(tail)
+            elif rest.isdigit():
+                explicit = int(rest)
+            else:
+                await _usage()
+                return
+
+    # A resolved group switches to inspecting that stand's own ticket history
+    # (all statuses); otherwise it's the caller's tasked-group close log.
+    if group is not None:
+        if _bad_limit(explicit):
+            await _usage()
+            return
+        tickets = repo.recent_tickets_for_group(
+            db_session, group, limit=explicit or _HISTORY_GROUP_DEFAULT
+        )
+        if not tickets:
+            await msg.answer(
+                i18n.HISTORY_GROUP_EMPTY.format(group=group),
+                reply_markup=keyboards.for_user(reg, config),
+            )
+            return
+        lines = [
+            f"{t.display()}\n  erstellt {to_local(t.created_at).strftime('%d.%m. %H:%M')}"
+            for t in tickets
+        ]
+        body = i18n.HISTORY_GROUP_HEADER.format(group=group) + "\n\n" + "\n\n".join(lines)
+        await msg.answer(body, reply_markup=keyboards.for_user(reg, config))
+        return
+
+    if _bad_limit(explicit):
+        await _usage()
+        return
+    summaries = repo.recent_closes(
+        db_session, group_tasked=reg.group_name, limit=explicit or _HISTORY_DEFAULT
+    )
     if not summaries:
         await msg.answer(
             i18n.HISTORY_EMPTY.format(group=reg.group_name),

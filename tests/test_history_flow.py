@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
-from unifestbestellbot import repo
+from unifestbestellbot import i18n, repo
 from unifestbestellbot.bot import orga as orga_flow
 from unifestbestellbot.models import Registration
 
@@ -162,3 +162,66 @@ async def test_history_scopes_to_callers_orga_group(s, config):
     body = msg.answer.call_args.args[0]
     assert "finanz one" in body
     assert "bimi one" not in body
+
+
+# --- /history <group> (inspect a stand's request history) ----------------
+
+
+def _requested(s, *, group: str, text: str, close: bool = False) -> int:
+    t = repo.create_ticket(
+        s,
+        category="Geld",
+        text=text,
+        group_requesting=group,
+        group_tasked="Finanz",
+        actor_chat_id=5,
+    )
+    if close:
+        repo.close_ticket(s, t.id, actor_chat_id=1)
+    return t.id
+
+
+async def test_history_group_shows_all_statuses_for_that_group(s, config):
+    _requested(s, group="Cocktailbar 1", text="still open")
+    _requested(s, group="Cocktailbar 1", text="already done", close=True)
+    # A different group's ticket must not leak in.
+    _requested(s, group="Biertheke 1", text="other group")
+
+    msg = fake_message(user_id=1, text="/history Cocktailbar 1")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Letzte Tickets von [Cocktailbar 1]" in body
+    assert "still open" in body  # open ticket included
+    assert "already done" in body  # closed ticket included
+    assert "other group" not in body
+
+
+async def test_history_group_honours_trailing_limit(s, config):
+    _requested(s, group="Cocktailbar 1", text="oldest")
+    _requested(s, group="Cocktailbar 1", text="newest")
+    msg = fake_message(user_id=1, text="/history Cocktailbar 1 1")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "newest" in body  # newest first, limited to 1
+    assert "oldest" not in body
+
+
+async def test_history_group_empty_state(s, config):
+    msg = fake_message(user_id=1, text="/history Cocktailbar 1")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "Keine Tickets von [Cocktailbar 1]" in body
+
+
+async def test_history_unknown_group_shows_usage(s, config):
+    msg = fake_message(user_id=1, text="/history Nonexistent Stand")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert body == i18n.HISTORY_USAGE
+
+
+async def test_history_group_rejects_out_of_range_limit(s, config):
+    _requested(s, group="Cocktailbar 1", text="x")
+    msg = fake_message(user_id=1, text="/history Cocktailbar 1 9999")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+    assert msg.answer.call_args.args[0] == i18n.HISTORY_USAGE

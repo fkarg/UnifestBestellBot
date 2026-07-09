@@ -260,6 +260,45 @@ async def test_status_lists_open_tickets_for_group(s, config):
     assert "1 Ticket" in body
 
 
+async def test_status_appends_recently_closed_tickets(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    t = repo.create_ticket(
+        s,
+        category="Geld",
+        text="alter Wunsch",
+        group_requesting="Cocktailbar",
+        group_tasked="Finanz",
+        actor_chat_id=1,
+    )
+    repo.close_ticket(s, t.id, actor_chat_id=9)
+    msg = fake_message(user_id=1, text="/status")
+    await register_flow.cmd_status(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    # No open tickets, but the closed one shows under the recent section.
+    assert "keine offenen Tickets" in body
+    assert "Zuletzt erledigt" in body
+    assert "alter Wunsch" in body
+
+
+async def test_status_recent_count_argument_limits_closed(s, config):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Cocktailbar"))
+    for n in range(3):
+        t = repo.create_ticket(
+            s,
+            category="Geld",
+            text=f"closed-{n}",
+            group_requesting="Cocktailbar",
+            group_tasked="Finanz",
+            actor_chat_id=1,
+        )
+        repo.close_ticket(s, t.id, actor_chat_id=9)
+    msg = fake_message(user_id=1, text="/status 1")
+    await register_flow.cmd_status(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert "closed-2" in body  # newest
+    assert "closed-0" not in body  # trimmed by the limit of 1
+
+
 # --- /name -----------------------------------------------------------------
 
 

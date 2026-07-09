@@ -131,6 +131,14 @@ class AppConfig(BaseModel):
             return False
         return group_name in self.all_stall_names() or group_name in self.orga_names()
 
+    def resolve_group(self, query: str) -> str | None:
+        """Case-insensitively resolve a free-text group reference to its
+        canonical name (any stall or orga group), or None if unknown."""
+        for name in self.all_stall_names() + self.orga_names():
+            if name.casefold() == query.casefold():
+                return name
+        return None
+
     def location_id_for_group(self, group_name: str) -> int | None:
         stall = self.stall(group_name)
         if stall is None:

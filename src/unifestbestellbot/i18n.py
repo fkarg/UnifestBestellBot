@@ -25,9 +25,10 @@ HELP = """Verfügbare Befehle:
     (statt deines Telegram-Namens).
     Ohne Argument: aktuellen anzeigen,
     /name - setzt zurück.
-/status
-    Zeige deine Gruppenmitgliedschaft und
-    offene Tickets deiner Gruppe an.
+/status [n]
+    Zeige deine Gruppenmitgliedschaft,
+    offene Tickets deiner Gruppe und die
+    letzten n erledigten (Standard: 5).
 /request
     Erstelle eine Anfrage. Mit ein paar
     Fragen kannst du genau bestimmen, was
@@ -82,6 +83,9 @@ HELP_ORGA = """Zusätzlich verfügbare Kommandos für [ORGA]:
     Letzte n geschlossene Tickets deiner
     Gruppe (default 10, max 50) mit wer
     sie geschlossen hat.
+/history <gruppe> [n]
+    Letzte n Tickets, die eine Gruppe
+    erstellt hat (default 5, alle Status).
 /help2
     Zeige diese Hilfenachricht.
 """
@@ -134,6 +138,7 @@ STATUS_WITH_TICKETS = (
 STATUS_NO_TICKETS = (
     "Mitglied der Gruppe [{group}].\n\nDeine Gruppe hat gerade keine offenen Tickets."
 )
+STATUS_RECENT_HEADER = "Zuletzt erledigt:"
 
 # --- /request flow -------------------------------------------------------
 
@@ -195,9 +200,11 @@ MOVE_USAGE = "Benutzung: /move <ticket-id> <orga-gruppe>. Existierende Gruppen: 
 MESSAGE_USAGE = "Benutzung: /message <ticket-id> <nachricht>"
 MESSAGE_DELIVERED = "Nachricht verschickt."
 
-HISTORY_USAGE = "Benutzung: /history [n]. n zwischen 1 und 50."
+HISTORY_USAGE = "Benutzung: /history [gruppe] [n]. n zwischen 1 und 50."
 HISTORY_EMPTY = "Keine geschlossenen Tickets für [{group}]."
 HISTORY_HEADER = "Letzte geschlossene Tickets für [{group}]:"
+HISTORY_GROUP_EMPTY = "Keine Tickets von [{group}]."
+HISTORY_GROUP_HEADER = "Letzte Tickets von [{group}]:"
 
 # --- /self (eigene Perspektive) ------------------------------------------
 

@@ -307,6 +307,31 @@ def tickets_requested_by(s: Session, group: str) -> list[Ticket]:
     return list(s.exec(stmt))
 
 
+def recent_tickets_for_group(s: Session, group: str, *, limit: int = 5) -> list[Ticket]:
+    """The `limit` most recent tickets a group requested, newest first,
+    across all statuses. Backs the /history <group> inspection view."""
+    stmt = (
+        select(Ticket)
+        .where(Ticket.group_requesting == group)
+        .order_by(Ticket.id.desc())  # ty: ignore[unresolved-attribute]
+        .limit(limit)
+    )
+    return list(s.exec(stmt))
+
+
+def recent_closed_for_group(s: Session, group: str, *, limit: int = 5) -> list[Ticket]:
+    """The `limit` most recently closed tickets a group requested, newest
+    first. Backs the recently-resolved section of /status."""
+    stmt = (
+        select(Ticket)
+        .where(Ticket.group_requesting == group)
+        .where(Ticket.status == TicketStatus.CLOSED)
+        .order_by(Ticket.id.desc())  # ty: ignore[unresolved-attribute]
+        .limit(limit)
+    )
+    return list(s.exec(stmt))
+
+
 @dataclass
 class CloseSummary:
     """One closed ticket, with metadata for display in /history."""
