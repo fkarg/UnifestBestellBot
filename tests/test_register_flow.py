@@ -75,6 +75,7 @@ async def test_help_returns_user_help_when_not_orga(s, config):
         "/loud",
         "/request",
         "/cancel",
+        "/helpers",
         "/bug",
         "/feature",
     ]

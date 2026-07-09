@@ -244,6 +244,15 @@ async def test_main_js_keeps_reconnect_state_optimistically_online(client):
     assert 'conn.className = "off"' in r.text
 
 
+async def test_main_js_marks_stale_stream_offline_without_error_event(client):
+    r = await client.get("/main.js")
+    assert r.status_code == 200
+    assert "STALE_AFTER_MS = 25000" in r.text
+    assert "heartbeat" in r.text
+    assert "lastServerActivityAt" in r.text
+    assert "checkStaleConnection" in r.text
+
+
 # --- stream delivers all events; the browser filters by group -----------
 #
 # The SSE stream is intentionally unfiltered (group filtering moved to the
@@ -282,7 +291,7 @@ async def test_sse_stream_sends_heartbeat_while_idle():
 
     chunk = await asyncio.wait_for(anext(stream), timeout=0.2)
 
-    assert chunk == ": heartbeat\n\n"
+    assert chunk == "event: heartbeat\ndata: {}\n\n"
     await stream.aclose()
 
 

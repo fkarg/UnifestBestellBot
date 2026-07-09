@@ -37,7 +37,6 @@ ORGA_MESSAGE_COMMANDS = [
     orga_flow.cmd_tickets,
     orga_flow.cmd_all,
     orga_flow.cmd_history,
-    orga_flow.cmd_helpers,
     orga_flow.cmd_help2,
 ]
 
@@ -69,6 +68,10 @@ def test_bug_and_feature_are_open_to_everyone():
     bug or request a feature. Pinned so it isn't 'fixed' by mistake."""
     for cmd in (orga_flow.cmd_bug, orga_flow.cmd_feature):
         assert not _has_filter(orga_flow.router.message, cmd, IsOrga)
+
+
+def test_helpers_is_open_to_registered_stands():
+    assert not _has_filter(orga_flow.router.message, orga_flow.cmd_helpers, IsOrga)
 
 
 # --- developer-only commands ---------------------------------------------

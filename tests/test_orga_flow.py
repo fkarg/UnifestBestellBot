@@ -533,6 +533,20 @@ async def test_helpers_calls_shift_lookup_with_user_group(s, config):
     assert "Schichtinfo" in msg.answer.call_args.args[0]
 
 
+async def test_helpers_works_for_registered_stand(s, config):
+    repo.upsert_registration(s, Registration(chat_id=2, group_name="Cocktailbar 1"))
+    calls = []
+
+    async def lookup(group, cfg):
+        calls.append(group)
+        return "Schichtinfo"
+
+    msg = fake_message(user_id=2, text="/helpers")
+    await orga_flow.cmd_helpers(msg, db_session=s, config=config, shift_lookup=lookup)
+    assert calls == ["Cocktailbar 1"]
+    assert "Schichtinfo" in msg.answer.call_args.args[0]
+
+
 async def test_helpers_with_arg_overrides_group(s, config):
     calls = []
 

@@ -42,7 +42,7 @@ async def sse_events(
             if not done:
                 if loop.time() >= deadline:
                     return
-                yield ": heartbeat\n\n"
+                yield "event: heartbeat\ndata: {}\n\n"
                 continue
 
             try:

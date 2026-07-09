@@ -10,6 +10,8 @@ document.getElementById("group-label").textContent = group ? `· ${group}` : "";
 
 const RECONNECT_DELAY_MS = 10000;
 const ONLINE_GRACE_MS = 2000;
+const STALE_AFTER_MS = 25000;
+const STALE_CHECK_MS = 1000;
 
 let allowSound = false;
 document.body.addEventListener(
@@ -69,6 +71,27 @@ let currentStream = null;
 let reconnectTimer = null;
 let streamOpened = false;
 let offlineTimer = null;
+let lastServerActivityAt = 0;
+
+function markOnline() {
+  lastServerActivityAt = Date.now();
+  conn.textContent = "online";
+  conn.className = "on";
+}
+
+function markReconnecting() {
+  conn.textContent = "reconnecting…";
+  conn.className = "off";
+}
+
+function checkStaleConnection() {
+  if (!streamOpened || lastServerActivityAt === 0) return;
+  if (Date.now() - lastServerActivityAt > STALE_AFTER_MS) {
+    markReconnecting();
+  }
+}
+
+setInterval(checkStaleConnection, STALE_CHECK_MS);
 
 function onTicket(t) {
   if (!snapshotted) {
@@ -99,20 +122,21 @@ function subscribe() {
       offlineTimer = null;
     }
     streamOpened = true;
-    conn.textContent = "online";
-    conn.className = "on";
+    markOnline();
   });
-  es.addEventListener("ticket", (e) => onTicket(JSON.parse(e.data)));
+  es.addEventListener("heartbeat", () => markOnline());
+  es.addEventListener("ticket", (e) => {
+    markOnline();
+    onTicket(JSON.parse(e.data));
+  });
   es.addEventListener("error", () => {
     if (currentStream !== es) return;
     if (!streamOpened) {
-      conn.textContent = "reconnecting…";
-      conn.className = "off";
+      markReconnecting();
     } else {
       offlineTimer ??= setTimeout(() => {
         if (currentStream !== es) return;
-        conn.textContent = "reconnecting…";
-        conn.className = "off";
+        markReconnecting();
         offlineTimer = null;
       }, ONLINE_GRACE_MS);
     }
@@ -136,6 +160,7 @@ function start() {
   }
   snapshotted = false;
   buffer = [];
+  lastServerActivityAt = 0;
   subscribe();
   snapshot();
 }

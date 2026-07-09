@@ -1,5 +1,4 @@
-"""Orga-only commands: /wip /close /move /message /all /tickets /help2
-/history and the related inline ticket pickers."""
+"""Orga commands plus shared support commands such as /helpers."""
 
 from datetime import datetime
 
@@ -494,11 +493,14 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
 # --- /helpers (shift lookup) ---------------------------------------------
 
 
-@router.message(Command("helpers"), IsOrga())
+@router.message(Command("helpers"))
 async def cmd_helpers(
     msg: Message, db_session: Session, config: AppConfig, shift_lookup: ShiftLookup
 ) -> None:
-    reg = _require_reg(db_session, msg)
+    reg = repo.registration_for(db_session, actor(msg).id)
+    if reg is None:
+        await msg.answer(i18n.NOT_REGISTERED, reply_markup=keyboards.for_user(None, config))
+        return
     parts = (msg.text or "").split(maxsplit=1)
     group = parts[1].strip() if len(parts) > 1 else reg.group_name
     summary = await shift_lookup(group, config)

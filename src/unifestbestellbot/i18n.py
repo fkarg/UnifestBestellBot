@@ -35,6 +35,8 @@ HELP = """Verfügbare Befehle:
 /cancel
     Breche das Erstellen der momentanen
     Anfrage ab.
+/helpers [gruppe]
+    Zeige Helfer-Schichten am Standort.
 /quiet [minutes]
     Unterdrücke Aktivitätsmeldungen
     deiner Gruppe für eine Anzahl

@@ -351,3 +351,38 @@ src/unifestbestellbot/
     ├── orga.py        # /wip /close /move /message /all /tickets /help2 /helpers
     └── admin.py       # /closeall (developer-only)
 ```
+
+## Commands
+
+### Public
+
+- `/start`
+- `/help`
+- `/register [group]`
+- `/unregister`
+- `/status`
+- `/name [anzeigename|-]`
+- `/notify`
+- `/quiet [minutes]`
+- `/loud`
+- `/request`
+- `/cancel`
+- `/helpers [group]`
+- `/bug <text>`
+- `/feature <text>`
+
+### Orga-only
+
+- `/help2`
+- `/all`
+- `/tickets`
+- `/wip [ticket-id]`
+- `/close [ticket-id]`
+- `/self`
+- `/move <ticket-id> <orga-gruppe>`
+- `/message <ticket-id> <text>`
+- `/history [n]`
+
+### Developer-only
+
+- `/closeall`
