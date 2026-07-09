@@ -54,6 +54,7 @@ def init_db() -> None:
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "ticket": {"who_wip_chat_id": "INTEGER"},
     "registration": {
+        "mute_peer_until": "TIMESTAMP",
         "display_override": "TEXT",
         "mute_opened": "BOOLEAN NOT NULL DEFAULT 0",
         "mute_wip": "BOOLEAN NOT NULL DEFAULT 0",

@@ -2,8 +2,8 @@
 locally too; the DM is so an on-call dev sees the traceback on their
 phone within seconds during a live event."""
 
-import html
 import logging
+import math
 import traceback
 
 from aiogram import Bot
@@ -16,14 +16,29 @@ log = logging.getLogger(__name__)
 
 # Telegram limits messages to 4096 chars; reserve some headroom for the
 # <pre> tags and labels we wrap around the traceback.
-_TRACEBACK_BUDGET = 3500
-_UPDATE_BUDGET = 800
+TELEGRAM_MESSAGE_LIMIT = 4096
+_ERROR_CHUNK_SIZE = 3900
+_TRACEBACK_BUDGET = 2400
+_TRUNCATED = "\n... [truncated]"
 
 
 def _truncate(s: str, limit: int) -> str:
     if len(s) <= limit:
         return s
-    return s[:limit] + "\n... [truncated]"
+    return s[:limit] + _TRUNCATED
+
+
+def _split_message(text: str, *, chunk_size: int = _ERROR_CHUNK_SIZE) -> list[str]:
+    if len(text) <= TELEGRAM_MESSAGE_LIMIT:
+        return [text]
+
+    total = math.ceil(len(text) / chunk_size)
+    chunks = []
+    for idx in range(total):
+        header = f"[{idx + 1}/{total}]\n"
+        start = idx * chunk_size
+        chunks.append(header + text[start : start + chunk_size])
+    return chunks
 
 
 def format_crash_report(component: str, exc: BaseException) -> str:
@@ -53,17 +68,11 @@ async def on_error(event: ErrorEvent, bot: Bot) -> None:
         except Exception:
             update_repr = repr(event.update)
 
-    body = (
-        f"<b>🔴 Exception:</b> {html.escape(repr(exc))}\n\n"
-        f"<b>Traceback:</b>\n<pre>{html.escape(_truncate(tb, _TRACEBACK_BUDGET))}</pre>\n\n"
-        f"<b>Update:</b>\n<pre>{html.escape(_truncate(update_repr, _UPDATE_BUDGET))}</pre>"
-    )
+    body = f"🔴 Exception: {repr(exc)}\n\nTraceback:\n{tb}\n\nUpdate:\n{update_repr}"
 
     try:
-        await bot.send_message(
-            chat_id=get_settings().developer_chat_id,
-            text=body,
-            parse_mode="HTML",
-        )
+        chat_id = get_settings().developer_chat_id
+        for chunk in _split_message(body):
+            await bot.send_message(chat_id=chat_id, text=chunk)
     except Exception:
         log.exception("failed to forward error to developer chat")

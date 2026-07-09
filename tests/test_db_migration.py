@@ -33,6 +33,10 @@ _LEGACY_REGISTRATION = (
     "username TEXT, first_name TEXT, last_name TEXT, registered_at TIMESTAMP, "
     "mute_peer_until TIMESTAMP)"
 )
+_INITIAL_REGISTRATION = (
+    "CREATE TABLE registration (chat_id INTEGER PRIMARY KEY, group_name TEXT, "
+    "username TEXT, first_name TEXT, last_name TEXT, registered_at TIMESTAMP)"
+)
 
 
 def test_ensure_columns_adds_missing_ticket_column():
@@ -49,6 +53,13 @@ def test_ensure_columns_adds_missing_registration_columns():
     _ensure_columns(engine)
     cols = _columns(engine, "registration")
     assert {"display_override", "mute_opened", "mute_wip", "mute_closed"} <= cols
+
+
+def test_ensure_columns_adds_missing_quiet_mute_column():
+    engine = _legacy_engine(_INITIAL_REGISTRATION)
+    assert "mute_peer_until" not in _columns(engine, "registration")
+    _ensure_columns(engine)
+    assert "mute_peer_until" in _columns(engine, "registration")
 
 
 def test_ensure_columns_is_idempotent():
