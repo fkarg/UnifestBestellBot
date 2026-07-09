@@ -7,12 +7,12 @@ def test_route_category_matches_explicit_orga(config):
     assert config.route_category("Geld") == "Finanz"
     assert config.route_category("Becher") == "BiMi"
     assert config.route_category("Cocktail") == "BiMi"
+    assert config.route_category("Sonstiges") == "BiMi"
     assert config.route_category("Helfer") == "Helfen"
 
 
 def test_route_category_falls_back_to_default(config):
     assert config.route_category("Eis") == "Zentrale"
-    assert config.route_category("Sonstiges") == "Zentrale"
 
 
 def test_visible_stalls_excludes_hidden(config):
@@ -203,5 +203,6 @@ def test_example_config_yaml_loads():
     """The committed example file must always be a valid config."""
     cfg = load_config("config.yaml.example")
     assert cfg.route_category("Geld") == "Finanz"
+    assert cfg.route_category("Sonstiges") == "BiMi"
     # The example lists "Cocktailbar 1" as a visible group.
     assert "Cocktailbar 1" in cfg.visible_stall_names()

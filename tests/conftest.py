@@ -25,9 +25,9 @@ def config() -> AppConfig:
             ],
             "orga_groups": [
                 {"name": "Finanz", "categories": ["Geld"]},
-                {"name": "BiMi", "categories": ["Bier", "Cocktail", "Becher"]},
+                {"name": "BiMi", "categories": ["Bier", "Cocktail", "Becher", "Sonstiges"]},
                 {"name": "Helfen", "categories": ["Helfer"]},
-                {"name": "Zentrale", "categories": ["Sonstiges"], "default": True},
+                {"name": "Zentrale", "categories": [], "default": True},
             ],
             "locations": {
                 "Innenhof": 12,

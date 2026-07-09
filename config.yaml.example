@@ -55,11 +55,11 @@ orga_groups:
   - name: "Finanz"
     categories: ["Geld"]
   - name: "BiMi"
-    categories: ["Bier", "Cocktail", "Becher"]
+    categories: ["Bier", "Cocktail", "Becher", "Sonstiges"]
   - name: "Helfen"
     categories: ["Helfer"]
   - name: "Zentrale"
-    categories: ["Sonstiges"]
+    categories: []
     default: true
 
 # Optional. Maps each `stalls[].location` to its Engelsystem location id.

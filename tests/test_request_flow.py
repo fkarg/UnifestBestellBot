@@ -177,12 +177,12 @@ async def test_bier_freetext_routes_to_bimi(s, state, config, events):
     assert "Bier" in tickets[0].text
 
 
-async def test_sonstiges_routes_to_default_zentrale(s, state, config, events):
+async def test_sonstiges_routes_to_bimi(s, state, config, events):
     await _start(state)
     await request_flow.pick_category(fake_message(user_id=1, text="Sonstiges"), state)
     msg = fake_message(user_id=1, text="Tape, viel Tape")
     await request_flow.free_text(msg, state, db_session=s, config=config, events=events)
-    tickets = repo.active_tickets(s, group_tasked="Zentrale")
+    tickets = repo.active_tickets(s, group_tasked="BiMi")
     assert len(tickets) == 1
     assert "Tape" in tickets[0].text
 
