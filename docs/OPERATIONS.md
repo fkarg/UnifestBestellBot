@@ -36,6 +36,19 @@ uv run unifestbestellbot              # foreground; logs print live
                                        # detach with Ctrl-b d
 ```
 
+For local testing, you can run the whole bot under a file watcher. This is
+deliberately a development workflow, not the default event deploy path:
+
+```sh
+uv run watchfiles --filter all \
+  --ignore-paths .venv,logs,bot.db,bot.db-shm,bot.db-wal \
+  'uv run unifestbestellbot' src config.yaml .env
+```
+
+On changes, `watchfiles` sends `SIGINT` to the running bot, waits for its
+clean shutdown, then starts it again. Telegram polling is restarted too, so
+in-flight `/request` conversations are dropped just like a manual restart.
+
 `Ctrl-C` exits cleanly: SSE subscribers are disconnected, the bot session
 is closed, and the Engelsystem HTTP client is shut down.
 
