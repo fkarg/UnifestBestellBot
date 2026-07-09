@@ -63,7 +63,23 @@ async def test_help_returns_user_help_when_not_orga(s, config):
     msg = fake_message(user_id=1)
     await register_flow.cmd_help(msg, db_session=s, config=config)
     body = msg.answer.call_args.args[0]
-    assert "/request" in body
+    public_commands = [
+        "/start",
+        "/help",
+        "/register",
+        "/unregister",
+        "/status",
+        "/name",
+        "/notify",
+        "/quiet",
+        "/loud",
+        "/request",
+        "/cancel",
+        "/bug",
+        "/feature",
+    ]
+    for command in public_commands:
+        assert command in body
     assert "/move" not in body  # orga-only commands not shown
 
 
@@ -72,6 +88,7 @@ async def test_help_returns_orga_help_for_orga_member(s, config):
     msg = fake_message(user_id=1)
     await register_flow.cmd_help(msg, db_session=s, config=config)
     body = msg.answer.call_args.args[0]
+    assert "/request" in body
     assert "/move" in body
     assert "/wip" in body
 

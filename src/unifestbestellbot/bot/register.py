@@ -41,7 +41,11 @@ async def cmd_start(msg: Message, db_session: Session, config: AppConfig) -> Non
 @router.message(Command("help"))
 async def cmd_help(msg: Message, db_session: Session, config: AppConfig) -> None:
     reg = repo.registration_for(db_session, actor(msg).id)
-    text = i18n.HELP_ORGA if reg and config.is_orga(reg.group_name) else i18n.HELP
+    text = (
+        f"{i18n.HELP}\n{i18n.HELP_ORGA}"
+        if reg and config.is_orga(reg.group_name)
+        else i18n.HELP
+    )
     await msg.answer(text, reply_markup=keyboards.for_user(reg, config))
 
 

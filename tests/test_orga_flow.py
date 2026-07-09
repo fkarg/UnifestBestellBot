@@ -397,7 +397,20 @@ async def test_help2_returns_orga_help(s, config):
     msg = fake_message(user_id=1)
     await orga_flow.cmd_help2(msg, db_session=s, config=config)
     body = msg.answer.call_args.args[0]
-    assert "/move" in body and "/wip" in body
+    orga_commands = [
+        "/help2",
+        "/all",
+        "/tickets",
+        "/wip",
+        "/close",
+        "/self",
+        "/move",
+        "/message",
+        "/helpers",
+        "/history",
+    ]
+    for command in orga_commands:
+        assert command in body
 
 
 # --- dashboard publishing (SSE liveness) ---------------------------------

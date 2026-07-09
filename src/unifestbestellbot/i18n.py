@@ -45,6 +45,10 @@ HELP = """Verfügbare Befehle:
 /notify
     Einzelne Benachrichtigungs-Typen
     dauerhaft an-/abschalten.
+/bug <text>
+    Melde ein Problem an die Bot-Betreiber.
+/feature <text>
+    Schlage eine Verbesserung vor.
 /help
     Zeige diese Hilfenachricht an.
 """
