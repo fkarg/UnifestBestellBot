@@ -40,6 +40,11 @@ _WEB_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 2
 
 def _build_uvicorn_config(web: FastAPI, *, web_bind: str, log_level: str) -> uvicorn.Config:
     bind_host, _, bind_port = web_bind.rpartition(":")
+    # A bracketed IPv6 literal like "[::1]" is authority/URL syntax; uvicorn
+    # hands the host straight to getaddrinfo, which wants the bare address
+    # "::1" and fails ("Name or service not known") on the brackets.
+    if bind_host.startswith("[") and bind_host.endswith("]"):
+        bind_host = bind_host[1:-1]
     return uvicorn.Config(
         web,
         host=bind_host or "0.0.0.0",

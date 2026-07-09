@@ -43,6 +43,23 @@ def test_web_server_config_bounds_graceful_shutdown(config):
     assert uvicorn_config.timeout_graceful_shutdown == 2
 
 
+def test_web_server_config_parses_bracketed_ipv6_bind():
+    """A bracketed IPv6 bind like "[::1]:8000" must yield the bare address
+    "::1"; passing the brackets through to uvicorn makes getaddrinfo fail
+    with "Name or service not known" and the server exits at startup."""
+    from unifestbestellbot.__main__ import _build_uvicorn_config
+    from unifestbestellbot.web import build_web_app
+
+    uvicorn_config = _build_uvicorn_config(
+        build_web_app(EventBus()),
+        web_bind="[::1]:8000",
+        log_level="INFO",
+    )
+
+    assert uvicorn_config.host == "::1"
+    assert uvicorn_config.port == 8000
+
+
 async def test_dashboard_server_closes_events_before_uvicorn_shutdown(monkeypatch):
     from unifestbestellbot.__main__ import _build_uvicorn_config, _DashboardServer
     from unifestbestellbot.web import build_web_app
