@@ -17,31 +17,20 @@ from .repo import active_tickets
 
 STATIC_DIR = Path(__file__).parent / "static"
 SSE_HEARTBEAT_SECONDS = 10.0
-SSE_MAX_AGE_SECONDS = 30.0
 
 
 async def sse_events(
     events: EventBus,
     *,
     heartbeat_seconds: float = SSE_HEARTBEAT_SECONDS,
-    max_age_seconds: float = SSE_MAX_AGE_SECONDS,
 ) -> AsyncGenerator[str]:
-    """Yield SSE chunks and close periodically so restarts are not held open."""
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + max_age_seconds
+    """Yield SSE chunks until shutdown, keeping idle connections alive."""
     sub = events.subscribe()
     next_payload = asyncio.ensure_future(anext(sub))
     try:
         while True:
-            remaining = deadline - loop.time()
-            if remaining <= 0:
-                return
-
-            timeout = min(heartbeat_seconds, remaining)
-            done, _ = await asyncio.wait({next_payload}, timeout=timeout)
+            done, _ = await asyncio.wait({next_payload}, timeout=heartbeat_seconds)
             if not done:
-                if loop.time() >= deadline:
-                    return
                 yield "event: heartbeat\ndata: {}\n\n"
                 continue
 

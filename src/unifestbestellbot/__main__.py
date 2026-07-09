@@ -18,6 +18,7 @@ import socket
 from collections.abc import Awaitable, Callable
 
 import uvicorn
+from fastapi import FastAPI
 
 from . import i18n
 from .bot import build_bot, build_dispatcher, errors, notify
@@ -34,6 +35,19 @@ log = logging.getLogger(__name__)
 # Restart backoff bounds for a crashed long-running coroutine.
 _BACKOFF_START = 1.0
 _BACKOFF_MAX = 30.0
+_WEB_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 2
+
+
+def _build_uvicorn_config(web: FastAPI, *, web_bind: str, log_level: str) -> uvicorn.Config:
+    bind_host, _, bind_port = web_bind.rpartition(":")
+    return uvicorn.Config(
+        web,
+        host=bind_host or "0.0.0.0",
+        port=int(bind_port),
+        log_level=log_level.lower(),
+        access_log=False,
+        timeout_graceful_shutdown=_WEB_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
+    )
 
 
 async def _supervise(
@@ -99,21 +113,17 @@ async def amain() -> None:
     dp = build_dispatcher(config=config, events=events, shift_lookup=shift_lookup)
 
     web = build_web_app(events)
-    bind_host, _, bind_port = settings.web_bind.rpartition(":")
 
     def _make_server() -> uvicorn.Server:
         # A fresh Server per (re)start: uvicorn.Server carries should_exit
         # state across serve(), so reusing one instance would not restart
         # cleanly after a crash.
-        return uvicorn.Server(
-            uvicorn.Config(
-                web,
-                host=bind_host or "0.0.0.0",
-                port=int(bind_port),
-                log_level=settings.log_level.lower(),
-                access_log=False,
-            )
+        config = _build_uvicorn_config(
+            web,
+            web_bind=settings.web_bind,
+            log_level=settings.log_level,
         )
+        return uvicorn.Server(config)
 
     host = socket.gethostname()
     log.info("UnifestBestellBot starting from %s", host)

@@ -32,6 +32,22 @@ def test_main_module_imports():
     importlib.import_module("unifestbestellbot.__main__")
 
 
+def test_web_server_config_bounds_graceful_shutdown(config):
+    from unifestbestellbot.__main__ import _build_uvicorn_config
+    from unifestbestellbot.events import EventBus
+    from unifestbestellbot.web import build_web_app
+
+    uvicorn_config = _build_uvicorn_config(
+        build_web_app(EventBus()),
+        web_bind="127.0.0.1:9000",
+        log_level="INFO",
+    )
+
+    assert uvicorn_config.host == "127.0.0.1"
+    assert uvicorn_config.port == 9000
+    assert uvicorn_config.timeout_graceful_shutdown == 2
+
+
 def test_build_bot_has_no_default_parse_mode():
     """Channel logs and group notifications include verbatim strings like
     `<@username>` that would crash Telegram's HTML parser. The bot must

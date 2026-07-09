@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import inspect
 import json
 
 import httpx
@@ -287,7 +288,7 @@ async def test_stream_publishes_all_groups_to_a_subscriber():
 
 async def test_sse_stream_sends_heartbeat_while_idle():
     bus = EventBus()
-    stream = sse_events(bus, heartbeat_seconds=0.01, max_age_seconds=1.0)
+    stream = sse_events(bus, heartbeat_seconds=0.01)
 
     chunk = await asyncio.wait_for(anext(stream), timeout=0.2)
 
@@ -295,17 +296,21 @@ async def test_sse_stream_sends_heartbeat_while_idle():
     await stream.aclose()
 
 
-async def test_sse_stream_closes_after_max_age():
-    bus = EventBus()
-    stream = sse_events(bus, heartbeat_seconds=1.0, max_age_seconds=0.01)
+async def test_sse_stream_stays_open_while_idle():
+    assert "max_age_seconds" not in inspect.signature(sse_events).parameters
 
-    with pytest.raises(StopAsyncIteration):
-        await asyncio.wait_for(anext(stream), timeout=0.2)
+    bus = EventBus()
+    stream = sse_events(bus, heartbeat_seconds=0.01)
+
+    chunks = [await asyncio.wait_for(anext(stream), timeout=0.2) for _ in range(3)]
+
+    assert chunks == ["event: heartbeat\ndata: {}\n\n"] * 3
+    await stream.aclose()
 
 
 async def test_sse_stream_keeps_ticket_events_immediate():
     bus = EventBus()
-    stream = sse_events(bus, heartbeat_seconds=1.0, max_age_seconds=1.0)
+    stream = sse_events(bus, heartbeat_seconds=1.0)
     next_chunk = asyncio.create_task(anext(stream))
     await asyncio.sleep(0.01)
 
