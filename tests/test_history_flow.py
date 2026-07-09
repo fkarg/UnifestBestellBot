@@ -220,6 +220,14 @@ async def test_history_unknown_group_shows_usage(s, config):
     assert body == i18n.HISTORY_USAGE
 
 
+async def test_history_superscript_digit_is_not_a_limit(s, config):
+    # "²".isdigit() is True but int("²") raises: the limit gate uses isdecimal()
+    # so this resolves to usage, not an unhandled ValueError. Found by fuzzing.
+    msg = fake_message(user_id=1, text="/history ²")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+    assert msg.answer.call_args.args[0] == i18n.HISTORY_USAGE
+
+
 async def test_history_group_rejects_out_of_range_limit(s, config):
     _requested(s, group="Cocktailbar 1", text="x")
     msg = fake_message(user_id=1, text="/history Cocktailbar 1 9999")

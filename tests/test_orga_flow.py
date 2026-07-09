@@ -5,7 +5,7 @@ import json
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
-from unifestbestellbot import repo
+from unifestbestellbot import i18n, repo
 from unifestbestellbot.bot import orga as orga_flow
 from unifestbestellbot.events import EventBus
 from unifestbestellbot.models import Registration, TicketStatus
@@ -557,3 +557,38 @@ async def test_helpers_with_arg_overrides_group(s, config):
     msg = fake_message(user_id=1, text="/helpers Cocktailbar")
     await orga_flow.cmd_helpers(msg, db_session=s, config=config, shift_lookup=lookup)
     assert calls == ["Cocktailbar"]
+
+
+# --- ticket-id overflow guard --------------------------------------------
+#
+# A ticket id larger than SQLite's signed-64-bit INTEGER can't be bound to a
+# query at all (sqlite3 raises OverflowError before any row is fetched). These
+# pin that such an id is parsed as "no valid id" and answered cleanly, never
+# thrown. Found by test_parser_fuzz.
+
+_OVERFLOW_ID = str(2**63)  # one past the SQLite signed-64-bit maximum
+
+
+async def test_wip_out_of_range_id_shows_picker_not_crash(s, config, events):
+    # No arg / invalid arg both mean "show the picker" for /wip.
+    msg = fake_message(user_id=1, text=f"/wip {_OVERFLOW_ID}")
+    await orga_flow.cmd_wip(msg, db_session=s, config=config, events=events)
+    assert msg.answer.await_count == 1  # answered, no exception
+
+
+async def test_close_out_of_range_id_shows_picker_not_crash(s, config, events):
+    msg = fake_message(user_id=1, text=f"/close {_OVERFLOW_ID}")
+    await orga_flow.cmd_close(msg, db_session=s, config=config, events=events)
+    assert msg.answer.await_count == 1
+
+
+async def test_move_out_of_range_id_shows_usage_not_crash(s, config, events):
+    msg = fake_message(user_id=1, text=f"/move {_OVERFLOW_ID} Finanz")
+    await orga_flow.cmd_move(msg, db_session=s, config=config, events=events)
+    assert i18n.MOVE_USAGE.format(groups=config.orga_names()) in msg.answer.call_args.args[0]
+
+
+async def test_message_out_of_range_id_shows_usage_not_crash(s, config):
+    msg = fake_message(user_id=1, text=f"/message {_OVERFLOW_ID} hallo")
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+    assert msg.answer.call_args.args[0] == i18n.MESSAGE_USAGE

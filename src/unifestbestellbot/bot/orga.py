@@ -52,14 +52,26 @@ def _picker(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+# SQLite stores the ticket-id primary key as a signed 64-bit INTEGER. A larger
+# value can't even be bound to a query — sqlite3 raises OverflowError before any
+# lookup — so anything out of the valid id range (positive, ≤ 2**63-1) is parsed
+# as "no valid id" and handled like a missing/garbage argument, not thrown.
+_SQLITE_MAX_INT = 2**63 - 1
+
+
+def _parse_ticket_id(token: str) -> int | None:
+    try:
+        tid = int(token)
+    except ValueError:
+        return None
+    return tid if 0 < tid <= _SQLITE_MAX_INT else None
+
+
 def _arg_id(msg: Message) -> int | None:
     parts = (msg.text or "").split()
     if len(parts) < 2:
         return None
-    try:
-        return int(parts[1])
-    except ValueError:
-        return None
+    return _parse_ticket_id(parts[1])
 
 
 # --- /tickets, /all ------------------------------------------------------
@@ -409,9 +421,8 @@ async def cmd_move(
     if len(parts) < 3:
         await msg.answer(i18n.MOVE_USAGE.format(groups=config.orga_names()))
         return
-    try:
-        tid = int(parts[1])
-    except ValueError:
+    tid = _parse_ticket_id(parts[1])
+    if tid is None:
         await msg.answer(i18n.MOVE_USAGE.format(groups=config.orga_names()))
         return
     target = parts[2].strip()
@@ -455,9 +466,8 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
     if len(parts) < 3:
         await msg.answer(i18n.MESSAGE_USAGE)
         return
-    try:
-        tid = int(parts[1])
-    except ValueError:
+    tid = _parse_ticket_id(parts[1])
+    if tid is None:
         await msg.answer(i18n.MESSAGE_USAGE)
         return
     body = parts[2]
@@ -568,9 +578,11 @@ async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> N
         group = config.resolve_group(rest)
         if group is None:
             head, _, tail = rest.rpartition(" ")
-            if head and tail.isdigit() and (g := config.resolve_group(head)):
+            # isdecimal(), not isdigit(): the latter is True for superscripts
+            # like "²" that int() then rejects with ValueError.
+            if head and tail.isdecimal() and (g := config.resolve_group(head)):
                 group, explicit = g, int(tail)
-            elif rest.isdigit():
+            elif rest.isdecimal():
                 explicit = int(rest)
             else:
                 await _usage()

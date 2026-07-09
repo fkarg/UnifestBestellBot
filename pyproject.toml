@@ -39,6 +39,7 @@ dev = [
     "pytest>=8.3,<9.0",
     "pytest-asyncio>=1.4,<2.0",
     "pytest-cov>=6.0,<7.0",
+    "hypothesis>=6.100,<7.0",
     "ruff>=0.8,<0.20",
     "ty>=0.0.38",
 ]
