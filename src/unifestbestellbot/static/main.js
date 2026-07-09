@@ -8,6 +8,8 @@ const ding = document.getElementById("ding");
 const conn = document.getElementById("connection");
 document.getElementById("group-label").textContent = group ? `· ${group}` : "";
 
+const RECONNECT_DELAY_MS = 10000;
+
 let allowSound = false;
 document.body.addEventListener(
   "click",
@@ -62,6 +64,8 @@ function render(t) {
 // fetch and the stream subscription would otherwise be lost until reload.
 let snapshotted = false;
 let buffer = [];
+let currentStream = null;
+let reconnectTimer = null;
 
 function onTicket(t) {
   if (!snapshotted) {
@@ -83,22 +87,32 @@ async function snapshot() {
 }
 
 function subscribe() {
+  currentStream?.close();
   const es = new EventSource(`/api/stream${qs}`);
+  currentStream = es;
   es.addEventListener("open", () => {
-    conn.textContent = "live";
+    conn.textContent = "online";
     conn.className = "on";
   });
   es.addEventListener("ticket", (e) => onTicket(JSON.parse(e.data)));
   es.addEventListener("error", () => {
+    if (currentStream !== es) return;
     conn.textContent = "reconnecting…";
     conn.className = "off";
     es.close();
-    setTimeout(start, 1500);
+    reconnectTimer ??= setTimeout(() => {
+      reconnectTimer = null;
+      start();
+    }, RECONNECT_DELAY_MS);
   });
 }
 
 function start() {
   // Subscribe first (registers the stream synchronously), then snapshot.
+  if (reconnectTimer !== null) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   snapshotted = false;
   buffer = [];
   subscribe();

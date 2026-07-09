@@ -10,7 +10,7 @@ from unifestbestellbot import db as db_mod
 from unifestbestellbot import repo
 from unifestbestellbot.events import EventBus
 from unifestbestellbot.models import Ticket, TicketStatus
-from unifestbestellbot.web import build_web_app
+from unifestbestellbot.web import build_web_app, sse_events
 
 
 @pytest.fixture
@@ -228,6 +228,13 @@ async def test_main_js_served(client):
     assert "EventSource" in r.text
 
 
+async def test_main_js_shows_online_and_reconnects_after_10s(client):
+    r = await client.get("/main.js")
+    assert r.status_code == 200
+    assert 'conn.textContent = "online"' in r.text
+    assert "RECONNECT_DELAY_MS = 10000" in r.text
+
+
 # --- stream delivers all events; the browser filters by group -----------
 #
 # The SSE stream is intentionally unfiltered (group filtering moved to the
@@ -258,3 +265,38 @@ async def test_stream_publishes_all_groups_to_a_subscriber():
     await asyncio.wait_for(task, timeout=1.0)
     groups = {json.loads(p)["group_tasked"] for p in received}
     assert groups == {"Finanz", "BiMi"}
+
+
+async def test_sse_stream_sends_heartbeat_while_idle():
+    bus = EventBus()
+    stream = sse_events(bus, heartbeat_seconds=0.01, max_age_seconds=1.0)
+
+    chunk = await asyncio.wait_for(anext(stream), timeout=0.2)
+
+    assert chunk == ": heartbeat\n\n"
+    await stream.aclose()
+
+
+async def test_sse_stream_closes_after_max_age():
+    bus = EventBus()
+    stream = sse_events(bus, heartbeat_seconds=1.0, max_age_seconds=0.01)
+
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(anext(stream), timeout=0.2)
+
+
+async def test_sse_stream_keeps_ticket_events_immediate():
+    bus = EventBus()
+    stream = sse_events(bus, heartbeat_seconds=1.0, max_age_seconds=1.0)
+    next_chunk = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0.01)
+
+    await bus.publish_ticket(
+        Ticket(id=1, status=TicketStatus.OPEN, category="Geld", text="x",
+               group_requesting="A", group_tasked="Finanz")
+    )
+
+    chunk = await asyncio.wait_for(next_chunk, timeout=0.2)
+    assert chunk.startswith("event: ticket\n")
+    assert '"group_tasked":"Finanz"' in chunk
+    await stream.aclose()

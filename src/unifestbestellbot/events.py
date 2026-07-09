@@ -5,7 +5,7 @@ fall behind get dropped and recover via re-snapshot."""
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 from .models import Ticket
 
@@ -55,7 +55,7 @@ class EventBus:
         with contextlib.suppress(asyncio.QueueFull):
             q.put_nowait(_SHUTDOWN)
 
-    async def subscribe(self) -> AsyncIterator[str]:
+    async def subscribe(self) -> AsyncGenerator[str]:
         if self._closed:
             return
         q: asyncio.Queue[str] = asyncio.Queue(maxsize=self._queue_size)
