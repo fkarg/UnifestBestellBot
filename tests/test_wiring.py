@@ -1,6 +1,7 @@
 """Smoke tests for the runtime wiring. Catch import-time errors and
 ensure the dispatcher builds with every router registered."""
 
+import uvicorn
 from unifestbestellbot.bot import build_dispatcher
 from unifestbestellbot.events import EventBus
 
@@ -46,6 +47,32 @@ def test_web_server_config_bounds_graceful_shutdown(config):
     assert uvicorn_config.host == "127.0.0.1"
     assert uvicorn_config.port == 9000
     assert uvicorn_config.timeout_graceful_shutdown == 2
+
+
+async def test_dashboard_server_closes_events_before_uvicorn_shutdown(monkeypatch):
+    from unifestbestellbot.__main__ import _build_uvicorn_config, _DashboardServer
+    from unifestbestellbot.web import build_web_app
+
+    events = EventBus()
+    observed_closed = None
+
+    async def fake_shutdown(self, sockets=None):
+        nonlocal observed_closed
+        observed_closed = events._closed
+
+    monkeypatch.setattr(uvicorn.Server, "shutdown", fake_shutdown)
+    server = _DashboardServer(
+        _build_uvicorn_config(
+            build_web_app(events),
+            web_bind="127.0.0.1:9000",
+            log_level="INFO",
+        ),
+        events,
+    )
+
+    await server.shutdown()
+
+    assert observed_closed is True
 
 
 def test_build_bot_has_no_default_parse_mode():

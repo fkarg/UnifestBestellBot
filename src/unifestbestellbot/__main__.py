@@ -50,6 +50,16 @@ def _build_uvicorn_config(web: FastAPI, *, web_bind: str, log_level: str) -> uvi
     )
 
 
+class _DashboardServer(uvicorn.Server):
+    def __init__(self, config: uvicorn.Config, events: EventBus) -> None:
+        super().__init__(config)
+        self._events = events
+
+    async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
+        await self._events.aclose()
+        await super().shutdown(sockets=sockets)
+
+
 async def _supervise(
     name: str, factory: Callable[[], Awaitable[None]], bot
 ) -> None:
@@ -123,7 +133,7 @@ async def amain() -> None:
             web_bind=settings.web_bind,
             log_level=settings.log_level,
         )
-        return uvicorn.Server(config)
+        return _DashboardServer(config, events)
 
     host = socket.gethostname()
     log.info("UnifestBestellBot starting from %s", host)
@@ -160,8 +170,8 @@ async def amain() -> None:
             digest_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await digest_task
-        # Tell any connected dashboard browsers to disconnect so the SSE
-        # generators exit, then close the network resources we own.
+        # Idempotent fallback: _DashboardServer closes SSE subscribers before
+        # Uvicorn drains responses; this also covers non-web shutdown paths.
         await events.aclose()
         await bot.session.close()
         if engelsystem_client is not None:
