@@ -235,6 +235,15 @@ async def test_main_js_shows_online_and_reconnects_after_10s(client):
     assert "RECONNECT_DELAY_MS = 10000" in r.text
 
 
+async def test_main_js_keeps_reconnect_state_optimistically_online(client):
+    r = await client.get("/main.js")
+    assert r.status_code == 200
+    assert "streamOpened = true" in r.text
+    assert "ONLINE_GRACE_MS = 2000" in r.text
+    assert 'conn.textContent = "reconnecting…"' in r.text
+    assert 'conn.className = "off"' in r.text
+
+
 # --- stream delivers all events; the browser filters by group -----------
 #
 # The SSE stream is intentionally unfiltered (group filtering moved to the

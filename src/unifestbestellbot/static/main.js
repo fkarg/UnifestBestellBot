@@ -9,6 +9,7 @@ const conn = document.getElementById("connection");
 document.getElementById("group-label").textContent = group ? `· ${group}` : "";
 
 const RECONNECT_DELAY_MS = 10000;
+const ONLINE_GRACE_MS = 2000;
 
 let allowSound = false;
 document.body.addEventListener(
@@ -66,6 +67,8 @@ let snapshotted = false;
 let buffer = [];
 let currentStream = null;
 let reconnectTimer = null;
+let streamOpened = false;
+let offlineTimer = null;
 
 function onTicket(t) {
   if (!snapshotted) {
@@ -91,14 +94,28 @@ function subscribe() {
   const es = new EventSource(`/api/stream${qs}`);
   currentStream = es;
   es.addEventListener("open", () => {
+    if (offlineTimer !== null) {
+      clearTimeout(offlineTimer);
+      offlineTimer = null;
+    }
+    streamOpened = true;
     conn.textContent = "online";
     conn.className = "on";
   });
   es.addEventListener("ticket", (e) => onTicket(JSON.parse(e.data)));
   es.addEventListener("error", () => {
     if (currentStream !== es) return;
-    conn.textContent = "reconnecting…";
-    conn.className = "off";
+    if (!streamOpened) {
+      conn.textContent = "reconnecting…";
+      conn.className = "off";
+    } else {
+      offlineTimer ??= setTimeout(() => {
+        if (currentStream !== es) return;
+        conn.textContent = "reconnecting…";
+        conn.className = "off";
+        offlineTimer = null;
+      }, ONLINE_GRACE_MS);
+    }
     es.close();
     reconnectTimer ??= setTimeout(() => {
       reconnectTimer = null;
@@ -112,6 +129,10 @@ function start() {
   if (reconnectTimer !== null) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+  if (offlineTimer !== null) {
+    clearTimeout(offlineTimer);
+    offlineTimer = null;
   }
   snapshotted = false;
   buffer = [];
