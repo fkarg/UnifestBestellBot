@@ -72,6 +72,16 @@ def registration_for(s: Session, chat_id: int) -> Registration | None:
     return s.get(Registration, chat_id)
 
 
+def all_registrations(s: Session) -> list[Registration]:
+    """Every registration, ordered by group then chat_id. For the developer
+    /system snapshot; not used in any hot path."""
+    stmt = select(Registration).order_by(
+        Registration.group_name,
+        Registration.chat_id,  # ty: ignore[invalid-argument-type]
+    )
+    return list(s.exec(stmt))
+
+
 def group_members(
     s: Session,
     group_name: str,
@@ -260,6 +270,17 @@ def active_tickets(
     # Ticket.id is an InstrumentedAttribute at the class level, but its
     # declared type is `int | None`; ty/mypy can't see the descriptor magic.
     stmt = stmt.order_by(Ticket.id)  # ty: ignore[invalid-argument-type]
+    return list(s.exec(stmt))
+
+
+def recent_tickets(s: Session, *, limit: int = 10) -> list[Ticket]:
+    """The most recently created tickets across all statuses, newest first.
+    For the developer /system snapshot."""
+    stmt = (
+        select(Ticket)
+        .order_by(Ticket.id.desc())  # ty: ignore[unresolved-attribute]
+        .limit(limit)
+    )
     return list(s.exec(stmt))
 
 

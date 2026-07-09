@@ -1,5 +1,7 @@
 """Developer-only commands. Defensive against accidental fat-fingering."""
 
+from datetime import datetime
+
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -8,12 +10,16 @@ from sqlmodel import Session
 from .. import i18n, repo
 from ..config import AppConfig
 from ..events import EventBus
-from ..models import TicketStatus
+from ..models import Registration, Ticket, TicketStatus, now_utc, to_local
 from . import notify
 from .common import actor, bot_of, display_for
 from .filters import IsDeveloper
 
 router = Router(name="admin")
+
+# Telegram rejects messages over 4096 chars. Stay comfortably below so a
+# multi-line diagnostic dump splits into several messages instead of failing.
+_TG_CHUNK = 3900
 
 
 # Group name attributed to the developer when closing tickets via /closeall.
@@ -62,3 +68,114 @@ async def cmd_closeall(
 
     await msg.answer(f"☑️ Closed {closed_count} ticket(s).")
     await notify.dev_msg(bot, f"☑️ /closeall closed {closed_count} ticket(s).")
+
+
+# --- /system (developer snapshot) -----------------------------------------
+
+# Number of past tickets to surface: recent stand activity, and each orga
+# member's last handled tickets. Kept small so the snapshot stays scannable.
+_SYSTEM_RECENT = 3
+
+
+def _fmt_ts(dt: datetime | None) -> str:
+    return to_local(dt).strftime("%m-%d %H:%M") if dt is not None else "—"
+
+
+def _fmt_registration(reg: Registration) -> str:
+    name = " ".join(p for p in (reg.first_name, reg.last_name) if p) or "?"
+    username = f" <@{reg.username}>" if reg.username else ""
+    override = f'  (display: "{reg.display_override}")' if reg.display_override else ""
+    return f"  • {reg.chat_id}  {name}{username}{override}"
+
+
+def _fmt_ticket(t: Ticket) -> str:
+    meta = f"{t.group_requesting}→{t.group_tasked} · opened {_fmt_ts(t.created_at)}"
+    if t.who_wip:
+        meta += f" · wip:{t.who_wip}"
+    if t.closed_at:
+        meta += f" · closed {_fmt_ts(t.closed_at)}"
+    return f"  {t.display()}\n      {meta}"
+
+
+def _chunks(text: str, limit: int = _TG_CHUNK) -> list[str]:
+    """Split `text` into Telegram-sized messages on line boundaries. A single
+    line longer than `limit` (unlikely here) is hard-split rather than dropped."""
+    out: list[str] = []
+    cur = ""
+    for line in text.split("\n"):
+        while len(line) > limit:
+            if cur:
+                out.append(cur)
+                cur = ""
+            out.append(line[:limit])
+            line = line[limit:]
+        if cur and len(cur) + 1 + len(line) > limit:
+            out.append(cur)
+            cur = line
+        else:
+            cur = f"{cur}\n{line}" if cur else line
+    if cur:
+        out.append(cur)
+    return out
+
+
+@router.message(Command("system"), IsDeveloper())
+async def cmd_system(msg: Message, db_session: Session, config: AppConfig) -> None:
+    """Developer snapshot of live state: who is registered where, which
+    tickets are open, recent stand activity, and each orga member's current
+    and recently-closed work. Read-only; sends nothing to anyone else."""
+    regs = repo.all_registrations(db_session)
+    active = repo.active_tickets(db_session)
+    recent = repo.recent_tickets(db_session, limit=_SYSTEM_RECENT)
+
+    lines: list[str] = [f"🛠 SYSTEM STATUS · {_fmt_ts(now_utc())}", ""]
+
+    lines.append(f"👥 REGISTRATIONS ({len(regs)})")
+    current_group: str | None = None
+    for reg in regs:
+        if reg.group_name != current_group:
+            current_group = reg.group_name
+            tag = "Orga" if config.is_orga(current_group) else "Stand"
+            lines.append(f"[{tag}] {current_group}")
+        lines.append(_fmt_registration(reg))
+    if not regs:
+        lines.append("  (none)")
+    lines.append("")
+
+    lines.append(f"🎫 OPEN/WIP TICKETS ({len(active)})")
+    if active:
+        lines.extend(_fmt_ticket(t) for t in active)
+    else:
+        lines.append("  (none)")
+    lines.append("")
+
+    lines.append(f"🏪 RECENT STAND TICKETS (last {_SYSTEM_RECENT})")
+    if recent:
+        lines.extend(_fmt_ticket(t) for t in recent)
+    else:
+        lines.append("  (none)")
+    lines.append("")
+
+    orga_regs = [r for r in regs if config.is_orga(r.group_name)]
+    lines.append(f"🧑‍🔧 ORGA ACTIVITY ({len(orga_regs)})")
+    for reg in orga_regs:
+        wip = repo.active_tickets(
+            db_session, status=TicketStatus.WIP, who_wip_chat_id=reg.chat_id
+        )
+        closed = repo.closed_tickets_for_chat_id(db_session, reg.chat_id)
+        lines.append(f"{reg.display_name()} ({reg.chat_id}) [{reg.group_name}]")
+        if wip:
+            lines.append("  WIP now:")
+            lines.extend(_fmt_ticket(t) for t in wip)
+        else:
+            lines.append("  WIP now: (none)")
+        if closed:
+            lines.append(f"  last {_SYSTEM_RECENT} closed:")
+            # closed_tickets_for_chat_id is ascending by id; take the tail and
+            # show newest first.
+            lines.extend(_fmt_ticket(t) for t in reversed(closed[-_SYSTEM_RECENT:]))
+    if not orga_regs:
+        lines.append("  (none)")
+
+    for chunk in _chunks("\n".join(lines)):
+        await msg.answer(chunk)
