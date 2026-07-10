@@ -2,5 +2,11 @@
 set -eu
 
 cd "$(git rev-parse --show-toplevel)"
+
+if ! git diff --quiet -- pyproject.toml uv.lock; then
+    echo "pre-commit: stage or discard existing pyproject.toml/uv.lock edits first" >&2
+    exit 1
+fi
+
 uv version --bump patch --no-sync
 git add -- pyproject.toml uv.lock

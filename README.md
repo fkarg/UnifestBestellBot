@@ -58,7 +58,9 @@ git config core.hooksPath .githooks
 ```
 
 The version bump also runs for empty commits, amend, merge, and revert. As with
-all pre-commit hooks, `git commit --no-verify` bypasses it.
+all pre-commit hooks, `git commit --no-verify` bypasses it. The hook aborts if
+`pyproject.toml` or `uv.lock` contains unstaged edits, so it cannot silently
+include those edits in the commit.
 
 ## Documentation
 
