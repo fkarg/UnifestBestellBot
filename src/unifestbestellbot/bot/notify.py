@@ -19,8 +19,15 @@ _MAX_RETRY_AFTER = 30
 
 
 async def channel_msg(bot: Bot, text: str) -> None:
-    """Best-effort log to the updates channel. Honours Telegram flood control."""
+    """Best-effort log to the updates channel. Honours Telegram flood control.
+
+    With no channel configured (updates_channel_id unset — e.g. a test bot
+    sharing a channel with prod) the message is logged instead of posted, so
+    test notifications don't interleave into the shared channel."""
     chat_id = get_settings().updates_channel_id
+    if chat_id is None:
+        log.info("channel (unconfigured): %s", text)
+        return
     try:
         await bot.send_message(chat_id=chat_id, text=text)
     except TelegramRetryAfter as e:

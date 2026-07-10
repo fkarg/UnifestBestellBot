@@ -18,7 +18,9 @@ class Settings(BaseSettings):
 
     telegram_token: str
     developer_chat_id: int
-    updates_channel_id: int
+    # Optional: a test bot sharing a channel with prod leaves this unset, and
+    # channel notifications are logged instead of posted (see notify.channel_msg).
+    updates_channel_id: int | None = None
 
     engelsystem_api_key: str = ""
     engelsystem_base_url: HttpUrl = Field(

@@ -120,3 +120,26 @@ async def test_blocked_member_is_unregistered(s):
     # Member 1 blocked the bot and was removed; member 2 is untouched.
     assert repo.registration_for(s, 1) is None
     assert repo.registration_for(s, 2) is not None
+
+
+# --- channel_msg without a configured channel ----------------------------
+
+
+async def test_channel_msg_logs_when_channel_unconfigured(monkeypatch, caplog):
+    monkeypatch.setattr(
+        notify, "get_settings", lambda: MagicMock(updates_channel_id=None)
+    )
+    bot = _bot()
+    with caplog.at_level("INFO"):
+        await notify.channel_msg(bot, "hello world")
+    bot.send_message.assert_not_awaited()
+    assert "hello world" in caplog.text
+
+
+async def test_channel_msg_posts_when_channel_configured(monkeypatch):
+    monkeypatch.setattr(
+        notify, "get_settings", lambda: MagicMock(updates_channel_id=200)
+    )
+    bot = _bot()
+    await notify.channel_msg(bot, "hello world")
+    assert bot.send_message.await_args.kwargs["chat_id"] == 200
