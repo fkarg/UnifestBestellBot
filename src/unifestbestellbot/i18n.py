@@ -89,6 +89,9 @@ HELP_ORGA = """Zusätzlich verfügbare Kommandos für [ORGA]:
 /dashboard
     Zeige kopierbare Dashboard-Links für
     alle Tickets und deine Orga-Gruppe.
+/stats
+    Auswertung über alle Tickets: Anzahl,
+    Zeiten, nach Kategorie/Ort/Stunde.
 /help2
     Zeige diese Hilfenachricht.
 """
@@ -212,6 +215,18 @@ HISTORY_EMPTY = "Keine geschlossenen Tickets für [{group}]."
 HISTORY_HEADER = "Letzte geschlossene Tickets für [{group}]:"
 HISTORY_GROUP_EMPTY = "Keine Tickets von [{group}]."
 HISTORY_GROUP_HEADER = "Letzte Tickets von [{group}]:"
+
+# --- /stats (Auswertung) -------------------------------------------------
+
+STATS_EMPTY = "Noch keine Tickets erfasst."
+STATS_HEADER = "📊 Statistik"
+STATS_STATUS = "{open} offen · {wip} in Arbeit · {closed} erledigt (gesamt {total})"
+STATS_WAIT = "⏱ Bearbeitung (offen→erledigt): Median {median}, Max {max}"
+STATS_PICKUP = "⏱ Annahme (offen→Arbeit): Median {median}, Max {max}"
+STATS_TIMINGS_NONE = "(noch keine erledigten Tickets für Zeitauswertung)"
+STATS_BY_CATEGORY = "Nach Kategorie:"
+STATS_BY_LOCATION = "Nach Ort:"
+STATS_BY_HOUR = "Nach Stunde:"
 
 # --- /self (eigene Perspektive) ------------------------------------------
 

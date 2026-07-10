@@ -85,6 +85,28 @@ async def test_all_when_empty(s, config):
     assert "keine offenen Tickets" in msg.answer.call_args.args[0]
 
 
+# --- /stats ---------------------------------------------------------------
+
+
+async def test_stats_empty(s, config):
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_stats(msg, db_session=s, config=config)
+    assert msg.answer.call_args.args[0] == i18n.STATS_EMPTY
+
+
+async def test_stats_folds_requesting_groups_into_locations(s, config):
+    _ticket(s, group_requesting="Cocktailbar 1")
+    _ticket(s, group_requesting="Biertheke 1")
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_stats(msg, db_session=s, config=config)
+    body = msg.answer.call_args.args[0]
+    assert i18n.STATS_HEADER in body
+    # "Nach Ort" reports the physical location, not the requesting group name.
+    assert "Innenhof" in body
+    assert "Außenbereich" in body
+    assert "Cocktailbar 1" not in body
+
+
 # --- /wip ----------------------------------------------------------------
 
 

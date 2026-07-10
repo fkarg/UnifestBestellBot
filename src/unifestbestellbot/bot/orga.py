@@ -657,3 +657,67 @@ async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> N
         )
     body = i18n.HISTORY_HEADER.format(group=reg.group_name) + "\n\n" + "\n\n".join(lines)
     await msg.answer(body, reply_markup=keyboards.for_user(reg, config))
+
+
+def _fmt_dur(seconds: float | None) -> str:
+    if seconds is None:
+        return "—"
+    mins = int(seconds // 60)
+    if mins < 60:
+        return f"{mins} min"
+    return f"{mins // 60} h {mins % 60} min"
+
+
+def _counts_block(header: str, counts: dict[str, int]) -> str:
+    # Largest first; ties keep insertion order, which is stable enough here.
+    lines = [
+        f"  {name}: {n}"
+        for name, n in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+    return header + "\n" + "\n".join(lines)
+
+
+@router.message(Command("stats"), IsOrga())
+async def cmd_stats(msg: Message, db_session: Session, config: AppConfig) -> None:
+    reg = _require_reg(db_session, msg)
+    kb = keyboards.for_user(reg, config)
+    st = repo.stats_summary(db_session)
+    if st.total == 0:
+        await msg.answer(i18n.STATS_EMPTY, reply_markup=kb)
+        return
+
+    # Fold requesting-group counts into physical locations (config-derived).
+    by_location: dict[str, int] = {}
+    for group, n in st.by_group.items():
+        stall = config.stall(group)
+        loc = stall.location if stall else group
+        by_location[loc] = by_location.get(loc, 0) + n
+
+    sections = [
+        i18n.STATS_HEADER,
+        i18n.STATS_STATUS.format(
+            open=st.open, wip=st.wip, closed=st.closed, total=st.total
+        ),
+    ]
+    if st.wait_median_s is not None or st.pickup_median_s is not None:
+        sections.append(
+            i18n.STATS_WAIT.format(
+                median=_fmt_dur(st.wait_median_s), max=_fmt_dur(st.wait_max_s)
+            )
+        )
+        sections.append(
+            i18n.STATS_PICKUP.format(
+                median=_fmt_dur(st.pickup_median_s), max=_fmt_dur(st.pickup_max_s)
+            )
+        )
+    else:
+        sections.append(i18n.STATS_TIMINGS_NONE)
+
+    sections.append(_counts_block(i18n.STATS_BY_CATEGORY, st.by_category))
+    sections.append(_counts_block(i18n.STATS_BY_LOCATION, by_location))
+    # Hours read most naturally chronologically, not by volume.
+    hour_counts = {f"{h:02d} Uhr": n for h, n in sorted(st.by_hour.items())}
+    hour_lines = "\n".join(f"  {label}: {n}" for label, n in hour_counts.items())
+    sections.append(i18n.STATS_BY_HOUR + "\n" + hour_lines)
+
+    await msg.answer("\n\n".join(sections), reply_markup=kb)

@@ -16,6 +16,7 @@ from .models import (
     Ticket,
     TicketStatus,
     now_utc,
+    to_local,
 )
 
 # ---------------------------------------------------------------------------
@@ -396,3 +397,88 @@ def record_message(
         )
     )
     s.commit()
+
+
+# ---------------------------------------------------------------------------
+# Stats (read-only, for /stats)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Stats:
+    """Whole-database aggregate over every ticket seen this event. Counts are
+    over all tickets regardless of status; timings are over the tickets that
+    reached the relevant transition. Location is intentionally absent — it's
+    config-derived, so the handler folds `by_group` into locations."""
+
+    total: int
+    open: int
+    wip: int
+    closed: int
+    by_category: dict[str, int]
+    by_group: dict[str, int]  # group_requesting -> count
+    by_hour: dict[int, int]  # local-time creation hour -> count
+    wait_median_s: float | None  # created -> closed, over closed tickets
+    wait_max_s: float | None
+    pickup_median_s: float | None  # created -> first WIP, over claimed tickets
+    pickup_max_s: float | None
+
+
+def _median(values: list[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    n = len(ordered)
+    mid = n // 2
+    return ordered[mid] if n % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def stats_summary(s: Session) -> Stats:
+    tickets = list(s.exec(select(Ticket)))
+    status = {TicketStatus.OPEN: 0, TicketStatus.WIP: 0, TicketStatus.CLOSED: 0}
+    by_category: dict[str, int] = {}
+    by_group: dict[str, int] = {}
+    by_hour: dict[int, int] = {}
+    waits: list[float] = []
+    created_by_id: dict[int, datetime] = {}
+    for t in tickets:
+        status[t.status] += 1
+        by_category[t.category] = by_category.get(t.category, 0) + 1
+        by_group[t.group_requesting] = by_group.get(t.group_requesting, 0) + 1
+        hour = to_local(t.created_at).hour
+        by_hour[hour] = by_hour.get(hour, 0) + 1
+        if t.id is not None:
+            created_by_id[t.id] = t.created_at
+        if t.closed_at is not None:
+            waits.append((t.closed_at - t.created_at).total_seconds())
+
+    # Pickup lag: created -> first 'wip' audit event per ticket. Ordered by ts
+    # ascending so the first row seen for a ticket is its earliest claim.
+    first_wip: dict[int, datetime] = {}
+    wip_events = s.exec(
+        select(AuditEvent)
+        .where(AuditEvent.kind == "wip")
+        .order_by(AuditEvent.ts)  # ty: ignore[invalid-argument-type]
+    )
+    for e in wip_events:
+        if e.ticket_id is not None and e.ticket_id not in first_wip:
+            first_wip[e.ticket_id] = e.ts
+    pickups = [
+        (ts - created_by_id[tid]).total_seconds()
+        for tid, ts in first_wip.items()
+        if tid in created_by_id
+    ]
+
+    return Stats(
+        total=len(tickets),
+        open=status[TicketStatus.OPEN],
+        wip=status[TicketStatus.WIP],
+        closed=status[TicketStatus.CLOSED],
+        by_category=by_category,
+        by_group=by_group,
+        by_hour=by_hour,
+        wait_median_s=_median(waits),
+        wait_max_s=max(waits) if waits else None,
+        pickup_median_s=_median(pickups),
+        pickup_max_s=max(pickups) if pickups else None,
+    )

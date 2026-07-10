@@ -1,8 +1,10 @@
+from datetime import datetime, timedelta
+
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 from unifestbestellbot import repo
-from unifestbestellbot.models import AuditEvent, Registration, TicketStatus
+from unifestbestellbot.models import AuditEvent, Registration, Ticket, TicketStatus
 
 
 @pytest.fixture
@@ -259,3 +261,64 @@ def test_registration_display_name():
     assert r2.display_name() == "Unbekannt <@solo>"
     r3 = Registration(chat_id=3, group_name="X")
     assert r3.display_name() == "Unbekannt"
+
+
+# --- Stats ----------------------------------------------------------------
+
+
+def test_stats_summary_empty(s):
+    st = repo.stats_summary(s)
+    assert st.total == 0
+    assert (st.open, st.wip, st.closed) == (0, 0, 0)
+    assert st.wait_median_s is None and st.pickup_median_s is None
+
+
+def test_stats_summary_counts_by_status_category_group(s):
+    _make_ticket(s, category="Geld", group_requesting="Cocktailbar 1")
+    b = _make_ticket(s, category="Bier", group_requesting="Biertheke 1")
+    c = _make_ticket(s, category="Bier", group_requesting="Biertheke 1")
+    repo.set_wip(s, b.id, who="A", actor_chat_id=9)
+    repo.close_ticket(s, c.id, actor_chat_id=9)
+
+    st = repo.stats_summary(s)
+    assert st.total == 3
+    assert (st.open, st.wip, st.closed) == (1, 1, 1)
+    assert st.by_category == {"Geld": 1, "Bier": 2}
+    assert st.by_group == {"Cocktailbar 1": 1, "Biertheke 1": 2}
+
+
+def test_stats_summary_timings(s):
+    # Control timestamps directly: wait = created→closed, pickup = created→wip.
+    base = datetime(2026, 7, 10, 20, 0, 0)
+    t1 = _make_ticket(s)
+    t2 = _make_ticket(s)
+    for tid, closed_after in ((t1.id, 10), (t2.id, 20)):
+        obj = s.get(Ticket, tid)
+        obj.created_at = base
+        obj.closed_at = base + timedelta(minutes=closed_after)
+        obj.status = TicketStatus.CLOSED
+        s.add(obj)
+    s.add(AuditEvent(kind="wip", ticket_id=t1.id, ts=base + timedelta(minutes=2)))
+    s.add(AuditEvent(kind="wip", ticket_id=t2.id, ts=base + timedelta(minutes=6)))
+    s.commit()
+
+    st = repo.stats_summary(s)
+    assert st.wait_median_s == 15 * 60  # median([600, 1200])
+    assert st.wait_max_s == 20 * 60
+    assert st.pickup_median_s == 4 * 60  # median([120, 360])
+    assert st.pickup_max_s == 6 * 60
+
+
+def test_stats_summary_pickup_uses_earliest_wip(s):
+    base = datetime(2026, 7, 10, 20, 0, 0)
+    t = _make_ticket(s)
+    obj = s.get(Ticket, t.id)
+    obj.created_at = base
+    s.add(obj)
+    # Two wip events for the same ticket: only the earliest counts.
+    s.add(AuditEvent(kind="wip", ticket_id=t.id, ts=base + timedelta(minutes=5)))
+    s.add(AuditEvent(kind="wip", ticket_id=t.id, ts=base + timedelta(minutes=9)))
+    s.commit()
+
+    st = repo.stats_summary(s)
+    assert st.pickup_max_s == 5 * 60
