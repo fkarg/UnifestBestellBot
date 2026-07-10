@@ -20,11 +20,11 @@ from collections.abc import Awaitable, Callable
 import uvicorn
 from fastapi import FastAPI
 
-from . import i18n
+from . import i18n, repo
 from .bot import build_bot, build_dispatcher, errors, notify
 from .bot.digest import shift_digest_loop
 from .config import AppConfig, load_config
-from .db import checkpoint_and_close, get_engine, init_db
+from .db import checkpoint_and_close, get_engine, init_db, session_scope
 from .engelsystem import EngelsystemClient, ShiftLookup, make_shift_lookup
 from .events import EventBus
 from .settings import get_settings
@@ -150,6 +150,17 @@ async def amain() -> None:
 
     config = load_config(settings.config_path)
     init_db()
+
+    with session_scope() as s:
+        registrations = repo.all_registrations(s)
+        orga_count = sum(1 for r in registrations if config.is_orga(r.group_name))
+        ticket_count = repo.ticket_count(s)
+    log.info(
+        "DB state: %d users registered, %d in orga, %d tickets",
+        len(registrations),
+        orga_count,
+        ticket_count,
+    )
 
     events = EventBus()
     shift_lookup, engelsystem_client = _build_shift_lookup()

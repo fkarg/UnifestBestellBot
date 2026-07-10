@@ -254,6 +254,11 @@ def get_ticket(s: Session, ticket_id: int) -> Ticket | None:
     return s.get(Ticket, ticket_id)
 
 
+def ticket_count(s: Session) -> int:
+    """Total tickets in the DB across all statuses. For the startup summary."""
+    return len(list(s.exec(select(Ticket))))
+
+
 def active_tickets(
     s: Session,
     *,
