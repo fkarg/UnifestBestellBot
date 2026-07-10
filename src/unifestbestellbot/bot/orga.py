@@ -686,12 +686,13 @@ async def cmd_stats(msg: Message, db_session: Session, config: AppConfig) -> Non
         await msg.answer(i18n.STATS_EMPTY, reply_markup=kb)
         return
 
-    # Fold requesting-group counts into physical locations (config-derived).
-    by_location: dict[str, int] = {}
+    # Fold requesting-group counts into the location+type cut
+    # ("Forum Süd [Cocktail]") — i.e. individual stands, config-derived.
+    by_location_type: dict[str, int] = {}
     for group, n in st.by_group.items():
         stall = config.stall(group)
-        loc = stall.location if stall else group
-        by_location[loc] = by_location.get(loc, 0) + n
+        loc_type = stall.display if stall else group
+        by_location_type[loc_type] = by_location_type.get(loc_type, 0) + n
 
     sections = [
         i18n.STATS_HEADER,
@@ -714,7 +715,7 @@ async def cmd_stats(msg: Message, db_session: Session, config: AppConfig) -> Non
         sections.append(i18n.STATS_TIMINGS_NONE)
 
     sections.append(_counts_block(i18n.STATS_BY_CATEGORY, st.by_category))
-    sections.append(_counts_block(i18n.STATS_BY_LOCATION, by_location))
+    sections.append(_counts_block(i18n.STATS_BY_LOCATION_TYPE, by_location_type))
     # Hours read most naturally chronologically, not by volume.
     hour_counts = {f"{h:02d} Uhr": n for h, n in sorted(st.by_hour.items())}
     hour_lines = "\n".join(f"  {label}: {n}" for label, n in hour_counts.items())

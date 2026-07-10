@@ -225,7 +225,7 @@ STATS_WAIT = "⏱ Bearbeitung (offen→erledigt): Median {median}, Max {max}"
 STATS_PICKUP = "⏱ Annahme (offen→Arbeit): Median {median}, Max {max}"
 STATS_TIMINGS_NONE = "(noch keine erledigten Tickets für Zeitauswertung)"
 STATS_BY_CATEGORY = "Nach Kategorie:"
-STATS_BY_LOCATION = "Nach Ort:"
+STATS_BY_LOCATION_TYPE = "Nach Ort & Typ:"
 STATS_BY_HOUR = "Nach Stunde:"
 
 # --- /self (eigene Perspektive) ------------------------------------------

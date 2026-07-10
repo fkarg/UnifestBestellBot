@@ -101,9 +101,11 @@ async def test_stats_folds_requesting_groups_into_locations(s, config):
     await orga_flow.cmd_stats(msg, db_session=s, config=config)
     body = msg.answer.call_args.args[0]
     assert i18n.STATS_HEADER in body
-    # "Nach Ort" reports the physical location, not the requesting group name.
-    assert "Innenhof" in body
-    assert "Außenbereich" in body
+    # "Nach Ort & Typ" reports individual stands (location+type), not the
+    # requesting group name.
+    assert i18n.STATS_BY_LOCATION_TYPE in body
+    assert "Innenhof [Cocktail]" in body
+    assert "Außenbereich [Bier]" in body
     assert "Cocktailbar 1" not in body
 
 
