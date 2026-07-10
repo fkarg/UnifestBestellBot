@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from sqlmodel import Session
 
-from .. import i18n, repo
+from .. import __version__, i18n, repo
 from ..config import AppConfig
 from ..events import EventBus
 from ..models import Registration, Ticket, TicketStatus, now_utc, to_local
@@ -26,6 +26,11 @@ _TG_CHUNK = 3900
 # Shows up in channel logs and peer DMs so recipients can tell these closes
 # apart from regular orga-driven ones.
 _DEV_ACTOR_GROUP = "Entwickler"
+
+
+@router.message(Command("version"), IsDeveloper())
+async def cmd_version(msg: Message) -> None:
+    await msg.answer(f"Version: {__version__}")
 
 
 @router.message(Command("closeall"), IsDeveloper())

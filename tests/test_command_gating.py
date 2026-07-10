@@ -77,7 +77,8 @@ def test_helpers_is_open_to_registered_stands():
 # --- developer-only commands ---------------------------------------------
 
 
-def test_closeall_is_developer_only():
-    assert _has_filter(admin_flow.router.message, admin_flow.cmd_closeall, IsDeveloper)
+def test_developer_commands_are_developer_only():
+    for cmd in (admin_flow.cmd_closeall, admin_flow.cmd_system, admin_flow.cmd_version):
+        assert _has_filter(admin_flow.router.message, cmd, IsDeveloper)
     # And NOT merely IsOrga — /closeall is destructive, developer-gated.
     assert not _has_filter(admin_flow.router.message, admin_flow.cmd_closeall, IsOrga)

@@ -1,11 +1,12 @@
 import asyncio
 import contextlib
 import json
+from importlib.metadata import version
 
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
-from unifestbestellbot import repo
+from unifestbestellbot import __version__, repo
 from unifestbestellbot.bot import admin as admin_flow
 from unifestbestellbot.events import EventBus
 from unifestbestellbot.models import Registration, TicketStatus
@@ -38,6 +39,16 @@ def _ticket(s, **overrides):
 
 
 # The developer chat id is 100 (set in conftest.py).
+
+
+def test_package_version_comes_from_installed_metadata():
+    assert __version__ == version("unifestbestellbot")
+
+
+async def test_version_reports_installed_package_version():
+    msg = fake_message(user_id=100, text="/version")
+    await admin_flow.cmd_version(msg)
+    msg.answer.assert_awaited_once_with(f"Version: {__version__}")
 
 
 async def test_closeall_closes_all_open_and_wip_tickets(s, config):
