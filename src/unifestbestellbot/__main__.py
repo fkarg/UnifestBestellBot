@@ -36,6 +36,7 @@ log = logging.getLogger(__name__)
 _BACKOFF_START = 1.0
 _BACKOFF_MAX = 30.0
 _WEB_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 2
+_WEB_BIND_RETRY_SECONDS = 10
 
 
 def _build_uvicorn_config(web: FastAPI, *, web_bind: str, log_level: str) -> uvicorn.Config:
@@ -63,6 +64,35 @@ class _DashboardServer(uvicorn.Server):
     async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
         await self._events.aclose()
         await super().shutdown(sockets=sockets)
+
+
+async def _serve_dashboard(
+    make_server: Callable[[], uvicorn.Server],
+    *,
+    web_bind: str,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    """Serve the dashboard, retrying a startup-only TCP bind failure.
+
+    Uvicorn reports that failure by calling ``sys.exit(1)`` instead of
+    raising the original OSError. An unstarted server distinguishes it from a
+    normal shutdown after the server has begun serving requests.
+    """
+    while True:
+        server = make_server()
+        try:
+            await server.serve()
+        except SystemExit:
+            if server.started:
+                raise
+            log.error(
+                "web server could not bind to %s; retrying in %ss",
+                web_bind,
+                _WEB_BIND_RETRY_SECONDS,
+            )
+            await sleep(_WEB_BIND_RETRY_SECONDS)
+        else:
+            return
 
 
 async def _supervise(
@@ -163,7 +193,7 @@ async def amain() -> None:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
     async def _serve() -> None:
-        await _make_server().serve()
+        await _serve_dashboard(_make_server, web_bind=settings.web_bind)
 
     try:
         await asyncio.gather(

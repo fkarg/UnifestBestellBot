@@ -1,6 +1,9 @@
 """Smoke tests for the runtime wiring. Catch import-time errors and
 ensure the dispatcher builds with every router registered."""
 
+import logging
+from typing import cast
+
 import uvicorn
 from unifestbestellbot.events import EventBus
 
@@ -84,6 +87,39 @@ async def test_dashboard_server_closes_events_before_uvicorn_shutdown(monkeypatc
     await server.shutdown()
 
     assert observed_closed is True
+
+
+async def test_dashboard_runner_retries_a_bind_failure_at_the_configured_address(caplog):
+    from unifestbestellbot.__main__ import _serve_dashboard
+
+    class BindFailureServer:
+        started = False
+
+        async def serve(self):
+            raise SystemExit(1)
+
+    class CleanlyStoppedServer:
+        started = True
+
+        async def serve(self):
+            return None
+
+    servers = iter([BindFailureServer(), CleanlyStoppedServer()])
+    retry_delays = []
+
+    async def record_sleep(delay):
+        retry_delays.append(delay)
+
+    caplog.set_level(logging.ERROR, logger="unifestbestellbot.__main__")
+
+    await _serve_dashboard(
+        lambda: cast(uvicorn.Server, next(servers)),
+        web_bind="[::1]:8000",
+        sleep=record_sleep,
+    )
+
+    assert retry_delays == [10]
+    assert "could not bind to [::1]:8000; retrying in 10s" in caplog.text
 
 
 def test_build_bot_has_no_default_parse_mode():
