@@ -37,6 +37,7 @@ ORGA_MESSAGE_COMMANDS = [
     orga_flow.cmd_tickets,
     orga_flow.cmd_all,
     orga_flow.cmd_history,
+    orga_flow.cmd_dashboard,
     orga_flow.cmd_help2,
 ]
 

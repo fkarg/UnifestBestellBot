@@ -1,6 +1,7 @@
 """Orga commands plus shared support commands such as /helpers."""
 
 from datetime import datetime
+from urllib.parse import urlencode
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -30,6 +31,8 @@ from .common import actor, bot_of, display_for
 from .filters import IsOrga
 
 router = Router(name="orga")
+
+_DASHBOARD_URL = "https://bestellbot.unifest-karlsruhe.de/"
 
 
 # --- Helpers -------------------------------------------------------------
@@ -131,6 +134,25 @@ async def cmd_all(msg: Message, db_session: Session, config: AppConfig) -> None:
 async def cmd_help2(msg: Message, db_session: Session, config: AppConfig) -> None:
     reg = _require_reg(db_session, msg)
     await msg.answer(i18n.HELP_ORGA, reply_markup=keyboards.for_user(reg, config))
+
+
+@router.message(Command("dashboard"), IsOrga())
+async def cmd_dashboard(msg: Message, db_session: Session) -> None:
+    reg = _require_reg(db_session, msg)
+    group_url = f"{_DASHBOARD_URL}?{urlencode({'group': reg.group_name})}"
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Alle aktiven Tickets", url=_DASHBOARD_URL)],
+            [InlineKeyboardButton(text=f"Nur {reg.group_name}", url=group_url)],
+        ]
+    )
+    await msg.answer(
+        "Dashboard für alle aktiven Tickets:\n"
+        f"{_DASHBOARD_URL}\n\n"
+        f"Nur Tickets, die aktuell {reg.group_name} zugewiesen sind:\n"
+        f"{group_url}",
+        reply_markup=keyboard,
+    )
 
 
 # --- /wip -----------------------------------------------------------------

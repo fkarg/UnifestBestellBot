@@ -395,6 +395,35 @@ async def test_message_missing_args(s, config):
 # --- /bug, /feature, /help2 ----------------------------------------------
 
 
+async def test_dashboard_links_all_tickets_and_encoded_orga_view(s):
+    repo.upsert_registration(
+        s, Registration(chat_id=1, group_name="Technik & Bühne")
+    )
+    msg = fake_message(user_id=1, text="/dashboard")
+
+    await orga_flow.cmd_dashboard(msg, db_session=s)
+
+    text = msg.answer.call_args.args[0]
+    assert "Dashboard für alle aktiven Tickets:" in text
+    assert "Nur Tickets, die aktuell Technik & Bühne zugewiesen sind:" in text
+    assert "https://bestellbot.unifest-karlsruhe.de/" in text
+    assert (
+        "https://bestellbot.unifest-karlsruhe.de/?group=Technik+%26+B%C3%BChne"
+        in text
+    )
+    keyboard = msg.answer.call_args.kwargs["reply_markup"]
+    buttons = [button for row in keyboard.inline_keyboard for button in row]
+    assert [button.url for button in buttons] == [
+        "https://bestellbot.unifest-karlsruhe.de/",
+        "https://bestellbot.unifest-karlsruhe.de/?group=Technik+%26+B%C3%BChne",
+    ]
+
+
+def test_orga_help_lists_dashboard_command():
+    assert "/dashboard" in i18n.HELP_ORGA
+    assert "kopierbare Dashboard-Links" in i18n.HELP_ORGA
+
+
 async def test_bug_forwards_to_developer(s, config):
     msg = fake_message(user_id=1, text="/bug things are broken")
     await orga_flow.cmd_bug(msg, db_session=s, config=config)

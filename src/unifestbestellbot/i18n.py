@@ -86,6 +86,9 @@ HELP_ORGA = """Zusätzlich verfügbare Kommandos für [ORGA]:
 /history <gruppe> [n]
     Letzte n Tickets, die eine Gruppe
     erstellt hat (default 5, alle Status).
+/dashboard
+    Zeige kopierbare Dashboard-Links für
+    alle Tickets und deine Orga-Gruppe.
 /help2
     Zeige diese Hilfenachricht.
 """
