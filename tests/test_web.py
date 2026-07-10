@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import inspect
 import json
+import logging
 
 import httpx
 import pytest
@@ -215,6 +216,26 @@ async def test_event_bus_aclose_exits_subscriber_generator():
     await asyncio.wait_for(task, timeout=1.0)
     assert items == []  # the shutdown sentinel is not yielded to consumers
     assert bus.subscriber_count() == 0
+
+
+async def test_event_bus_logs_sse_subscriber_count_changes(caplog):
+    caplog.set_level(logging.INFO, logger="unifestbestellbot.events")
+    bus = EventBus()
+    sub = bus.subscribe()
+
+    async def consume():
+        async for _ in sub:
+            pass
+
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0.01)
+    await bus.aclose()
+    await asyncio.wait_for(task, timeout=1.0)
+
+    assert [record.getMessage() for record in caplog.records] == [
+        "SSE subscriber connected; current connections: 1",
+        "SSE subscriber disconnected; current connections: 0",
+    ]
 
 
 async def test_event_bus_publish_after_aclose_is_a_noop():

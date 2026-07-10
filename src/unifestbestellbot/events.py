@@ -28,6 +28,12 @@ class EventBus:
     def subscriber_count(self) -> int:
         return len(self._subscribers)
 
+    def _remove_subscriber(self, q: asyncio.Queue[str], *, action: str) -> None:
+        if q not in self._subscribers:
+            return
+        self._subscribers.remove(q)
+        log.info("SSE subscriber %s; current connections: %d", action, self.subscriber_count())
+
     async def publish_ticket(self, ticket: Ticket) -> None:
         if self._closed:
             return
@@ -43,7 +49,7 @@ class EventBus:
                 # sentinel the generator would block forever on a queue that
                 # never receives another item — a live-but-dead dashboard.
                 log.warning("dropping slow SSE subscriber (queue full)")
-                self._subscribers.discard(q)
+                self._remove_subscriber(q, action="dropped (queue full)")
                 self._wake_dropped(q)
 
     @staticmethod
@@ -60,6 +66,7 @@ class EventBus:
             return
         q: asyncio.Queue[str] = asyncio.Queue(maxsize=self._queue_size)
         self._subscribers.add(q)
+        log.info("SSE subscriber connected; current connections: %d", self.subscriber_count())
         try:
             while True:
                 item = await q.get()
@@ -67,7 +74,7 @@ class EventBus:
                     return
                 yield item
         finally:
-            self._subscribers.discard(q)
+            self._remove_subscriber(q, action="disconnected")
 
     async def aclose(self) -> None:
         """Signal every subscriber to exit. Called once during shutdown.
@@ -79,4 +86,4 @@ class EventBus:
             try:
                 q.put_nowait(_SHUTDOWN)
             except asyncio.QueueFull:
-                self._subscribers.discard(q)
+                self._remove_subscriber(q, action="dropped during shutdown")
