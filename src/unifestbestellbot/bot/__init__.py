@@ -9,7 +9,7 @@ from ..engelsystem import ShiftLookup
 from ..events import EventBus
 from ..settings import get_settings
 from . import admin, errors, orga, register, request, unknown
-from .middleware import SessionMiddleware
+from .middleware import SessionMiddleware, UpdateLoggingMiddleware
 
 
 def build_bot() -> Bot:
@@ -33,6 +33,7 @@ def build_dispatcher(
     dp["shift_lookup"] = shift_lookup
 
     dp.update.outer_middleware(SessionMiddleware())
+    dp.update.outer_middleware(UpdateLoggingMiddleware())
     dp.errors.register(errors.on_error)
 
     dp.include_routers(

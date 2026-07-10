@@ -15,6 +15,13 @@ from pathlib import Path
 import colorlog
 
 
+class _SuppressAiogramStockUpdateLog(logging.Filter):
+    """Leave aiogram's errors intact while replacing its completion line."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.msg != "Update id=%s is %s. Duration %d ms by bot id=%d"
+
+
 def setup_logging(*, level: str, log_dir: str, retention_days: int) -> Path:
     """Configure the root logger with a coloured console handler and a
     daily-rotating file handler. Returns the path of the live log file."""
@@ -67,5 +74,9 @@ def setup_logging(*, level: str, log_dir: str, retention_days: int) -> Path:
         lg = logging.getLogger(name)
         lg.handlers.clear()
         lg.propagate = True
+
+    # aiogram's stock completion record has no update type. Our outer
+    # middleware emits the richer replacement with the same logger name.
+    logging.getLogger("aiogram.event").addFilter(_SuppressAiogramStockUpdateLog())
 
     return log_file
