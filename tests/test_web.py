@@ -308,6 +308,18 @@ async def test_sse_stream_stays_open_while_idle():
     await stream.aclose()
 
 
+async def test_sse_stream_closes_cleanly_when_event_bus_closes():
+    bus = EventBus()
+    stream = sse_events(bus, heartbeat_seconds=1.0)
+    next_chunk = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0.01)
+
+    await bus.aclose()
+
+    with pytest.raises(StopAsyncIteration):
+        await next_chunk
+
+
 async def test_sse_stream_keeps_ticket_events_immediate():
     bus = EventBus()
     stream = sse_events(bus, heartbeat_seconds=1.0)

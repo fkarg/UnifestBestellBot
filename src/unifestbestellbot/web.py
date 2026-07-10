@@ -43,7 +43,7 @@ async def sse_events(
             next_payload = asyncio.ensure_future(anext(sub))
     finally:
         next_payload.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration):
             await next_payload
         await sub.aclose()
 
