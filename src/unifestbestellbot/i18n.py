@@ -93,6 +93,10 @@ HELP_ORGA = """Zusätzlich verfügbare Kommandos für [ORGA]:
     Zeige diese Hilfenachricht.
 """
 
+DASHBOARD_ACCESS = """Das Dashboard ist mit Basic Auth geschützt.
+Benutzername: unifest2026
+Passwort: unifest2026"""
+
 # --- Registration --------------------------------------------------------
 
 REGISTER_PROMPT = "Mögliche Gruppen:"

@@ -150,7 +150,8 @@ async def cmd_dashboard(msg: Message, db_session: Session) -> None:
         "Dashboard für alle aktiven Tickets:\n"
         f"{_DASHBOARD_URL}\n\n"
         f"Nur Tickets, die aktuell {reg.group_name} zugewiesen sind:\n"
-        f"{group_url}",
+        f"{group_url}\n\n"
+        f"{i18n.DASHBOARD_ACCESS}",
         reply_markup=keyboard,
     )
 

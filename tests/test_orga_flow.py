@@ -411,6 +411,9 @@ async def test_dashboard_links_all_tickets_and_encoded_orga_view(s):
         "https://bestellbot.unifest-karlsruhe.de/?group=Technik+%26+B%C3%BChne"
         in text
     )
+    assert "Basic Auth" in text
+    assert "Benutzername: unifest2026" in text
+    assert "Passwort: unifest2026" in text
     keyboard = msg.answer.call_args.kwargs["reply_markup"]
     buttons = [button for row in keyboard.inline_keyboard for button in row]
     assert [button.url for button in buttons] == [

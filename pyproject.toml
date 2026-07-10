@@ -1,6 +1,6 @@
 [project]
 name = "unifestbestellbot"
-version = "0.2.7"
+version = "0.2.8"
 description = "Telegram bot for stalls at the Karlsruhe Unifest to order supplies"
 authors = [
     { name = "Felix Karg", email = "f.karg10@gmail.com" },
