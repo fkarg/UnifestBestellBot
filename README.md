@@ -48,6 +48,18 @@ flood-control retry, block-then-unregister), the dashboard event bus
 (including orga lifecycle publishing), Engelsystem summary rendering, and
 the dashboard endpoints. Run `uv run pytest` for the live count.
 
+## Development
+
+Every commit bumps the package's patch version in `pyproject.toml` and
+`uv.lock`. The hook is tracked in `.githooks`; enable it once after cloning:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The version bump also runs for empty commits, amend, merge, and revert. As with
+all pre-commit hooks, `git commit --no-verify` bypasses it.
+
 ## Documentation
 
 - [`docs/REWRITE_PLAN.md`](docs/REWRITE_PLAN.md) — the architecture and
