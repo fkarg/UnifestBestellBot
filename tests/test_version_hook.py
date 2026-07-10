@@ -1,7 +1,6 @@
 import stat
 from pathlib import Path
 
-
 HOOK = Path(__file__).parents[1] / ".githooks" / "pre-commit"
 
 
