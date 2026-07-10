@@ -35,8 +35,8 @@ def events():
 
 
 @pytest.fixture
-def app(events, engine_setup):
-    return build_web_app(events)
+def app(events, engine_setup, config):
+    return build_web_app(events, config)
 
 
 @pytest.fixture
@@ -58,6 +58,28 @@ def _ticket(engine, **overrides):
     defaults.update(overrides)
     with Session(engine) as s:
         return repo.create_ticket(s, **defaults)
+
+
+# --- /api/locations ------------------------------------------------------
+
+
+async def test_locations_maps_group_to_location(client):
+    r = await client.get("/api/locations")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["Cocktailbar 1"] == "Innenhof"
+    assert body["Biertheke 1"] == "Außenbereich"
+    # Hidden stalls still map — a ticket from one must group correctly.
+    assert body["Tickets"] == "Eingang"
+
+
+async def test_locations_empty_without_config(events, engine_setup):
+    app = build_web_app(events)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://t"
+    ) as c:
+        r = await c.get("/api/locations")
+    assert r.json() == {}
 
 
 # --- /api/tickets --------------------------------------------------------

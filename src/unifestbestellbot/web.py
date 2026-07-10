@@ -11,6 +11,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .config import AppConfig
 from .db import session_scope
 from .events import EventBus
 from .repo import active_tickets
@@ -48,8 +49,17 @@ async def sse_events(
         await sub.aclose()
 
 
-def build_web_app(events: EventBus) -> FastAPI:
+def build_web_app(events: EventBus, config: AppConfig | None = None) -> FastAPI:
     app = FastAPI(title="UnifestBestellBot Dashboard", docs_url=None, redoc_url=None)
+
+    @app.get("/api/locations")
+    def locations() -> dict[str, str]:
+        # Map each requesting group to its physical location so the batch
+        # view can group a board's tickets by location (Cocktailbar 1 & 2
+        # both under "Forum Süd" → one runner trip). Empty without config.
+        if config is None:
+            return {}
+        return {s.name: s.location for s in config.stalls}
 
     @app.get("/api/tickets")
     def tickets(group: str | None = Query(None)):

@@ -42,6 +42,16 @@ header h1 span {
   font-size: 1rem;
 }
 
+#batch-toggle {
+  font-size: .875rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
 #connection {
   font-size: .875rem;
   padding: .25rem .5rem;
@@ -55,6 +65,26 @@ main {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
   padding: 1.5rem;
+}
+
+/* Batch view: location sections stacked, tickets gridded within each. */
+main.batch {
+  display: block;
+}
+.loc-group {
+  margin-bottom: 1.75rem;
+}
+.loc-head {
+  font-size: 1.15rem;
+  color: var(--fg);
+  margin: 0 0 .75rem;
+  padding-bottom: .25rem;
+  border-bottom: 1px solid var(--border);
+}
+.loc-tickets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .ticket {

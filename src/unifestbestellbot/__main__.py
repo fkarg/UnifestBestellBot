@@ -157,7 +157,7 @@ async def amain() -> None:
     bot = build_bot()
     dp = build_dispatcher(config=config, events=events, shift_lookup=shift_lookup)
 
-    web = build_web_app(events)
+    web = build_web_app(events, config)
 
     def _make_server() -> uvicorn.Server:
         # A fresh Server per (re)start: uvicorn.Server carries should_exit

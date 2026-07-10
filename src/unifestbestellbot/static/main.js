@@ -6,7 +6,24 @@ const container = document.getElementById("tickets");
 const empty = document.getElementById("empty");
 const ding = document.getElementById("ding");
 const conn = document.getElementById("connection");
+const batchBox = document.getElementById("batch");
 document.getElementById("group-label").textContent = group ? `· ${group}` : "";
+
+// Batch view groups open tickets by physical location (for runners). Initial
+// state comes from ?view=batch; the on-screen checkbox toggles it and writes
+// the param back so a reload persists the choice.
+let batch = params.get("view") === "batch";
+let locations = {};
+batchBox.checked = batch;
+batchBox.addEventListener("change", () => {
+  batch = batchBox.checked;
+  const p = new URLSearchParams(location.search);
+  if (batch) p.set("view", "batch");
+  else p.delete("view");
+  const query = p.toString();
+  history.replaceState(null, "", location.pathname + (query ? `?${query}` : ""));
+  renderAll();
+});
 
 const RECONNECT_DELAY_MS = 10000;
 const ONLINE_GRACE_MS = 2000;
@@ -94,10 +111,39 @@ function ticketEl(t, now) {
   return el;
 }
 
+function locationOf(t) {
+  return locations[t.group_requesting] ?? t.group_requesting;
+}
+
 function renderAll() {
   const now = Date.now();
+  const list = sortedTickets();
+  container.classList.toggle("batch", batch);
   const frag = document.createDocumentFragment();
-  for (const t of sortedTickets()) frag.appendChild(ticketEl(t, now));
+  if (!batch) {
+    for (const t of list) frag.appendChild(ticketEl(t, now));
+  } else {
+    // Group by location, preserving the sorted order. Groups appear in the
+    // order their first (oldest OPEN) ticket does, so the most urgent
+    // location leads.
+    const groups = new Map();
+    for (const t of list) {
+      const loc = locationOf(t);
+      (groups.get(loc) ?? groups.set(loc, []).get(loc)).push(t);
+    }
+    for (const [loc, items] of groups) {
+      const section = document.createElement("section");
+      section.className = "loc-group";
+      const head = document.createElement("h2");
+      head.className = "loc-head";
+      head.textContent = loc;
+      const wrap = document.createElement("div");
+      wrap.className = "loc-tickets";
+      for (const t of items) wrap.appendChild(ticketEl(t, now));
+      section.append(head, wrap);
+      frag.appendChild(section);
+    }
+  }
   container.replaceChildren(frag);
   updateEmpty();
 }
@@ -229,5 +275,15 @@ function start() {
   subscribe();
   snapshot();
 }
+
+// Location map is static config; fetch once. If it lands after the first
+// render, re-render so a batched board picks it up.
+fetch("/api/locations")
+  .then((r) => r.json())
+  .then((m) => {
+    locations = m;
+    if (snapshotted) renderAll();
+  })
+  .catch(() => {});
 
 start();
