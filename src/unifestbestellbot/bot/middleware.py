@@ -27,8 +27,32 @@ class SessionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
 
+def _describe_action(event: Update) -> str:
+    """A short action label that differentiates updates the bare type can't:
+    the command for a message (`/stats`), the callback-data namespace for an
+    inline button (`wip`), otherwise the message content type (`photo`) or a
+    plain `text`. Best-effort — never raises into the log call."""
+    try:
+        msg = event.message or event.edited_message
+        if msg is not None:
+            text = msg.text or msg.caption
+            if text and text.startswith("/"):
+                # "/close@BotName 5" -> "/close"
+                return text.split(maxsplit=1)[0].split("@", 1)[0]
+            if text is not None:
+                return "text"
+            return msg.content_type
+        if event.callback_query is not None:
+            # Callback data is namespaced "wip:123" -> "wip".
+            return (event.callback_query.data or "").split(":", 1)[0] or "callback"
+    except Exception:
+        return "?"
+    return "-"
+
+
 class UpdateLoggingMiddleware(BaseMiddleware):
-    """Log the Telegram update type alongside aiogram's usual timing data."""
+    """Log the Telegram update type and a short action label alongside
+    aiogram's usual timing data."""
 
     async def __call__(
         self,
@@ -53,9 +77,10 @@ class UpdateLoggingMiddleware(BaseMiddleware):
                 event_type = "unknown"
             duration = (asyncio.get_running_loop().time() - start_time) * 1000
             log.info(
-                "Update id=%s type=%s is %s. Duration %d ms by bot id=%d",
+                "Update id=%s type=%s action=%s is %s. Duration %d ms by bot id=%d",
                 event.update_id,
                 event_type,
+                _describe_action(event),
                 "handled" if handled else "not handled",
                 duration,
                 data["bot"].id,
