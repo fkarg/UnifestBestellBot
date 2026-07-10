@@ -201,6 +201,12 @@ async def amain() -> None:
             _supervise("web-server", _serve, bot),
         )
     finally:
+        # Announce an orderly stop before tearing down the bot session. This
+        # reaches the channel on a clean Ctrl-C (which unwinds into this
+        # teardown); a SIGTERM/systemctl stop exits before `finally` runs, so
+        # there is deliberately no delivery guarantee for those.
+        with contextlib.suppress(Exception):
+            await notify.channel_msg(bot, i18n.CH_BOT_STOPPED.format(host=host))
         if digest_task is not None:
             digest_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
