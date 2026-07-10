@@ -24,7 +24,7 @@ from . import i18n
 from .bot import build_bot, build_dispatcher, errors, notify
 from .bot.digest import shift_digest_loop
 from .config import AppConfig, load_config
-from .db import init_db
+from .db import checkpoint_and_close, get_engine, init_db
 from .engelsystem import EngelsystemClient, ShiftLookup, make_shift_lookup
 from .events import EventBus
 from .settings import get_settings
@@ -207,10 +207,15 @@ async def amain() -> None:
                 await digest_task
         # Idempotent fallback: _DashboardServer closes SSE subscribers before
         # Uvicorn drains responses; this also covers non-web shutdown paths.
-        await events.aclose()
-        await bot.session.close()
-        if engelsystem_client is not None:
-            await engelsystem_client.aclose()
+        try:
+            await events.aclose()
+            await bot.session.close()
+            if engelsystem_client is not None:
+                await engelsystem_client.aclose()
+        finally:
+            # Merge any WAL left by an older release even when another cleanup
+            # step fails, then release all SQLite connections before exit.
+            checkpoint_and_close(get_engine())
 
 
 def run() -> None:

@@ -9,9 +9,11 @@ against that upgraded legacy file with real legacy rows in it. That end-to-end
 The legacy schema here predates every entry in `db._ADDED_COLUMNS`: the ticket
 has no `who_wip_chat_id`, the registration none of the mute/display columns."""
 
+import sqlite3
+
 from sqlmodel import Session, SQLModel, create_engine
 from unifestbestellbot import repo
-from unifestbestellbot.db import _ensure_columns
+from unifestbestellbot.db import _ensure_columns, checkpoint_and_close
 from unifestbestellbot.models import TicketStatus
 
 _LEGACY_SCHEMA = """
@@ -142,3 +144,29 @@ def test_writes_work_against_upgraded_legacy_db(tmp_path):
         closed = repo.close_ticket(s, 1, actor_chat_id=1)
         assert closed.status == TicketStatus.CLOSED
         assert closed.closed_at is not None
+
+
+def test_checkpoint_and_close_merges_wal_into_database_file(tmp_path):
+    path = tmp_path / "bot.db"
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.begin() as conn:
+        conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+        conn.exec_driver_sql("CREATE TABLE saved_value (value TEXT NOT NULL)")
+        conn.exec_driver_sql("INSERT INTO saved_value VALUES ('persisted')")
+
+    assert path.with_name("bot.db-wal").exists()
+
+    checkpoint_and_close(engine)
+
+    assert not path.with_name("bot.db-wal").exists()
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT value FROM saved_value").fetchall() == [("persisted",)]
+
+
+def test_sqlite_connections_use_a_single_file_journal(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'bot.db'}")
+    try:
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("PRAGMA journal_mode").scalar_one() == "delete"
+    finally:
+        engine.dispose()

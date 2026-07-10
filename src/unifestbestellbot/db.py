@@ -17,7 +17,10 @@ from .settings import get_settings
 def _enable_sqlite_pragmas(dbapi_conn, _):
     try:
         cur = dbapi_conn.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
+        # The Docker deployment persists only ``bot.db``. Keep SQLite's journal
+        # in that file so a forced container stop cannot strand recent writes in
+        # an unmounted ``bot.db-wal`` sidecar.
+        cur.execute("PRAGMA journal_mode=DELETE")
         cur.execute("PRAGMA foreign_keys=ON")
         cur.close()
     except Exception:
@@ -44,6 +47,22 @@ def init_db() -> None:
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
     _ensure_columns(engine)
+
+
+def checkpoint_and_close(engine: Engine) -> None:
+    """Merge SQLite's WAL into its main file, then close every DB connection.
+
+    A clean container shutdown must leave a standalone ``bot.db`` because the
+    production deployment bind-mounts that file, not SQLite's ``-wal`` sidecar.
+    """
+    try:
+        if engine.dialect.name == "sqlite":
+            with engine.connect() as conn:
+                busy, _, _ = conn.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)").one()
+                if busy:
+                    raise RuntimeError("SQLite WAL checkpoint was blocked by an active reader")
+    finally:
+        engine.dispose()
 
 
 # Columns added after the initial schema, per table. create_all() only creates
