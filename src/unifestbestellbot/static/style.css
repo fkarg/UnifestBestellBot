@@ -5,6 +5,8 @@
   --open: #f5a623;
   --wip: #2ea043;
   --border: #30363d;
+  --warn: #d29922;
+  --crit: #f85149;
 }
 
 * {
@@ -64,6 +66,14 @@ main {
 }
 .ticket.open { border-color: var(--open); }
 .ticket.wip { border-color: var(--wip); opacity: .8; }
+/* SLA escalation overrides the status border once a ticket has aged. */
+.ticket.warn { border-color: var(--warn); opacity: 1; }
+.ticket.crit {
+  border-color: var(--crit);
+  opacity: 1;
+  animation: crit-pulse 1.6s ease-in-out infinite;
+}
+@keyframes crit-pulse { 50% { border-color: #ff8a80; } }
 
 .ticket .text {
   font-size: 1.25rem;
@@ -76,7 +86,10 @@ main {
   margin: 0;
   display: flex;
   justify-content: space-between;
+  gap: .5rem;
 }
+.ticket.warn .age { color: var(--warn); }
+.ticket.crit .age { color: var(--crit); font-weight: 600; }
 
 #empty {
   text-align: center;
