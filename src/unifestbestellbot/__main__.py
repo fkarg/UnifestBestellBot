@@ -20,7 +20,7 @@ from collections.abc import Awaitable, Callable
 import uvicorn
 from fastapi import FastAPI
 
-from . import i18n, repo
+from . import __version__, i18n, repo
 from .bot import build_bot, build_dispatcher, errors, notify
 from .bot.digest import shift_digest_loop
 from .config import AppConfig, load_config
@@ -184,7 +184,9 @@ async def amain() -> None:
     host = socket.gethostname()
     log.info("UnifestBestellBot starting from %s", host)
     try:
-        await notify.channel_msg(bot, i18n.CH_BOT_STARTED.format(host=host))
+        await notify.channel_msg(
+            bot, i18n.CH_BOT_STARTED.format(host=host, version=__version__)
+        )
     except Exception:
         log.exception("failed to send startup channel notification")
 
@@ -217,7 +219,9 @@ async def amain() -> None:
         # teardown); a SIGTERM/systemctl stop exits before `finally` runs, so
         # there is deliberately no delivery guarantee for those.
         with contextlib.suppress(Exception):
-            await notify.channel_msg(bot, i18n.CH_BOT_STOPPED.format(host=host))
+            await notify.channel_msg(
+                bot, i18n.CH_BOT_STOPPED.format(host=host, version=__version__)
+            )
         if digest_task is not None:
             digest_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

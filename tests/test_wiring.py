@@ -5,6 +5,7 @@ import logging
 from typing import cast
 
 import uvicorn
+from unifestbestellbot import __version__, i18n
 from unifestbestellbot.events import EventBus
 
 
@@ -28,6 +29,15 @@ def test_main_module_imports():
     import importlib
 
     importlib.import_module("unifestbestellbot.__main__")
+
+
+def test_lifecycle_channel_messages_include_the_package_version():
+    assert i18n.CH_BOT_STARTED.format(host="test-host", version=__version__) == (
+        f"🔘 Started from test-host (v{__version__})"
+    )
+    assert i18n.CH_BOT_STOPPED.format(host="test-host", version=__version__) == (
+        f"⚫ Stopped on test-host (v{__version__})"
+    )
 
 
 def test_web_server_config_bounds_graceful_shutdown(config):

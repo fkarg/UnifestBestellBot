@@ -262,8 +262,8 @@ CH_REGISTER = "🔵 {who} registered as member of group {group}."
 CH_UNREGISTER = "🔵 {who} unregistered from group {group}."
 CH_RENAME = "🔵 {old} von [{group}] heißt jetzt {new}."
 CH_MESSAGE = "🟣 Nachricht von {sender} an {recipient}: {message}"
-CH_BOT_STARTED = "🔘 Started from {host}"
-CH_BOT_STOPPED = "⚫ Stopped on {host}"
+CH_BOT_STARTED = "🔘 Started from {host} (v{version})"
+CH_BOT_STOPPED = "⚫ Stopped on {host} (v{version})"
 
 # --- Bug / feature reports ---------------------------------------------
 
