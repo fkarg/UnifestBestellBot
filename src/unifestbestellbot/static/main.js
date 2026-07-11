@@ -40,14 +40,13 @@ document.body.addEventListener(
   { once: true }
 );
 
-// Ticket aging / SLA: an *unclaimed* ticket sitting unhandled turns amber,
-// then red. Thresholds are wall-clock since the ticket was created. Once
-// someone claims it (WIP), the color drops back to neutral — an aged color
-// then means "nobody has picked this up", which is a real signal, rather
-// than penalizing someone who's already on it. The elapsed-time label still
-// shows for WIP. Tune here.
-const AGE_WARN_MS = 8 * 60 * 1000;
-const AGE_CRIT_MS = 15 * 60 * 1000;
+// Ticket aging / SLA: an unclaimed (OPEN) ticket is amber from the start,
+// then turns red once it's sat unclaimed past AGE_CRIT_MS (wall-clock since
+// creation). Once someone claims it (WIP) it goes green — an aged red then
+// means "nobody has picked this up", a real signal, rather than penalizing
+// someone who's already on it. The elapsed-time label still shows for WIP.
+// Tune here.
+const AGE_CRIT_MS = 8 * 60 * 1000;
 const AGE_REFRESH_MS = 15000;
 
 // Current in-scope, non-closed tickets by id, plus the ids we've already
@@ -80,9 +79,8 @@ function ageInfo(t, now) {
   const ms = Math.max(0, now - started);
   const mins = Math.floor(ms / 60000);
   const label = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  // Only unclaimed (open) tickets escalate; a claimed ticket stays neutral.
-  const level =
-    t.status !== "open" ? "" : ms >= AGE_CRIT_MS ? "crit" : ms >= AGE_WARN_MS ? "warn" : "";
+  // Only unclaimed (open) tickets escalate to red; a claimed ticket stays green.
+  const level = t.status === "open" && ms >= AGE_CRIT_MS ? "crit" : "";
   return { label, level };
 }
 
