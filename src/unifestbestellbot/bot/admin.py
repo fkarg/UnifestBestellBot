@@ -12,15 +12,10 @@ from ..config import AppConfig
 from ..events import EventBus
 from ..models import Registration, Ticket, TicketStatus, now_utc, to_local
 from . import notify
-from .common import actor, bot_of, display_for
+from .common import actor, answer_chunks, bot_of, display_for
 from .filters import IsDeveloper
 
 router = Router(name="admin")
-
-# Telegram rejects messages over 4096 chars. Stay comfortably below so a
-# multi-line diagnostic dump splits into several messages instead of failing.
-_TG_CHUNK = 3900
-
 
 # Group name attributed to the developer when closing tickets via /closeall.
 # Shows up in channel logs and peer DMs so recipients can tell these closes
@@ -102,28 +97,6 @@ def _fmt_ticket(t: Ticket) -> str:
     return f"  {t.display()}\n      {meta}"
 
 
-def _chunks(text: str, limit: int = _TG_CHUNK) -> list[str]:
-    """Split `text` into Telegram-sized messages on line boundaries. A single
-    line longer than `limit` (unlikely here) is hard-split rather than dropped."""
-    out: list[str] = []
-    cur = ""
-    for line in text.split("\n"):
-        while len(line) > limit:
-            if cur:
-                out.append(cur)
-                cur = ""
-            out.append(line[:limit])
-            line = line[limit:]
-        if cur and len(cur) + 1 + len(line) > limit:
-            out.append(cur)
-            cur = line
-        else:
-            cur = f"{cur}\n{line}" if cur else line
-    if cur:
-        out.append(cur)
-    return out
-
-
 @router.message(Command("system"), IsDeveloper())
 async def cmd_system(msg: Message, db_session: Session, config: AppConfig) -> None:
     """Developer snapshot of live state: who is registered where, which
@@ -182,5 +155,4 @@ async def cmd_system(msg: Message, db_session: Session, config: AppConfig) -> No
     if not orga_regs:
         lines.append("  (none)")
 
-    for chunk in _chunks("\n".join(lines)):
-        await msg.answer(chunk)
+    await answer_chunks(msg, "\n".join(lines))

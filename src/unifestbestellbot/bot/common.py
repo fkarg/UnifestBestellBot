@@ -1,9 +1,50 @@
 """Small helpers shared across bot flows."""
 
+import re
+
 from aiogram import Bot
 from aiogram.types import CallbackQuery, Message, User
 
 from ..models import Registration
+
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+def split_message(text: str, *, limit: int = TELEGRAM_MESSAGE_LIMIT) -> list[str]:
+    """Split text into Telegram-sized chunks, preferring line boundaries."""
+    if len(text) <= limit:
+        return [text]
+
+    chunks: list[str] = []
+    pos = 0
+    in_fence = False
+    while pos < len(text):
+        prefix = "```\n" if in_fence else ""
+        # A continued fenced block needs room for its reopening and closing
+        # markers, so every individual Telegram message stays valid Markdown.
+        content_limit = limit - len(prefix) - (4 if in_fence else 0)
+        end = min(pos + content_limit, len(text))
+        if end < len(text):
+            segment = text[pos:end]
+            newline = segment.rfind("\n") + 1
+            sentence = max(
+                (m.end() for m in re.finditer(r"[.!?][\"')\]]?\s+", segment)),
+                default=0,
+            )
+            whitespace = max(
+                (index + 1 for index, char in enumerate(segment) if char.isspace()),
+                default=0,
+            )
+            end = pos + (newline or sentence or whitespace or len(segment))
+
+        raw_chunk = text[pos:end]
+        closes_fence = raw_chunk.count("```") % 2 == 1
+        next_in_fence = in_fence != closes_fence
+        suffix = "\n```" if next_in_fence else ""
+        chunks.append(prefix + raw_chunk + suffix)
+        in_fence = next_in_fence
+        pos = end
+    return chunks
 
 
 def who(user: User | None) -> str:
@@ -53,3 +94,11 @@ async def answer(event: Message | CallbackQuery, text: str, **kwargs) -> None:
         await event.answer()
     else:
         await event.answer(text, **kwargs)
+
+
+async def answer_chunks(msg: Message, text: str, **kwargs) -> None:
+    """Reply with Telegram-sized chunks; attach reply markup only once."""
+    for index, chunk in enumerate(split_message(text)):
+        if index:
+            kwargs = {key: value for key, value in kwargs.items() if key != "reply_markup"}
+        await msg.answer(chunk, **kwargs)

@@ -10,6 +10,7 @@ from sqlmodel import Session
 
 from .. import repo
 from ..settings import get_settings
+from .common import split_message
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ async def channel_msg(bot: Bot, text: str) -> None:
         log.info("channel (unconfigured): %s", text)
         return
     try:
-        await bot.send_message(chat_id=chat_id, text=text)
+        for chunk in split_message(text):
+            await bot.send_message(chat_id=chat_id, text=chunk)
     except TelegramRetryAfter as e:
         log.warning("flood control on channel, dropping message after %ss", e.retry_after)
     except Exception:
@@ -39,7 +41,8 @@ async def channel_msg(bot: Bot, text: str) -> None:
 async def dev_msg(bot: Bot, text: str) -> None:
     chat_id = get_settings().developer_chat_id
     try:
-        await bot.send_message(chat_id=chat_id, text=text)
+        for chunk in split_message(text):
+            await bot.send_message(chat_id=chat_id, text=chunk)
     except Exception:
         log.exception("dev_msg failed")
 
@@ -48,13 +51,15 @@ async def _send_one(bot: Bot, chat_id: int, text: str, reply_markup) -> None:
     """Send a single message, retrying once if Telegram asks us to back off
     for flood control. A second RetryAfter (or any other error) propagates
     to the caller's per-recipient handling."""
-    try:
-        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-    except TelegramRetryAfter as e:
-        wait = min(e.retry_after, _MAX_RETRY_AFTER)
-        log.warning("flood control sending to %d; retrying after %ss", chat_id, wait)
-        await asyncio.sleep(wait)
-        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+    for index, chunk in enumerate(split_message(text)):
+        markup = reply_markup if index == 0 else None
+        try:
+            await bot.send_message(chat_id=chat_id, text=chunk, reply_markup=markup)
+        except TelegramRetryAfter as e:
+            wait = min(e.retry_after, _MAX_RETRY_AFTER)
+            log.warning("flood control sending to %d; retrying after %ss", chat_id, wait)
+            await asyncio.sleep(wait)
+            await bot.send_message(chat_id=chat_id, text=chunk, reply_markup=markup)
 
 
 async def group_msg(

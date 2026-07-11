@@ -113,6 +113,20 @@ async def test_history_with_explicit_n(s, config):
     assert "t0" not in body and "t1" not in body and "t2" not in body
 
 
+async def test_history_splits_oversized_response(s, config):
+    for i in range(50):
+        _open_and_close(s, text=f"ticket {i}: " + "x" * 100)
+
+    msg = fake_message(user_id=1, text="/history 50")
+    await orga_flow.cmd_history(msg, db_session=s, config=config)
+
+    replies = [call.args[0] for call in msg.answer.await_args_list]
+    assert len(replies) > 1
+    assert all(len(reply) <= 4096 for reply in replies)
+    assert "ticket 49:" in "\n".join(replies)
+    assert "ticket 0:" in "\n".join(replies)
+
+
 async def test_history_empty_state(s, config):
     msg = fake_message(user_id=1, text="/history")
     await orga_flow.cmd_history(msg, db_session=s, config=config)

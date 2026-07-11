@@ -22,7 +22,7 @@ from ..engelsystem import ShiftLookup
 from ..events import EventBus
 from ..models import PEER_OPENED
 from . import keyboards, notify
-from .common import actor, bot_of, display_for
+from .common import actor, answer_chunks, bot_of, display_for
 
 router = Router(name="request")
 
@@ -295,7 +295,7 @@ async def helper_list_shifts(
     summary = await shift_lookup(data["group"], config)
     await state.clear()
     reg = repo.registration_for(db_session, actor(msg).id)
-    await msg.answer(summary, reply_markup=keyboards.for_user(reg, config))
+    await answer_chunks(msg, summary, reply_markup=keyboards.for_user(reg, config))
 
 
 @router.message(RequestFSM.helper, F.text == "Helfer nicht da")

@@ -143,3 +143,15 @@ async def test_channel_msg_posts_when_channel_configured(monkeypatch):
     bot = _bot()
     await notify.channel_msg(bot, "hello world")
     assert bot.send_message.await_args.kwargs["chat_id"] == 200
+
+
+async def test_group_message_splits_oversized_text(s):
+    repo.upsert_registration(s, Registration(chat_id=1, group_name="Finanz"))
+    bot = _bot()
+
+    await notify.group_msg(bot, s, "Finanz", "line\n" * 5000)
+
+    texts = [call.kwargs["text"] for call in bot.send_message.await_args_list]
+    assert len(texts) > 1
+    assert all(len(text) <= 4096 for text in texts)
+    assert "".join(texts) == "line\n" * 5000

@@ -27,7 +27,7 @@ from ..models import (
     to_local,
 )
 from . import keyboards, notify
-from .common import actor, bot_of, display_for
+from .common import actor, answer_chunks, bot_of, display_for
 from .filters import IsOrga
 
 router = Router(name="orga")
@@ -105,7 +105,8 @@ async def cmd_tickets(msg: Message, db_session: Session, config: AppConfig) -> N
         )
         return
     body = "\n\n".join(t.display() for t in open_for_group)
-    await msg.answer(
+    await answer_chunks(
+        msg,
         i18n.TICKETS_FOR_GROUP_HEADER.format(group=reg.group_name, tickets=body),
         reply_markup=keyboards.for_user(reg, config),
     )
@@ -126,7 +127,7 @@ async def cmd_all(msg: Message, db_session: Session, config: AppConfig) -> None:
                 + "\n\n".join(t.display() for t in for_orga)
             )
     reg = _require_reg(db_session, msg)
-    await msg.answer("\n".join(parts) or i18n.NO_OPEN_TICKETS_ANYWHERE,
+    await answer_chunks(msg, "\n".join(parts) or i18n.NO_OPEN_TICKETS_ANYWHERE,
                      reply_markup=keyboards.for_user(reg, config))
 
 
@@ -537,7 +538,7 @@ async def cmd_helpers(
     parts = (msg.text or "").split(maxsplit=1)
     group = parts[1].strip() if len(parts) > 1 else reg.group_name
     summary = await shift_lookup(group, config)
-    await msg.answer(summary, reply_markup=keyboards.for_user(reg, config))
+    await answer_chunks(msg, summary, reply_markup=keyboards.for_user(reg, config))
 
 
 # --- /bug, /feature (open to everyone) ------------------------------------
@@ -631,7 +632,7 @@ async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> N
             for t in tickets
         ]
         body = i18n.HISTORY_GROUP_HEADER.format(group=group) + "\n\n" + "\n\n".join(lines)
-        await msg.answer(body, reply_markup=keyboards.for_user(reg, config))
+        await answer_chunks(msg, body, reply_markup=keyboards.for_user(reg, config))
         return
 
     if _bad_limit(explicit):
@@ -656,7 +657,7 @@ async def cmd_history(msg: Message, db_session: Session, config: AppConfig) -> N
             f"#{cs.ticket.id} ({when}) – {cs.closer_display}\n  {cs.ticket.text}"
         )
     body = i18n.HISTORY_HEADER.format(group=reg.group_name) + "\n\n" + "\n\n".join(lines)
-    await msg.answer(body, reply_markup=keyboards.for_user(reg, config))
+    await answer_chunks(msg, body, reply_markup=keyboards.for_user(reg, config))
 
 
 def _fmt_dur(seconds: float | None) -> str:
@@ -721,4 +722,4 @@ async def cmd_stats(msg: Message, db_session: Session, config: AppConfig) -> Non
     hour_lines = "\n".join(f"  {label}: {n}" for label, n in hour_counts.items())
     sections.append(i18n.STATS_BY_HOUR + "\n" + hour_lines)
 
-    await msg.answer("\n\n".join(sections), reply_markup=kb)
+    await answer_chunks(msg, "\n\n".join(sections), reply_markup=kb)
