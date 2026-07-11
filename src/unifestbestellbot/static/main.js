@@ -40,10 +40,12 @@ document.body.addEventListener(
   { once: true }
 );
 
-// Ticket aging / SLA: a ticket sitting unhandled turns amber, then red.
-// Thresholds are wall-clock since the ticket was created (WIP included —
-// a claimed-but-not-delivered ticket aging is also a failure the TV should
-// show). Tune here.
+// Ticket aging / SLA: an *unclaimed* ticket sitting unhandled turns amber,
+// then red. Thresholds are wall-clock since the ticket was created. Once
+// someone claims it (WIP), the color drops back to neutral — an aged color
+// then means "nobody has picked this up", which is a real signal, rather
+// than penalizing someone who's already on it. The elapsed-time label still
+// shows for WIP. Tune here.
 const AGE_WARN_MS = 8 * 60 * 1000;
 const AGE_CRIT_MS = 15 * 60 * 1000;
 const AGE_REFRESH_MS = 15000;
@@ -78,7 +80,9 @@ function ageInfo(t, now) {
   const ms = Math.max(0, now - started);
   const mins = Math.floor(ms / 60000);
   const label = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  const level = ms >= AGE_CRIT_MS ? "crit" : ms >= AGE_WARN_MS ? "warn" : "";
+  // Only unclaimed (open) tickets escalate; a claimed ticket stays neutral.
+  const level =
+    t.status !== "open" ? "" : ms >= AGE_CRIT_MS ? "crit" : ms >= AGE_WARN_MS ? "warn" : "";
   return { label, level };
 }
 
