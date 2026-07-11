@@ -404,6 +404,20 @@ def record_message(
     s.commit()
 
 
+def record_direct_message(
+    s: Session, *, chat_id: int, actor_chat_id: int, message: str
+) -> None:
+    """Audit a developer message sent directly to a Telegram chat."""
+    s.add(
+        AuditEvent(
+            kind="direct_message",
+            actor_chat_id=actor_chat_id,
+            payload_json=json.dumps({"chat_id": chat_id, "message": message}),
+        )
+    )
+    s.commit()
+
+
 # ---------------------------------------------------------------------------
 # Stats (read-only, for /stats)
 # ---------------------------------------------------------------------------

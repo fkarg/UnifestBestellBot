@@ -28,3 +28,20 @@ class IsDeveloper(BaseFilter):
         if event.from_user is None:
             return False
         return event.from_user.id == get_settings().developer_chat_id
+
+
+class IsOrgaOrDeveloper(BaseFilter):
+    """Permit the normal orga command path plus the developer escape hatch."""
+
+    async def __call__(
+        self,
+        event: Message | CallbackQuery,
+        db_session: Session,
+        config: AppConfig,
+    ) -> bool:
+        if event.from_user is None:
+            return False
+        if event.from_user.id == get_settings().developer_chat_id:
+            return True
+        reg = repo.registration_for(db_session, event.from_user.id)
+        return reg is not None and config.is_orga(reg.group_name)

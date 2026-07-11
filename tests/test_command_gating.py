@@ -12,7 +12,7 @@ an executable place. Orga registration itself is deliberately self-service
 
 from unifestbestellbot.bot import admin as admin_flow
 from unifestbestellbot.bot import orga as orga_flow
-from unifestbestellbot.bot.filters import IsDeveloper, IsOrga
+from unifestbestellbot.bot.filters import IsDeveloper, IsOrga, IsOrgaOrDeveloper
 
 
 def _filters_for(observer, callback):
@@ -33,7 +33,6 @@ ORGA_MESSAGE_COMMANDS = [
     orga_flow.cmd_wip,
     orga_flow.cmd_close,
     orga_flow.cmd_move,
-    orga_flow.cmd_message,
     orga_flow.cmd_tickets,
     orga_flow.cmd_all,
     orga_flow.cmd_history,
@@ -52,6 +51,10 @@ def test_orga_message_commands_are_gated_by_is_orga():
         assert _has_filter(orga_flow.router.message, cmd, IsOrga), (
             f"{cmd.__name__} is missing the IsOrga() filter — any user could run it"
         )
+
+
+def test_message_is_gated_to_orga_or_developer():
+    assert _has_filter(orga_flow.router.message, orga_flow.cmd_message, IsOrgaOrDeveloper)
 
 
 def test_orga_ticket_callbacks_are_gated_by_is_orga():

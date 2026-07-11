@@ -26,9 +26,10 @@ from ..models import (
     now_utc,
     to_local,
 )
+from ..settings import get_settings
 from . import keyboards, notify
 from .common import actor, answer_chunks, bot_of, display_for
-from .filters import IsOrga
+from .filters import IsOrga, IsOrgaOrDeveloper
 
 router = Router(name="orga")
 
@@ -484,7 +485,7 @@ async def cmd_move(
 # --- /message -------------------------------------------------------------
 
 
-@router.message(Command("message"), IsOrga())
+@router.message(Command("message"), IsOrgaOrDeveloper())
 async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> None:
     parts = (msg.text or "").split(maxsplit=2)
     if len(parts) < 3:
@@ -497,11 +498,36 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
     body = parts[2]
     ticket = repo.get_ticket(db_session, tid)
     if ticket is None:
+        user = actor(msg)
+        if user.id == get_settings().developer_chat_id:
+            # This is an intentionally developer-only escape hatch. Ticket
+            # lookup above takes priority so a colliding ID always preserves
+            # the established ticket-message behaviour.
+            repo.record_direct_message(
+                db_session, chat_id=tid, actor_chat_id=user.id, message=body
+            )
+            bot = bot_of(msg)
+            await bot.send_message(
+                chat_id=tid,
+                text=i18n.GROUP_INCOMING_MESSAGE.format(
+                    sender="Entwickler", message=body
+                ),
+                reply_markup=None,
+            )
+            await notify.channel_msg(
+                bot,
+                i18n.CH_MESSAGE.format(
+                    sender="Entwickler", recipient=f"chat {tid}", message=body
+                ),
+            )
+            await msg.answer(i18n.MESSAGE_DELIVERED)
+            return
         await msg.answer(i18n.TICKET_NOT_FOUND_OR_CLOSED.format(uid=tid))
         return
     user = actor(msg)
     bot = bot_of(msg)
-    reg = _require_reg(db_session, msg)
+    reg = repo.registration_for(db_session, user.id)
+    sender = reg.group_name if reg is not None else "Entwickler"
     # Record the audit trail first: a message that was sent but not recorded
     # (crash/DB error after the network send) is worse than the reverse, and
     # the audit row is the only durable proof the message went out.
@@ -513,12 +539,12 @@ async def cmd_message(msg: Message, db_session: Session, config: AppConfig) -> N
     )
     await notify.group_msg(
         bot, db_session, ticket.group_requesting,
-        i18n.GROUP_INCOMING_MESSAGE.format(sender=reg.group_name, message=body),
+        i18n.GROUP_INCOMING_MESSAGE.format(sender=sender, message=body),
     )
     await notify.channel_msg(
         bot,
         i18n.CH_MESSAGE.format(
-            sender=reg.group_name, recipient=ticket.group_requesting, message=body
+            sender=sender, recipient=ticket.group_requesting, message=body
         ),
     )
     await msg.answer(i18n.MESSAGE_DELIVERED, reply_markup=keyboards.for_user(reg, config))

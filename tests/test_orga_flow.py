@@ -4,11 +4,11 @@ import json
 
 import pytest
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from unifestbestellbot import i18n, repo
 from unifestbestellbot.bot import orga as orga_flow
 from unifestbestellbot.events import EventBus
-from unifestbestellbot.models import Registration, TicketStatus
+from unifestbestellbot.models import AuditEvent, Registration, TicketStatus
 
 from .fakes import fake_callback, fake_message
 
@@ -414,6 +414,52 @@ async def test_message_missing_args(s, config):
     await orga_flow.cmd_message(msg, db_session=s, config=config)
     body = msg.answer.call_args.args[0]
     assert "Benutzung" in body
+
+
+async def test_message_developer_falls_back_to_direct_user_message(s, config):
+    msg = fake_message(user_id=100, text="/message 1234567890 Hallo direkt")
+
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+
+    msg.bot.send_message.assert_any_await(
+        chat_id=1234567890,
+        text="🟣 Nachricht von Entwickler: Hallo direkt",
+        reply_markup=None,
+    )
+    msg.bot.send_message.assert_any_await(
+        chat_id=200,
+        text="🟣 Nachricht von Entwickler an chat 1234567890: Hallo direkt",
+    )
+    event = list(
+        s.exec(select(AuditEvent).where(AuditEvent.kind == "direct_message"))
+    ).pop()
+    assert event.ticket_id is None
+    assert event.actor_chat_id == 100
+    assert event.payload_json == '{"chat_id": 1234567890, "message": "Hallo direkt"}'
+
+
+async def test_message_developer_prefers_existing_ticket_over_chat_id(s, config):
+    repo.upsert_registration(s, Registration(chat_id=2, group_name="Cocktailbar"))
+    ticket = _ticket(s)
+    msg = fake_message(user_id=100, text=f"/message {ticket.id} Ticket zuerst")
+
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+
+    msg.bot.send_message.assert_any_await(
+        chat_id=2,
+        text="🟣 Nachricht von Entwickler: Ticket zuerst",
+        reply_markup=None,
+    )
+    assert all(call.kwargs["chat_id"] != ticket.id for call in msg.bot.send_message.await_args_list)
+
+
+async def test_message_non_developer_cannot_fall_back_to_direct_user_message(s, config):
+    msg = fake_message(user_id=1, text="/message 1234567890 Nicht senden")
+
+    await orga_flow.cmd_message(msg, db_session=s, config=config)
+
+    msg.bot.send_message.assert_not_awaited()
+    assert "existiert" in msg.answer.call_args.args[0]
 
 
 # --- /bug, /feature, /help2 ----------------------------------------------

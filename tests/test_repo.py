@@ -210,6 +210,15 @@ def test_record_message_writes_audit(s):
     assert "hello" in msgs[0].payload_json
 
 
+def test_record_direct_message_writes_audit_without_ticket(s):
+    repo.record_direct_message(s, chat_id=1234567890, actor_chat_id=5, message="hello")
+
+    event = [e for e in _audit(s) if e.kind == "direct_message"][0]
+    assert event.ticket_id is None
+    assert event.actor_chat_id == 5
+    assert event.payload_json == '{"chat_id": 1234567890, "message": "hello"}'
+
+
 def test_rejected_transitions_write_no_audit_row(s):
     """A guard that rejects an action must leave the audit log untouched —
     no orphaned 'wip'/'close'/'move' row for an action that did not happen."""
