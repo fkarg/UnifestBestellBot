@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -8,7 +9,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from unifestbestellbot import i18n, repo
 from unifestbestellbot.bot import orga as orga_flow
 from unifestbestellbot.events import EventBus
-from unifestbestellbot.models import AuditEvent, Registration, TicketStatus
+from unifestbestellbot.models import AuditEvent, Registration, Ticket, TicketStatus
 
 from .fakes import fake_callback, fake_message
 
@@ -107,6 +108,28 @@ async def test_stats_folds_requesting_groups_into_locations(s, config):
     assert "Innenhof [Cocktail]" in body
     assert "Außenbereich [Bier]" in body
     assert "Cocktailbar 1" not in body
+
+
+async def test_stats_shows_daily_counts_and_processing_percentiles_by_orga_group(s, config):
+    base = datetime(2026, 7, 10, 20, 0, 0)
+    for group, minutes in (("BiMi", 10), ("BiMi", 20), ("Finanz", 30)):
+        ticket = _ticket(s, group_tasked=group)
+        obj = s.get(Ticket, ticket.id)
+        obj.created_at = base
+        obj.closed_at = base + timedelta(minutes=minutes)
+        obj.status = TicketStatus.CLOSED
+        s.add(obj)
+    s.commit()
+
+    msg = fake_message(user_id=1)
+    await orga_flow.cmd_stats(msg, db_session=s, config=config)
+
+    body = msg.answer.call_args.args[0]
+    assert "Nach Tag:" in body
+    assert "10.07.2026: 3" in body
+    assert "Bearbeitung nach Orga-Gruppe:" in body
+    assert "BiMi: P50 15 min · P75 17 min · P90 19 min · P95 19 min · Max 20 min" in body
+    assert "Finanz: P50 30 min · P75 30 min · P90 30 min · P95 30 min · Max 30 min" in body
 
 
 # --- /wip ----------------------------------------------------------------

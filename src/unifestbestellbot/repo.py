@@ -3,7 +3,7 @@ Audit events are written in the same transaction as the action they describe."""
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import or_
 from sqlalchemy import update as sa_update
@@ -424,6 +424,17 @@ def record_direct_message(
 
 
 @dataclass
+class Percentiles:
+    """Processing-time percentile summary in seconds."""
+
+    p50_s: float
+    p75_s: float
+    p90_s: float
+    p95_s: float
+    max_s: float
+
+
+@dataclass
 class Stats:
     """Whole-database aggregate over every ticket seen this event. Counts are
     over all tickets regardless of status; timings are over the tickets that
@@ -436,11 +447,13 @@ class Stats:
     closed: int
     by_category: dict[str, int]
     by_group: dict[str, int]  # group_requesting -> count
+    by_day: dict[date, int]  # local-time creation date -> count
     by_hour: dict[int, int]  # local-time creation hour -> count
     wait_median_s: float | None  # created -> closed, over closed tickets
     wait_max_s: float | None
     pickup_median_s: float | None  # created -> first WIP, over claimed tickets
     pickup_max_s: float | None
+    wait_percentiles_by_group: dict[str, Percentiles]  # group_tasked -> created -> closed
 
 
 def _median(values: list[float]) -> float | None:
@@ -452,24 +465,49 @@ def _median(values: list[float]) -> float | None:
     return ordered[mid] if n % 2 else (ordered[mid - 1] + ordered[mid]) / 2
 
 
+def _percentile(values: list[float], fraction: float) -> float:
+    """Linearly interpolate an inclusive percentile over non-empty values."""
+    ordered = sorted(values)
+    index = (len(ordered) - 1) * fraction
+    lower = int(index)
+    upper = min(lower + 1, len(ordered) - 1)
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (index - lower)
+
+
+def _percentiles(values: list[float]) -> Percentiles:
+    return Percentiles(
+        p50_s=_percentile(values, 0.50),
+        p75_s=_percentile(values, 0.75),
+        p90_s=_percentile(values, 0.90),
+        p95_s=_percentile(values, 0.95),
+        max_s=max(values),
+    )
+
+
 def stats_summary(s: Session) -> Stats:
     tickets = list(s.exec(select(Ticket)))
     status = {TicketStatus.OPEN: 0, TicketStatus.WIP: 0, TicketStatus.CLOSED: 0}
     by_category: dict[str, int] = {}
     by_group: dict[str, int] = {}
+    by_day: dict[date, int] = {}
     by_hour: dict[int, int] = {}
     waits: list[float] = []
+    waits_by_group: dict[str, list[float]] = {}
     created_by_id: dict[int, datetime] = {}
     for t in tickets:
         status[t.status] += 1
         by_category[t.category] = by_category.get(t.category, 0) + 1
         by_group[t.group_requesting] = by_group.get(t.group_requesting, 0) + 1
-        hour = to_local(t.created_at).hour
+        local_created = to_local(t.created_at)
+        by_day[local_created.date()] = by_day.get(local_created.date(), 0) + 1
+        hour = local_created.hour
         by_hour[hour] = by_hour.get(hour, 0) + 1
         if t.id is not None:
             created_by_id[t.id] = t.created_at
         if t.closed_at is not None:
-            waits.append((t.closed_at - t.created_at).total_seconds())
+            wait = (t.closed_at - t.created_at).total_seconds()
+            waits.append(wait)
+            waits_by_group.setdefault(t.group_tasked, []).append(wait)
 
     # Pickup lag: created -> first 'wip' audit event per ticket. Ordered by ts
     # ascending so the first row seen for a ticket is its earliest claim.
@@ -495,9 +533,13 @@ def stats_summary(s: Session) -> Stats:
         closed=status[TicketStatus.CLOSED],
         by_category=by_category,
         by_group=by_group,
+        by_day=by_day,
         by_hour=by_hour,
         wait_median_s=_median(waits),
         wait_max_s=max(waits) if waits else None,
         pickup_median_s=_median(pickups),
         pickup_max_s=max(pickups) if pickups else None,
+        wait_percentiles_by_group={
+            group: _percentiles(group_waits) for group, group_waits in waits_by_group.items()
+        },
     )

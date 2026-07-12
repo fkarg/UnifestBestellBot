@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -316,6 +316,55 @@ def test_stats_summary_timings(s):
     assert st.wait_max_s == 20 * 60
     assert st.pickup_median_s == 4 * 60  # median([120, 360])
     assert st.pickup_max_s == 6 * 60
+
+
+def test_stats_summary_groups_creation_counts_by_local_day(s):
+    first = _make_ticket(s)
+    second = _make_ticket(s)
+    third = _make_ticket(s)
+    for ticket, created_at in (
+        (first, datetime(2026, 7, 10, 22, 30)),  # 11.07., 00:30 in Berlin
+        (second, datetime(2026, 7, 11, 9, 0)),
+        (third, datetime(2026, 7, 11, 21, 59)),
+    ):
+        obj = s.get(Ticket, ticket.id)
+        obj.created_at = created_at
+        s.add(obj)
+    s.commit()
+
+    st = repo.stats_summary(s)
+
+    assert st.by_day == {date(2026, 7, 11): 3}
+
+
+def test_stats_summary_processing_percentiles_are_split_by_tasked_group(s):
+    base = datetime(2026, 7, 10, 20, 0, 0)
+    for group, durations in {"BiMi": (10, 20, 30, 40, 50), "Finanz": (5, 15)}.items():
+        for minutes in durations:
+            ticket = _make_ticket(s, group_tasked=group)
+            obj = s.get(Ticket, ticket.id)
+            obj.created_at = base
+            obj.closed_at = base + timedelta(minutes=minutes)
+            obj.status = TicketStatus.CLOSED
+            s.add(obj)
+    s.commit()
+
+    st = repo.stats_summary(s)
+
+    assert st.wait_percentiles_by_group["BiMi"] == repo.Percentiles(
+        p50_s=30 * 60,
+        p75_s=40 * 60,
+        p90_s=46 * 60,
+        p95_s=48 * 60,
+        max_s=50 * 60,
+    )
+    assert st.wait_percentiles_by_group["Finanz"] == repo.Percentiles(
+        p50_s=10 * 60,
+        p75_s=12.5 * 60,
+        p90_s=14 * 60,
+        p95_s=14.5 * 60,
+        max_s=15 * 60,
+    )
 
 
 def test_stats_summary_pickup_uses_earliest_wip(s):

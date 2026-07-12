@@ -226,7 +226,9 @@ STATS_PICKUP = "⏱ Annahme (offen→Arbeit): Median {median}, Max {max}"
 STATS_TIMINGS_NONE = "(noch keine erledigten Tickets für Zeitauswertung)"
 STATS_BY_CATEGORY = "Nach Kategorie:"
 STATS_BY_LOCATION_TYPE = "Nach Ort & Typ:"
+STATS_BY_DAY = "Nach Tag:"
 STATS_BY_HOUR = "Nach Stunde:"
+STATS_WAIT_BY_GROUP = "Bearbeitung nach Orga-Gruppe:"
 
 # --- /self (eigene Perspektive) ------------------------------------------
 

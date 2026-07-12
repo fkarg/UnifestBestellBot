@@ -743,9 +743,25 @@ async def cmd_stats(msg: Message, db_session: Session, config: AppConfig) -> Non
 
     sections.append(_counts_block(i18n.STATS_BY_CATEGORY, st.by_category))
     sections.append(_counts_block(i18n.STATS_BY_LOCATION_TYPE, by_location_type))
+    day_lines = "\n".join(
+        f"  {day.strftime('%d.%m.%Y')}: {n}" for day, n in sorted(st.by_day.items())
+    )
+    sections.append(i18n.STATS_BY_DAY + "\n" + day_lines)
     # Hours read most naturally chronologically, not by volume.
     hour_counts = {f"{h:02d} Uhr": n for h, n in sorted(st.by_hour.items())}
     hour_lines = "\n".join(f"  {label}: {n}" for label, n in hour_counts.items())
     sections.append(i18n.STATS_BY_HOUR + "\n" + hour_lines)
+
+    if st.wait_percentiles_by_group:
+        percentile_lines = []
+        for group, percentiles in sorted(st.wait_percentiles_by_group.items()):
+            percentile_lines.append(
+                f"  {group}: P50 {_fmt_dur(percentiles.p50_s)} · "
+                f"P75 {_fmt_dur(percentiles.p75_s)} · "
+                f"P90 {_fmt_dur(percentiles.p90_s)} · "
+                f"P95 {_fmt_dur(percentiles.p95_s)} · "
+                f"Max {_fmt_dur(percentiles.max_s)}"
+            )
+        sections.append(i18n.STATS_WAIT_BY_GROUP + "\n" + "\n".join(percentile_lines))
 
     await answer_chunks(msg, "\n\n".join(sections), reply_markup=kb)
