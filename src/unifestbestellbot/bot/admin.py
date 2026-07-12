@@ -97,6 +97,20 @@ def _fmt_ticket(t: Ticket) -> str:
     return f"  {t.display()}\n      {meta}"
 
 
+def _registration_section(regs: list[Registration], config: AppConfig) -> list[str]:
+    lines = [f"👥 REGISTRATIONS ({len(regs)})"]
+    current_group: str | None = None
+    for reg in regs:
+        if reg.group_name != current_group:
+            current_group = reg.group_name
+            tag = "Orga" if config.is_orga(current_group) else "Stand"
+            lines.append(f"[{tag}] {current_group}")
+        lines.append(_fmt_registration(reg))
+    if not regs:
+        lines.append("  (none)")
+    return lines
+
+
 @router.message(Command("system"), IsDeveloper())
 async def cmd_system(msg: Message, db_session: Session, config: AppConfig) -> None:
     """Developer snapshot of live state: who is registered where, which
@@ -108,16 +122,7 @@ async def cmd_system(msg: Message, db_session: Session, config: AppConfig) -> No
 
     lines: list[str] = [f"🛠 SYSTEM STATUS · {_fmt_ts(now_utc())}", ""]
 
-    lines.append(f"👥 REGISTRATIONS ({len(regs)})")
-    current_group: str | None = None
-    for reg in regs:
-        if reg.group_name != current_group:
-            current_group = reg.group_name
-            tag = "Orga" if config.is_orga(current_group) else "Stand"
-            lines.append(f"[{tag}] {current_group}")
-        lines.append(_fmt_registration(reg))
-    if not regs:
-        lines.append("  (none)")
+    lines.extend(_registration_section(regs, config))
     lines.append("")
 
     lines.append(f"🎫 OPEN/WIP TICKETS ({len(active)})")
@@ -153,6 +158,27 @@ async def cmd_system(msg: Message, db_session: Session, config: AppConfig) -> No
             # show newest first.
             lines.extend(_fmt_ticket(t) for t in reversed(closed[-_SYSTEM_RECENT:]))
     if not orga_regs:
+        lines.append("  (none)")
+
+    await answer_chunks(msg, "\n".join(lines))
+
+
+@router.message(Command("users"), IsDeveloper())
+async def cmd_users(msg: Message, db_session: Session, config: AppConfig) -> None:
+    """Developer registration snapshot with per-user ticket claim counts."""
+    regs = repo.all_registrations(db_session)
+    claim_counts = repo.ticket_claim_counts(db_session)
+
+    lines: list[str] = [f"🛠 USERS · {_fmt_ts(now_utc())}", ""]
+    lines.extend(_registration_section(regs, config))
+    lines.extend(("", "🧾 USER TICKET CLAIMS"))
+    for reg in regs:
+        created, closed = claim_counts.get(reg.chat_id, (0, 0))
+        lines.append(
+            f"{reg.display_name()} ({reg.chat_id}) [{reg.group_name}] · "
+            f"created: {created} · closed: {closed}"
+        )
+    if not regs:
         lines.append("  (none)")
 
     await answer_chunks(msg, "\n".join(lines))

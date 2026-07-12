@@ -259,6 +259,23 @@ def ticket_count(s: Session) -> int:
     return len(list(s.exec(select(Ticket))))
 
 
+def ticket_claim_counts(s: Session) -> dict[int, tuple[int, int]]:
+    """Return {chat_id: (created, closed)} from the immutable ticket audit."""
+    counts: dict[int, list[int]] = {}
+    stmt = select(AuditEvent).where(
+        AuditEvent.kind.in_(("open", "close"))  # ty: ignore[unresolved-attribute]
+    )
+    for event in s.exec(stmt):
+        if event.actor_chat_id is None:
+            continue
+        user_counts = counts.setdefault(event.actor_chat_id, [0, 0])
+        if event.kind == "open":
+            user_counts[0] += 1
+        else:
+            user_counts[1] += 1
+    return {chat_id: (created, closed) for chat_id, (created, closed) in counts.items()}
+
+
 def active_tickets(
     s: Session,
     *,

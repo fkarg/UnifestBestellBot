@@ -213,3 +213,31 @@ async def test_system_gated_to_developer(s, config):
     assert await IsDeveloper()(non_dev) is False
     dev = fake_message(user_id=100, text="/system")
     assert await IsDeveloper()(dev) is True
+
+
+# --- /users ---------------------------------------------------------------
+
+
+async def test_users_lists_registrations_and_each_users_ticket_claims(s, config):
+    creator = repo.upsert_registration(
+        s, Registration(chat_id=5, group_name="Innenhof Cocktail", first_name="Max")
+    )
+    closer = repo.upsert_registration(
+        s, Registration(chat_id=7, group_name="Finanz", first_name="Mara")
+    )
+    ticket = _ticket(s, actor_chat_id=creator.chat_id)
+    repo.set_wip(s, ticket.id, who="Mara", actor_chat_id=closer.chat_id)
+    repo.close_ticket(s, ticket.id, actor_chat_id=closer.chat_id)
+
+    msg = fake_message(user_id=100, text="/users")
+    await admin_flow.cmd_users(msg, db_session=s, config=config)
+    out = _system_output(msg)
+
+    assert "REGISTRATIONS (2)" in out
+    assert "Innenhof Cocktail" in out
+    assert "Finanz" in out
+    assert "USER TICKET CLAIMS" in out
+    assert "Max" in out
+    assert "created: 1" in out
+    assert "Mara" in out
+    assert "closed: 1" in out
